@@ -1,0 +1,25 @@
+{
+  "adminPassword": "admin123",
+  "webPort": 8080,
+  "bindHost": "::",
+  "ipv6": {
+    "mode": "auto",
+    "manualAddress": "",
+    "preferInterface": ""
+  },
+  "ddns": {
+    "enabled": false,
+    "provider": "cloudflare",
+    "domain": "example.com",
+    "sub": "guitar",
+    "ttl": 120,
+    "cfProxy": false,
+    "cfToken": "",
+    "dpId": "",
+    "dpToken": "",
+    "intervalMin": 5
+  },
+  "lastIPv6": "",
+  "lastUpdate": 0,
+  "lastResult": ""
+}
