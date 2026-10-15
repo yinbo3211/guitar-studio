@@ -256,7 +256,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .dots{display:inline-flex;gap:5px}
 .dots i{width:7px;height:7px;border-radius:50%;background:currentColor;animation:dots 1s ease-in-out infinite}
 .dots i:nth-child(2){animation-delay:.15s}
-.dots i:nth-child(3){animation-delay:.3}
+.dots i:nth-child(3){animation-delay:.3s}
 @keyframes dots{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-5px);opacity:1}}
 /* 空态/提示 */
 .hint{font-size:12.5px;color:var(--txt-3);line-height:1.7}
@@ -369,6 +369,9 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
       <button class="nav-item" data-route="chords">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/></svg>和弦库
       </button>
+      <button class="nav-item" data-route="scale">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h4v-5h4V9h4V4h4"/></svg>音阶练习
+      </button>
       <button class="nav-item" data-route="ear">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/><path d="M9 13a3 3 0 0 0 3 3"/></svg>练耳训练
       </button>
@@ -399,7 +402,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
       <section class="view active" id="view-home">
         <div class="hero">
           <h1>把整间吉他练习室<br>装进<em>你的浏览器</em></h1>
-          <p>调音、节拍、和弦闯关、练耳、录音——七个模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
+          <p>调音、节拍、和弦闯关、音阶、和弦库、练耳、指板、录音——八大模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
           <div class="hero-tags">
             <span class="tag tag-amber">麦克风实时识别</span>
             <span class="tag tag-mint">零延迟节拍器</span>
@@ -433,6 +436,11 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
             <div class="tc-icon ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg></div>
             <h3>和弦闯关</h3><p>听提示、按和弦、对着麦克风拨弦，AI 听音判定，连击计分越练越快</p>
           </button>
+          <button type="button" class="tool-card" data-route="scale">
+            <span class="tag tag-mint tc-mic">麦克风</span>
+            <div class="tc-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h4v-5h4V9h4V4h4"/></svg></div>
+            <h3>音阶练习</h3><p>大/小调、五声、布鲁斯音阶指板高亮，跟听示范，开麦克风逐音跟弹</p>
+          </button>
           <button type="button" class="tool-card" data-route="chords">
             <div class="tc-icon ic-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/></svg></div>
             <h3>和弦库</h3><p>常用开放和弦指法图，点卡片即可试听合成扫弦，支持左手模式</p>
@@ -448,14 +456,6 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
           <button type="button" class="tool-card" data-route="studio">
             <div class="tc-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg></div>
             <h3>录音棚</h3><p>一键录制练习片段，波形回放、对比原速，支持下载保存为音频文件</p>
-          </button>
-          <button type="button" class="tool-card" data-route="metro">
-            <div class="tc-icon ic-mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
-            <h3>常用节奏型</h3><p>节拍器内置分解、扫弦常用节奏模板，跟着练不再干巴巴</p>
-          </button>
-          <button type="button" class="tool-card" data-route="chords">
-            <div class="tc-icon ic-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M12 4v16"/><circle cx="12" cy="12" r="9"/></svg></div>
-            <h3>和弦进行</h3><p>卡农、流行四和弦等经典进行循环试听，培养和声进行感</p>
           </button>
         </div>
       </section>
@@ -886,6 +886,102 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
         </div>
       </section>
 
+      <!-- ===== 视图：音阶练习 ===== -->
+      <section class="view" id="view-scale">
+        <style>
+          .scx-picker{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+          @media(min-width:760px){.scx-picker{grid-template-columns:repeat(4,1fr);gap:10px}}
+          .scx-pick{background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;min-height:46px;transition:border-color .15s,box-shadow .15s,background .15s}
+          .scx-pick b{display:block;font-family:var(--font-display);font-size:13.5px;font-weight:600;letter-spacing:.3px}
+          .scx-pick span{display:block;font-size:10.5px;color:var(--txt-3);margin-top:3px}
+          .scx-pick.on{border-color:var(--amber);background:rgba(255,180,84,.1);box-shadow:0 0 0 1px rgba(255,180,84,.35),0 6px 18px -10px rgba(255,180,84,.5)}
+          .scx-pick.on span{color:var(--amber)}
+          .scx-notes{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:16px}
+          .scx-nt-label{font-size:12px;color:var(--txt-3);margin-right:2px}
+          .scx-nt{padding:4px 11px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-family:var(--font-mono);font-size:13px;font-weight:600}
+          .scx-nt.root{color:var(--cyan);border-color:rgba(65,217,255,.4);background:rgba(65,217,255,.12)}
+          .scx-board-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--line);background:linear-gradient(180deg,#1a1522,#101322);-webkit-overflow-scrolling:touch}
+          .scx-board{min-width:300px}
+          .scx-row{display:grid;grid-template-columns:48px repeat(4,minmax(54px,1fr));height:56px}
+          .scx-row+.scx-row{border-top:1px solid rgba(255,255,255,.07)}
+          .scx-open{position:relative;display:grid;place-items:center;border-right:3px solid rgba(255,255,255,.6);background:rgba(255,255,255,.03)}
+          .scx-cell{position:relative;display:grid;place-items:center;border-right:1px solid rgba(255,255,255,.13)}
+          .scx-cell:last-child{border-right:none}
+          .str-lbl{font-size:10px;color:var(--txt-3);font-family:var(--font-mono);text-align:center;line-height:1.35}
+          .str-lbl small{display:block;font-size:8.5px;opacity:.7}
+          .scx-dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#ffd27a,#f59136);color:#1a1206;font-family:var(--font-display);font-weight:700;font-size:12px;box-shadow:0 3px 10px -2px rgba(255,180,84,.6);transition:transform .15s,box-shadow .15s,background .15s}
+          .scx-dot i{font-style:normal}
+          .scx-dot.is-root{background:linear-gradient(135deg,#6fe6ff,#2bb8e6);color:#04222c;box-shadow:0 3px 10px -2px rgba(65,217,255,.7)}
+          .scx-open .fnum-s{position:absolute;bottom:0;font-size:8px;color:var(--txt-3);opacity:.85}
+          .scx-cell.now,.scx-open.now{z-index:2}
+          .scx-cell.now .scx-dot,.scx-open.now .scx-dot{animation:scxPulse .7s ease-in-out infinite}
+          @keyframes scxPulse{0%,100%{transform:scale(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.55),0 0 16px 1px rgba(255,255,255,.4)}50%{transform:scale(1.34);box-shadow:0 0 0 3px rgba(255,255,255,.75),0 0 24px 3px rgba(255,255,255,.55)}}
+          .scx-cell.done .scx-dot,.scx-open.done .scx-dot{background:var(--grad-mint);color:#052018;box-shadow:0 0 14px -2px rgba(46,230,168,.7);animation:none;transform:scale(1)}
+          .scx-fretnums{display:grid;grid-template-columns:48px repeat(4,minmax(54px,1fr));min-width:300px}
+          .scx-fretnums span{font-size:10px;color:var(--txt-3);text-align:center;font-family:var(--font-mono);padding:5px 0}
+          .scx-legend{display:flex;gap:16px;margin-top:12px;font-size:11.5px;color:var(--txt-2);flex-wrap:wrap}
+          .scx-legend span{display:inline-flex;align-items:center}
+          .scx-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px}
+          .scx-stage{text-align:center;padding:6px 0 2px}
+          .scx-cur{font-family:var(--font-display);font-size:clamp(48px,13vw,64px);font-weight:700;line-height:1;min-height:62px}
+          .scx-pos{font-size:14px;color:var(--mint);margin-top:8px;min-height:22px;font-family:var(--font-mono);letter-spacing:.5px}
+          .scx-hud{display:flex;gap:10px;justify-content:center;margin:16px 0 4px}
+          .scx-hud .hb{background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:8px 18px;font-size:12px;color:var(--txt-2)}
+          .scx-hud .hb b{font-family:var(--font-display);font-size:19px;color:var(--amber);margin-left:7px}
+          .scx-bpm{display:flex;align-items:center;gap:10px;justify-content:center;margin:12px auto 2px;max-width:420px;font-size:12.5px;color:var(--txt-2)}
+          .scx-bpm input{flex:1}
+          .scx-bpm .bv{font-family:var(--font-mono);color:var(--mint);min-width:66px;text-align:right}
+          .scx-ctrl{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+          .scx-tip{font-size:12.5px;color:var(--txt-3);margin:14px auto 0;line-height:1.65;max-width:460px}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h4v-5h4V9h4V4h4"/></svg></span>音阶练习</div>
+          <div class="view-sub">选好音阶与把位，指板上会标出全部音阶音（青色为根音）。先跟听示范，再开麦克风逐音跟弹，从根音上行再下行，练熟指型与把位。</div>
+        </div>
+
+        <div class="card">
+          <div class="metro-label">选择音阶与把位</div>
+          <div class="scx-picker" id="scxList"></div>
+          <div class="scx-notes" id="scxNotes"></div>
+        </div>
+
+        <div class="card">
+          <div class="metro-label" style="margin-bottom:12px">指板音阶图</div>
+          <div class="scx-board-wrap">
+            <div class="scx-board" id="scxBoard"></div>
+            <div class="scx-fretnums" id="scxFretNums"></div>
+          </div>
+          <div class="scx-legend">
+            <span><i style="background:linear-gradient(135deg,#6fe6ff,#2bb8e6)"></i>根音</span>
+            <span><i style="background:linear-gradient(135deg,#ffd27a,#f59136)"></i>音阶音</span>
+            <span><i style="background:#fff"></i>当前练习音</span>
+            <span><i style="background:var(--mint)"></i>已弹对</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="scx-stage">
+            <div class="scx-cur" id="scxCur">准备好了吗</div>
+            <div class="scx-pos" id="scxPos"></div>
+            <div class="scx-hud">
+              <div class="hb">进度<b id="scxProg"></b></div>
+              <div class="hb">连击<b id="scxCombo"></b></div>
+            </div>
+            <div class="scx-bpm">
+              <span>速度</span>
+              <input type="range" id="scxBpm" min="50" max="180" value="80">
+              <span class="bv" id="scxBpmVal">80 BPM</span>
+            </div>
+            <div class="scx-ctrl">
+              <button class="btn" id="scxListen">跟听示范</button>
+              <button class="btn btn-primary" id="scxFollow">开始跟弹（麦克风）</button>
+            </div>
+            <div class="scx-tip" id="scxTip">先在上方选择音阶，点“跟听示范”听一遍，或开麦克风“跟弹”逐音练习</div>
+            <div class="mic-note">麦克风仅在本地判定音高，不会上传音频。跟弹时照指板高亮位置拨弦，连续两次识别正确即进入下一音。</div>
+          </div>
+        </div>
+      </section>
+
       <!-- ===== 视图：录音棚 ===== -->
       <section class="view" id="view-studio">
         <style>
@@ -947,7 +1043,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 <div id="moreSheet" style="position:fixed;left:0;right:0;bottom:0;z-index:91;background:linear-gradient(180deg,#181b30,#101223);border-radius:22px 22px 0 0;border:1px solid var(--line-strong);padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .32s cubic-bezier(.22,1,.36,1)">
   <div style="width:40px;height:4px;border-radius:4px;background:rgba(255,255,255,.18);margin:6px auto 14px"></div>
   <div style="font-family:var(--font-display);font-weight:700;font-size:16px;margin:0 4px 12px">更多工具</div>
-  <div id="moreGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
+  <div id="moreGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
 </div>
 
 <div class="toast-wrap" id="toastWrap"></div>
