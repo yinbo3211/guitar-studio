@@ -1,0 +1,89 @@
+# ============================================================
+# 六弦工坊 · Nginx 站点配置（IPv4 + IPv6）
+# 由部署脚本自动替换占位符；也可手动复制后修改：
+#   __WEBROOT__  吉他项目所在目录（绝对路径）
+#   __PORT__     对外访问端口
+#   __APIPORT__  本机 Node 服务端口（默认 3000，仅本机回环）
+#
+# CentOS：放到 /etc/nginx/conf.d/guitar-studio.conf
+# Windows：把内容合并进 nginx/conf/nginx.conf 的 http { } 内
+#
+# 说明：静态网页由 Nginx 直接托管，/api/ 反代给本机 Node 服务。
+#       根路径只返回吉他网页；后台为 /admin；敏感文件全部禁止外网访问。
+# ============================================================
+
+server {
+    listen       __PORT__;
+    listen       [::]:__PORT__;          # IPv6 入站
+    server_name  _;
+
+    root         __WEBROOT__;
+    index        guitar-studio.html;
+
+    # 基础安全：不显示 nginx 版本、不允许目录列举
+    server_tokens off;
+    autoindex off;
+
+    # 上传/请求体大小（录音功能可按需调大）
+    client_max_body_size 20m;
+
+    # 根路径只返回吉他网页
+    location = / {
+        try_files /guitar-studio.html =404;
+    }
+
+    # 后台控制页
+    location = /admin {
+        try_files /admin.html =404;
+    }
+
+    # 后台 API 反代到本机 Node（IPv6/IPv4 回环均可）
+    location /api/ {
+        proxy_pass         http://127.0.0.1:__APIPORT__/api/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # 静态资源（含缓存）
+    location ~* \.(?:js|css|png|jpg|jpeg|gif|svg|ico|webm|mp4|wav|ogg|woff2?)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
+        try_files $uri =404;
+    }
+
+    # 其余前端路由（单页兜底）
+    location / {
+        try_files $uri $uri/ /guitar-studio.html;
+    }
+
+    # ---- 安全：禁止访问后端源码 / 配置 / 部署脚本 ----
+    location ~* (?:^|/)\.                         { deny all; }   # .git / .gitignore 等
+    location =  /server.js                        { deny all; }
+    location ~* \.(?:json|sh|ps1|bat|service|conf|template|log|md|bak|html~)$ { deny all; }
+    location ~* single-file-backup                { deny all; }
+    location ^~ /nginx/                           { deny all; }
+    location ^~ /deploy/                          { deny all; }
+    location ^~ /_shots/                          { deny all; }
+    location ^~ /node_modules/                    { deny all; }
+}
+
+# ============================================================
+# 需要 HTTPS（外网手机麦克风必须）时，再加一个 443 server：
+#
+# server {
+#     listen 443 ssl;
+#     listen [::]:443 ssl;
+#     server_name guitar.example.com;
+#     ssl_certificate     /etc/letsencrypt/live/guitar.example.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/guitar.example.com/privkey.pem;
+#     root  __WEBROOT__;
+#     index guitar-studio.html;
+#     ...（复制上面的 location 块）...
+# }
+# 并把 80 端口 301 跳转到 https。证书可用 certbot 自动申请，
+# 或直接把域名接入 Cloudflare 橙云（自动 HTTPS，无需证书）。
+# ============================================================
