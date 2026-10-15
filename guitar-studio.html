@@ -459,3 +459,501 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
           </button>
         </div>
       </section>
+
+      <!-- ===== 视图：调音器 ===== -->
+      <section class="view" id="view-tuner">
+        <style>
+          .tuner-card{text-align:center;padding:26px 22px 28px}
+          .tuner-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+          .dial-wrap{position:relative;width:280px;max-width:84vw;height:170px;margin:8px auto 0;overflow:hidden}
+          .dial-lines{position:absolute;inset:0}
+          .dial-needle{position:absolute;left:50%;bottom:6px;width:4px;height:132px;margin-left:-2px;border-radius:4px;
+            background:linear-gradient(180deg,#fff,rgba(255,255,255,.35));transform-origin:50% calc(100% - 6px);
+            transform:rotate(0deg);transition:transform .09s linear;box-shadow:0 0 10px rgba(255,255,255,.4);z-index:3}
+          .dial-hub{position:absolute;left:50%;bottom:-10px;width:22px;height:22px;margin-left:-11px;border-radius:50%;
+            background:var(--card-2);border:2px solid var(--line-strong);z-index:4}
+          .dial-center-glow{position:absolute;left:50%;bottom:0;width:120px;height:60px;margin-left:-60px;border-radius:60px 60px 0 0;
+            background:radial-gradient(ellipse at 50% 100%,rgba(46,230,168,.25),transparent 70%);opacity:0;transition:opacity .2s}
+          .tuner-note{margin-top:4px}
+          .tuner-note .big{font-family:var(--font-display);font-size:64px;font-weight:700;line-height:1;letter-spacing:1px}
+          .tuner-note .sub{font-size:13px;color:var(--txt-2);margin-top:8px;min-height:20px}
+          .tuner-freq{font-family:var(--font-mono);font-size:15px;color:var(--txt-3);margin-top:6px;min-height:22px}
+          .tuner-status{font-size:15px;font-weight:600;margin-top:6px;min-height:24px;letter-spacing:2px}
+          .string-row{display:flex;gap:8px;justify-content:center;margin:22px 0 20px;flex-wrap:wrap}
+          .string-btn{
+            width:52px;height:64px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+            background:var(--card-2);border:1px solid var(--line);transition:all .18s;
+          }
+          .string-btn b{font-family:var(--font-display);font-size:20px}
+          .string-btn span{font-size:9.5px;color:var(--txt-3)}
+          .string-btn.heard{border-color:var(--mint);color:var(--mint);box-shadow:0 0 18px -4px rgba(46,230,168,.6)}
+          .string-btn.tuned{background:var(--grad-mint);color:#052018;border-color:transparent}
+          .string-btn.tuned span{color:rgba(5,32,24,.7)}
+          .tuner-meter{height:7px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 auto 4px;max-width:340px}
+          .tuner-meter i{display:block;height:100%;width:0%;border-radius:6px;background:var(--grad-mint);transition:width .08s}
+          .tuner-actions{display:flex;gap:12px;justify-content:center;margin-top:10px}
+          .a4-row{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--txt-2)}
+          .a4-row input{width:120px}
+          .a4-val{font-family:var(--font-mono);color:var(--amber);min-width:64px;text-align:right}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg></span>调音器</div>
+          <div class="view-sub">点击开启麦克风后，依次拨响每一根弦，指针指向正中央并显示“准”时，该弦就调好了。周围越安静越准。</div>
+        </div>
+
+        <div class="card tuner-card">
+          <div class="tuner-top">
+            <div class="seg" id="tunerMode">
+              <button data-mode="guitar" class="on">吉他六弦</button>
+              <button data-mode="chromatic">半音阶</button>
+            </div>
+            <div class="a4-row">
+              <span>基准 A4</span>
+              <input type="range" id="a4Range" min="432" max="446" value="440" step="1">
+              <span class="a4-val" id="a4Val">440 Hz</span>
+            </div>
+          </div>
+
+          <div class="dial-wrap">
+            <div class="dial-lines" id="dialLines"></div>
+            <div class="dial-center-glow" id="dialGlow"></div>
+            <div class="dial-needle" id="dialNeedle"></div>
+            <div class="dial-hub"></div>
+          </div>
+
+          <div class="tuner-note">
+            <div class="big mono" id="tunerNote">--</div>
+            <div class="sub" id="tunerSub">点击下方按钮开启麦克风</div>
+          </div>
+          <div class="tuner-freq mono" id="tunerFreq"></div>
+          <div class="tuner-status" id="tunerStatus"></div>
+
+          <div class="string-row" id="stringRow"></div>
+
+          <div class="tuner-meter"><i id="tunerLevel"></i></div>
+          <div class="tuner-actions">
+            <button class="btn btn-primary" id="tunerToggle" style="min-width:178px">
+              <span style="display:inline-flex;width:18px;height:18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v3"/></svg></span>
+              <span id="tunerToggleTxt">开启麦克风调音</span>
+            </button>
+          </div>
+          <div class="mic-note" id="tunerMicNote">调音在你的浏览器本地完成，录音不会上传或保存。iPhone 若无声请关闭侧边静音键并检查浏览器麦克风权限。</div>
+        </div>
+      </section>
+      <!-- ===== 视图：节拍器 ===== -->
+      <section class="view" id="view-metro">
+        <style>
+          .metro-pendulum{position:relative;height:150px;margin:2px auto 6px;max-width:340px}
+          .pendulum-track{position:absolute;left:8%;right:8%;top:64px;height:6px;border-radius:6px;background:linear-gradient(90deg,rgba(77,159,255,.25),rgba(255,255,255,.08),rgba(255,93,115,.25))}
+          .pendulum-rod{position:absolute;left:50%;top:14px;width:3px;height:118px;margin-left:-1.5px;background:linear-gradient(180deg,#fff,rgba(255,255,255,.25));border-radius:3px;transform-origin:50% 10%;z-index:2}
+          .pendulum-bob{position:absolute;left:50%;bottom:2px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:var(--grad-amber);box-shadow:0 6px 18px -4px rgba(255,180,84,.7)}
+          .pendulum-pivot{position:absolute;left:50%;top:4px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--card-2);border:2px solid var(--line-strong);z-index:3}
+          .bpm-block{text-align:center;margin:6px 0 4px}
+          .bpm-num{font-family:var(--font-display);font-size:66px;font-weight:700;line-height:1;letter-spacing:2px}
+          .bpm-num small{font-size:18px;color:var(--txt-3);letter-spacing:1px;margin-left:6px}
+          .bpm-row{display:flex;align-items:center;gap:12px;margin:18px 0 8px}
+          .bpm-adj{display:flex;gap:6px}
+          .adj-btn{width:44px;height:44px;border-radius:12px;background:var(--card-2);border:1px solid var(--line);font-size:18px;font-weight:600;font-family:var(--font-mono);transition:all .15s}
+          .adj-btn:active{transform:scale(.9);border-color:var(--amber)}
+          .beat-dots{display:flex;gap:12px;justify-content:center;margin:22px 0 8px;flex-wrap:wrap}
+          .beat-dot{
+            width:50px;height:50px;border-radius:50%;display:grid;place-items:center;
+            font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--txt-3);
+            background:var(--card-2);border:1px solid var(--line);transition:all .1s;
+          }
+          .beat-dot.weak{background:rgba(255,255,255,.04)}
+          .beat-dot.sub{color:var(--cyan)}
+          .beat-dot.flash-strong{background:var(--grad-amber);color:#1a1206;border-color:transparent;box-shadow:0 0 26px -2px rgba(255,180,84,.8);transform:scale(1.12)}
+          .beat-dot.flash-sub{background:var(--cyan);color:#04202a;border-color:transparent;box-shadow:0 0 22px -2px rgba(65,217,255,.7);transform:scale(1.08)}
+          .beat-dot.flash-weak{background:var(--txt-2);color:#101223;border-color:transparent;transform:scale(1.05)}
+          .metro-actions{display:flex;gap:12px;justify-content:center;margin-top:16px}
+          .preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+          .preset-chip{padding:8px 14px;border-radius:99px;background:var(--card-2);border:1px solid var(--line);font-size:12.5px;color:var(--txt-2);transition:all .15s}
+          .preset-chip:active{transform:scale(.94)}
+          .preset-chip.on{color:var(--amber);border-color:rgba(255,180,84,.4)}
+          .metro-label{font-size:12px;color:var(--txt-3);letter-spacing:1px;margin:4px 0 9px}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg></span>节拍器</div>
+          <div class="view-sub">以音频硬件时钟调度，不跑拍、不漂移。支持 TAP 测速、四种拍号和八分/十六分/三连音细分。</div>
+        </div>
+
+        <div class="card">
+          <div class="metro-pendulum">
+            <div class="pendulum-track"></div>
+            <div class="pendulum-rod" id="pendulumRod"><div class="pendulum-bob"></div></div>
+            <div class="pendulum-pivot"></div>
+          </div>
+          <div class="bpm-block">
+            <div class="bpm-num mono" id="bpmNum">90<small>BPM</small></div>
+          </div>
+          <div class="bpm-row">
+            <div class="bpm-adj">
+              <button class="adj-btn" id="bpmM5">−5</button>
+              <button class="adj-btn" id="bpmM1">−</button>
+            </div>
+            <input type="range" id="bpmRange" min="40" max="240" value="90" style="flex:1">
+            <div class="bpm-adj">
+              <button class="adj-btn" id="bpmP1">+</button>
+              <button class="adj-btn" id="bpmP5">+5</button>
+            </div>
+          </div>
+          <div class="preset-row">
+            <button class="preset-chip" data-bpm="60">广板 60</button>
+            <button class="preset-chip" data-bpm="76">行板 76</button>
+            <button class="preset-chip" data-bpm="90">中速 90</button>
+            <button class="preset-chip" data-bpm="110">小快板 110</button>
+            <button class="preset-chip" data-bpm="140">快板 140</button>
+            <button class="preset-chip" id="tapBtn">TAP 测速</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="metro-label">拍号</div>
+          <div class="seg" id="timeSig" style="margin-bottom:16px">
+            <button data-beats="2" class="on">2/4</button>
+            <button data-beats="3">3/4</button>
+            <button data-beats="4">4/4</button>
+            <button data-beats="6">6/8</button>
+          </div>
+          <div class="metro-label">节拍细分</div>
+          <div class="seg" id="subdiv">
+            <button data-sub="1" class="on">四分</button>
+            <button data-sub="2">八分</button>
+            <button data-sub="3">三连音</button>
+            <button data-sub="4">十六分</button>
+          </div>
+          <div class="beat-dots" id="beatDots"></div>
+          <div class="metro-actions">
+            <button class="btn-round" id="metroToggle" style="width:68px;height:68px">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+      <!-- ===== 视图：和弦闯关 ===== -->
+      <section class="view" id="view-game">
+        <style>
+          .game-hud{display:flex;gap:10px;margin-bottom:16px}
+          .hud-box{flex:1;background:var(--card-2);border:1px solid var(--line);border-radius:13px;padding:11px 14px;text-align:center}
+          .hud-box .k{font-size:10.5px;color:var(--txt-3);letter-spacing:1.5px}
+          .hud-box .v{font-family:var(--font-display);font-size:24px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+          .hud-box.combo .v{color:var(--amber)}
+          .time-bar{height:8px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:18px}
+          .time-bar i{display:block;height:100%;width:100%;border-radius:8px;background:var(--grad-mint);transition:width .2s linear,background .3s}
+          .game-stage{text-align:center}
+          .game-chord-name{font-family:var(--font-display);font-size:52px;font-weight:700;line-height:1;margin-bottom:4px}
+          .game-progress{color:var(--txt-3);font-size:12px;margin-bottom:14px;letter-spacing:1px}
+          .game-diagram{width:180px;max-width:60vw;margin:0 auto 6px}
+          .game-diagram svg{width:100%;height:auto}
+          .string-check{display:flex;gap:7px;justify-content:center;margin:16px 0 6px}
+          .sc{
+            width:48px;height:58px;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+            background:var(--card-2);border:1px solid var(--line);transition:all .15s;
+          }
+          .sc b{font-family:var(--font-display);font-size:17px}
+          .sc span{font-size:8.5px;color:var(--txt-3)}
+          .sc.done{background:var(--grad-mint);color:#052018;border-color:transparent;box-shadow:0 0 16px -4px rgba(46,230,168,.6)}
+          .sc.done span{color:rgba(5,32,24,.7)}
+          .sc.miss{border-color:var(--red);color:var(--red);animation:shake .4s}
+          .sc.muted{opacity:.4}
+          @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+          .game-tip{font-size:13px;color:var(--txt-2);margin:12px 0 16px;min-height:22px}
+          .game-actions{display:flex;gap:10px;justify-content:center}
+          .level-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin:16px 0 8px}
+          .level-card{background:var(--card-2);border:1px solid var(--line);border-radius:15px;padding:15px;text-align:left;transition:all .18s}
+          .level-card .lv{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--amber)}
+          .level-card p{font-size:11.5px;color:var(--txt-2);margin-top:5px;line-height:1.5}
+          .level-card .ch{font-size:11px;color:var(--txt-3);margin-top:6px;font-family:var(--font-mono)}
+          .level-card.sel{border-color:var(--amber);box-shadow:0 0 0 1px rgba(255,180,84,.35)}
+          .result-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+          .result-stat{background:var(--card-2);border:1px solid var(--line);border-radius:14px;padding:16px 8px;text-align:center}
+          .result-stat .v{font-family:var(--font-display);font-size:28px;font-weight:700;color:var(--mint)}
+          .result-stat .k{font-size:11px;color:var(--txt-3);margin-top:3px}
+          .combo-pop{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font-family:var(--font-display);font-weight:700;font-size:40px;color:var(--amber);pointer-events:none;opacity:0;text-shadow:0 6px 24px rgba(255,180,84,.6)}
+          .combo-pop.go{animation:pop .7s cubic-bezier(.22,1,.36,1)}
+          @keyframes pop{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}35%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-75%) scale(1)}}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg></span>和弦闯关</div>
+          <div class="view-sub">屏幕给出和弦与指法，你按好和弦后对着麦克风逐弦拨响，系统实时听音判定。练的是和弦转换的速度与准确度。</div>
+        </div>
+
+        <!-- 准备页 -->
+        <div class="card" id="gameIntro">
+          <h3 style="font-family:var(--font-display);font-size:18px;margin-bottom:4px">选择难度</h3>
+          <p class="hint">每轮 10 个和弦，在限定时间内按对并拨响全部应弹的弦即可过关；连续正确会有连击加分。</p>
+          <div class="level-cards" id="levelCards"></div>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="btn btn-primary btn-block" id="gameStart" style="margin:0 auto;max-width:340px">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
+              开启麦克风开始
+            </button>
+          </div>
+          <div class="mic-note">请在安静环境游玩，手机麦克风距音孔 30–50 厘米。判定仅在本地进行，不上传任何音频。</div>
+        </div>
+
+        <!-- 游戏页 -->
+        <div class="card" id="gamePlay" style="display:none;position:relative">
+          <div class="combo-pop" id="comboPop"></div>
+          <div class="game-hud">
+            <div class="hud-box"><div class="k">得分</div><div class="v" id="gameScore">0</div></div>
+            <div class="hud-box combo"><div class="k">连击</div><div class="v" id="gameCombo">0</div></div>
+            <div class="hud-box"><div class="k">进度</div><div class="v" id="gameProg">0/10</div></div>
+          </div>
+          <div class="time-bar"><i id="timeBar"></i></div>
+          <div class="game-stage">
+            <div class="game-progress" id="levelLabel">第 1 关</div>
+            <div class="game-chord-name" id="gameChord">C</div>
+            <div class="game-diagram" id="gameDiagram"></div>
+            <div class="string-check" id="stringCheck"></div>
+            <div class="game-tip" id="gameTip">从最粗的 6 弦开始，依次拨响</div>
+            <div class="game-actions">
+              <button class="btn btn-sm" id="gameSkip">跳过本和弦</button>
+              <button class="btn btn-sm btn-danger" id="gameQuit">退出</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 结算页 -->
+        <div class="card" id="gameResult" style="display:none;text-align:center">
+          <h3 style="font-family:var(--font-display);font-size:24px" id="resultTitle">本轮完成</h3>
+          <p class="hint" style="margin-top:6px" id="resultSub">每天练 10 分钟，和弦转换会越来越快</p>
+          <div class="result-stats">
+            <div class="result-stat"><div class="v" id="rScore">0</div><div class="k">总得分</div></div>
+            <div class="result-stat"><div class="v" id="rOk">0</div><div class="k">正确和弦</div></div>
+            <div class="result-stat"><div class="v" id="rCombo">0</div><div class="k">最高连击</div></div>
+          </div>
+          <div class="game-actions" style="margin-top:8px">
+            <button class="btn btn-primary" id="gameAgain">再来一轮</button>
+            <button class="btn" id="gameBack">返回选关</button>
+          </div>
+        </div>
+      </section>
+      <!-- ===== 视图：和弦库 ===== -->
+      <section class="view" id="view-chords">
+        <style>
+          .chord-cat{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+          .chord-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:11px}
+          .chord-card{
+            background:linear-gradient(160deg,var(--card),var(--bg-2));border:1px solid var(--line);
+            border-radius:15px;padding:13px 10px 11px;text-align:center;transition:all .18s;cursor:pointer;
+          }
+          .chord-card:hover{border-color:rgba(255,180,84,.4);transform:translateY(-3px)}
+          .chord-card.sel{border-color:var(--amber);box-shadow:0 0 0 1px rgba(255,180,84,.4),0 10px 26px -12px rgba(255,180,84,.5)}
+          .chord-card h4{font-family:var(--font-display);font-size:17px;font-weight:700;margin-top:8px}
+          .chord-card p{font-size:10.5px;color:var(--txt-3);margin-top:2px;letter-spacing:.5px}
+          .diagram-svg{width:100%;max-width:104px;height:auto}
+          .chord-detail{display:flex;gap:24px;align-items:center;flex-wrap:wrap;justify-content:center}
+          .chord-detail .big-diagram{width:190px;flex-shrink:0}
+          .chord-detail .big-diagram svg{width:100%;height:auto}
+          .chord-meta{flex:1;min-width:210px;max-width:420px}
+          .chord-meta h3{font-family:var(--font-display);font-size:28px;font-weight:700}
+          .chord-meta .notes{display:flex;gap:7px;margin:12px 0 16px;flex-wrap:wrap}
+          .note-chip{padding:6px 13px;border-radius:10px;background:var(--card-2);border:1px solid var(--line);font-family:var(--font-mono);font-size:13.5px}
+          .chord-meta .hint{margin-bottom:16px}
+          .lh-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--txt-2);margin-top:14px}
+          .prog-list{display:flex;flex-direction:column;gap:9px}
+          .prog-item{display:flex;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:13px;padding:11px 15px;transition:border-color .2s}
+          .prog-item.playing{border-color:var(--mint)}
+          .prog-chords{display:flex;gap:6px;flex-wrap:wrap;flex:1;font-family:var(--font-display);font-weight:600;font-size:15px}
+          .prog-chords b{padding:3px 9px;border-radius:8px;background:rgba(255,255,255,.06)}
+          .prog-name{font-size:11.5px;color:var(--txt-3);margin-top:3px;font-family:var(--font-body);font-weight:400}
+          .prog-play{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--grad-mint);color:#052018;flex-shrink:0}
+          .prog-play svg{width:16px;height:16px}
+          .prog-play.playing{background:linear-gradient(135deg,#ff7d8e,#ff5d73);color:#2a070d}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/></svg></span>和弦库</div>
+          <div class="view-sub">点和弦卡片即可听合成扫弦；选中后查看指法与构成音。下方还有经典和弦进行循环伴奏，可跟着练转换。</div>
+        </div>
+
+        <div class="card">
+          <div class="chord-cat seg" id="chordCat">
+            <button data-cat="major" class="on">大和弦</button>
+            <button data-cat="minor">小和弦</button>
+            <button data-cat="seven">七和弦</button>
+            <button data-cat="sus">挂留</button>
+          </div>
+          <div class="chord-grid" id="chordGrid"></div>
+        </div>
+
+        <div class="card" id="chordDetailCard">
+          <div class="chord-detail" id="chordDetail"></div>
+        </div>
+
+        <div class="card">
+          <div class="metro-label" style="font-size:12px;color:var(--txt-3);letter-spacing:1px;margin-bottom:12px">经典和弦进行 · 循环伴奏</div>
+          <div class="prog-list" id="progList"></div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
+            <span style="font-size:12.5px;color:var(--txt-2)">伴奏速度</span>
+            <input type="range" id="progBpm" min="50" max="160" value="80" style="flex:1;max-width:240px">
+            <span class="mono" id="progBpmVal" style="color:var(--mint);font-size:13px;min-width:62px">80 BPM</span>
+          </div>
+        </div>
+      </section>
+      <!-- ===== 视图：练耳训练 ===== -->
+      <section class="view" id="view-ear">
+        <style>
+          .ear-stage{text-align:center;padding:10px 0 4px}
+          .ear-play{margin:14px auto 6px}
+          .ear-q{font-size:14px;color:var(--txt-2);margin:12px 0 18px;min-height:22px}
+          .ear-options{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;max-width:460px;margin:0 auto}
+          .ear-opt{
+            padding:18px 10px;border-radius:15px;background:var(--card-2);border:1px solid var(--line);
+            font-family:var(--font-display);font-size:18px;font-weight:600;transition:all .15s;
+          }
+          .ear-opt small{display:block;font-size:11px;color:var(--txt-3);font-weight:400;margin-top:3px;font-family:var(--font-body)}
+          .ear-opt:active{transform:scale(.97)}
+          .ear-opt.right{background:var(--grad-mint);color:#052018;border-color:transparent}
+          .ear-opt.wrong{background:linear-gradient(135deg,#ff7d8e,#ff5d73);color:#2a070d;border-color:transparent}
+          .ear-opt.disabled{opacity:.5;pointer-events:none}
+          .ear-stats{display:flex;justify-content:center;gap:26px;margin-top:20px;font-size:13px;color:var(--txt-2)}
+          .ear-stats b{font-family:var(--font-mono);color:var(--amber);font-size:17px;margin-right:4px}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/><path d="M9 13a3 3 0 0 0 3 3"/></svg></span>练耳训练</div>
+          <div class="view-sub">听声音、辨音高。先从单音开始，再练音程与和弦色彩，每天几轮，建立不靠乐器的内心听觉。</div>
+        </div>
+        <div class="card">
+          <div class="seg" id="earMode" style="display:flex;justify-content:center;width:100%">
+            <button data-m="note" class="on">单音听辨</button>
+            <button data-m="interval">音程</button>
+            <button data-m="triad">三和弦</button>
+            <button data-m="seven">七和弦</button>
+          </div>
+          <div class="ear-stage">
+            <button class="btn-round ear-play" id="earPlay">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
+            </button>
+            <div class="ear-q" id="earQ">点击播放，听一听这是什么音</div>
+            <div class="ear-options" id="earOptions"></div>
+            <div class="ear-stats">
+              <span><b id="earN">0</b>题</span>
+              <span><b id="earOk">0</b>正确</span>
+              <span>正确率 <b id="earRate">0%</b></span>
+              <span><b id="earStreak">0</b>连对</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 视图：指板训练 ===== -->
+      <section class="view" id="view-fret">
+        <style>
+          .fret-board-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--line);background:linear-gradient(180deg,#191421,#101223);padding:0}
+          .fret-board{display:grid;min-width:640px}
+          .fb-row{display:grid;grid-template-columns:44px repeat(12,1fr);height:46px}
+          .fb-row + .fb-row{border-top:1px solid rgba(255,255,255,.07)}
+          .fb-open{display:grid;place-items:center;border-right:3px solid rgba(255,255,255,.5);font-size:10px;color:var(--txt-3);font-family:var(--font-mono)}
+          .fb-cell{position:relative;border-right:1px solid rgba(255,255,255,.14);display:grid;place-items:center;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--txt-2);transition:background .12s;user-select:none}
+          .fb-cell:hover{background:rgba(255,180,84,.1)}
+          .fb-cell .dot-mark{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.18);pointer-events:none}
+          .fb-cell.double .dot-mark{width:5px;height:5px;left:38%}
+          .fb-cell.double .dot-mark:after{content:"";position:absolute;left:9px;top:0;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.18)}
+          .fb-cell.ring{background:radial-gradient(circle,rgba(65,217,255,.3),transparent 70%);color:var(--cyan)}
+          .fb-cell.good{background:var(--grad-mint);color:#052018}
+          .fb-cell.bad{background:rgba(255,93,115,.35);color:var(--red)}
+          .fb-fretnums{display:grid;grid-template-columns:44px repeat(12,1fr);min-width:640px}
+          .fb-fretnums span{font-size:10px;color:var(--txt-3);text-align:center;font-family:var(--font-mono);padding:3px 0}
+          .fb-hint{display:flex;align-items:center;gap:10px;margin:14px 0 4px;flex-wrap:wrap}
+          .fb-ask{font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--amber)}
+          .fb-ask small{font-size:12px;color:var(--txt-3);font-weight:400;margin-left:8px}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/></svg></span>指板训练</div>
+          <div class="view-sub">浏览模式点击任意品位发声；找音模式根据提示在指板上找到目标音，记住指板上每一个音的位置。</div>
+        </div>
+        <div class="card">
+          <div class="seg" id="fbMode" style="margin-bottom:14px">
+            <button data-m="browse" class="on">浏览模式</button>
+            <button data-m="find">找音游戏</button>
+          </div>
+          <div class="fb-hint" id="fbHint">
+            <span class="hint">点击品格试听该音，横向滑动查看 12 品</span>
+          </div>
+          <div class="fret-board-wrap">
+            <div class="fret-board" id="fbBoard"></div>
+            <div class="fb-fretnums" id="fbFretNums"></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
+            <label class="switch" style="display:inline-flex"><input type="checkbox" id="fbShowAll" checked><span class="track"></span><span class="thumb"></span></label>
+            <span style="font-size:13px;color:var(--txt-2)">显示全部音名</span>
+            <span style="flex:1"></span>
+            <span style="font-size:13px;color:var(--txt-2)" id="fbScore"></span>
+            <button class="btn btn-sm btn-primary" id="fbStart" style="display:none">开始 / 下一题</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 视图：录音棚 ===== -->
+      <section class="view" id="view-studio">
+        <style>
+          .rec-stage{text-align:center;padding:12px 0}
+          .rec-time{font-family:var(--font-display);font-size:54px;font-weight:700;letter-spacing:2px;margin:8px 0}
+          .rec-level{height:10px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden;max-width:380px;margin:0 auto 18px}
+          .rec-level i{display:block;height:100%;width:0;background:var(--grad-mint);transition:width .08s}
+          .rec-list{margin-top:18px;display:flex;flex-direction:column;gap:10px}
+          .rec-item{display:flex;align-items:center;gap:12px;background:var(--card-2);border:1px solid var(--line);border-radius:14px;padding:11px 14px}
+          .rec-item .name{font-size:13.5px;font-weight:600;flex:1;min-width:0}
+          .rec-item .name small{display:block;font-size:11px;color:var(--txt-3);font-weight:400;margin-top:2px}
+          .rec-item audio{height:36px;max-width:200px}
+          .rec-del{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--red);background:rgba(255,93,115,.1);flex-shrink:0}
+          .rec-del svg{width:17px;height:17px}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg></span>录音棚</div>
+          <div class="view-sub">录下自己的练习片段，回听找问题。录音文件保存在本地，可下载为 WebM 音频。</div>
+        </div>
+        <div class="card">
+          <div class="rec-stage">
+            <button class="btn-round" id="recBtn">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><circle cx="12" cy="12" r="7"/></svg>
+            </button>
+            <div class="rec-time mono" id="recTime">00:00</div>
+            <div class="rec-level"><i id="recLevel"></i></div>
+            <div class="hint" id="recHint">点击按钮开始录音</div>
+          </div>
+          <div class="rec-list" id="recList"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============ 移动端底部导航 ============ -->
+    <nav class="tabbar">
+      <div class="tabbar-inner">
+        <button class="tab active" data-route="home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>首页
+        </button>
+        <button class="tab" data-route="tuner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg>调音
+        </button>
+        <button class="tab" data-route="metro">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/></svg>节拍
+        </button>
+        <button class="tab" data-route="game">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg>闯关
+        </button>
+        <button class="tab" id="tabMore">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></svg>更多
+        </button>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<!-- 更多菜单 sheet -->
+<div id="sheetMask" style="position:fixed;inset:0;background:rgba(5,6,12,.6);z-index:90;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(2px)"></div>
+<div id="moreSheet" style="position:fixed;left:0;right:0;bottom:0;z-index:91;background:linear-gradient(180deg,#181b30,#101223);border-radius:22px 22px 0 0;border:1px solid var(--line-strong);padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .32s cubic-bezier(.22,1,.36,1)">
+  <div style="width:40px;height:4px;border-radius:4px;background:rgba(255,255,255,.18);margin:6px auto 14px"></div>
+  <div style="font-family:var(--font-display);font-weight:700;font-size:16px;margin:0 4px 12px">更多工具</div>
+  <div id="moreGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="app-1.js"></script>
+<script src="app-2.js"></script>
+<script src="app-3.js"></script>
+</body>
+</html>
