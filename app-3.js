@@ -1,0 +1,514 @@
+/* ============================================================
+   模块 4：和弦闯关（麦克风逐弦判定）
+   ============================================================ */
+const Game = {
+  levels:[
+    {name:'第 1 关 · 入门开放和弦', pool:['C','G','Am','Em'], time:18},
+    {name:'第 2 关 · 进阶开放和弦', pool:['C','G','Am','Em','D','A','Dm','E7','G7'], time:15},
+    {name:'第 3 关 · 横按挑战', pool:['F','Bm','E','D','Am','Em'], time:14},
+    {name:'第 4 关 · 综合混合', pool:['C','G','D','Am','Em','F','E','A','Dm','Bm','G7','C7'], time:12}
+  ],
+  level:0, running:false, mic:false,
+  score:0, combo:0, maxCombo:0, okCount:0, idx:0, queue:[],
+  cur:null, done:null, lastWrongAt:0, cand:null, candCount:0,
+  timer:null, timeLeft:0, total:10,
+  init(){
+    if(this.inited) return; this.inited=true;
+    $('#levelCards').innerHTML=this.levels.map((l,i)=>`
+      <div class="level-card ${i===0?'sel':''}" data-i="${i}">
+        <div class="lv">${l.name}</div>
+        <p>${i===0?'零基础友好：最常用的四个开放和弦':'包含 '+l.pool.length+' 个和弦，每个限时 '+l.time+' 秒'}</p>
+        <div class="ch">${l.pool.join(' · ')}</div>
+      </div>`).join('');
+    $('#levelCards').onclick=e=>{
+      const c=e.target.closest('.level-card'); if(!c)return;
+      $$('#levelCards .level-card').forEach(x=>x.classList.toggle('sel',x===c));
+      this.level=+c.dataset.i;
+    };
+    $('#gameStart').onclick=()=>this.startRound();
+    $('#gameSkip').onclick=()=>{ this.combo=0; this.nextChord(); };
+    $('#gameQuit').onclick=()=>this.quit();
+    $('#gameAgain').onclick=()=>{ $('#gameResult').style.display='none'; this.startRound(); };
+    $('#gameBack').onclick=()=>{ this.stopMic(); $('#gameResult').style.display='none'; $('#gamePlay').style.display='none'; $('#gameIntro').style.display='block'; };
+  },
+  async startRound(){
+    AudioEngine.ensure();
+    if(!this.mic){
+      $('#gameStart').innerHTML='<span class="dots"><i></i><i></i><i></i></span>';
+      const ok=await Mic.start(r=>this.onPitch(r));
+      this.mic=ok;
+      if(!ok){ $('#gameStart').innerHTML='开启麦克风失败，请重试'; return; }
+    }
+    const lv=this.levels[this.level];
+    this.queue=[];
+    for(let i=0;i<this.total;i++){
+      let pick;
+      do{ pick=lv.pool[Math.floor(Math.random()*lv.pool.length)]; }
+      while(this.queue.length && pick===this.queue[this.queue.length-1]);
+      this.queue.push(pick);
+    }
+    this.score=0; this.combo=0; this.maxCombo=0; this.okCount=0; this.idx=0;
+    $('#gameIntro').style.display='none';
+    $('#gameResult').style.display='none';
+    $('#gamePlay').style.display='block';
+    this.running=true;
+    this.nextChord();
+  },
+  nextChord(){
+    if(this.idx>=this.total){ this.finish(); return; }
+    const name=this.queue[this.idx];
+    this.cur=CHORD_MAP[name];
+    this.done=this.cur.frets.map(f=>f<0?'muted':false);
+    this.cand=null; this.candCount=0;
+    this.timeLeft=this.levels[this.level].time;
+    $('#levelLabel').textContent=this.levels[this.level].name;
+    $('#gameChord').textContent=name;
+    $('#gameDiagram').innerHTML=renderDiagram(this.cur,{big:true});
+    this.renderStringCheck();
+    $('#gameProg').textContent=(this.idx+1)+'/'+this.total;
+    $('#gameCombo').textContent=this.combo;
+    $('#gameTip').textContent='从最粗的 6 弦开始，依次拨响';
+    this.renderTime();
+    clearInterval(this.timer);
+    this.timer=setInterval(()=>{
+      this.timeLeft-=0.1;
+      if(this.timeLeft<=0){
+        this.combo=0; $('#gameCombo').textContent=0;
+        $('#gameTip').textContent='超时，下一个和弦…';
+        setTimeout(()=>this.nextChord(),500);
+        clearInterval(this.timer);
+        return;
+      }
+      this.renderTime();
+    },100);
+  },
+  renderTime(){
+    const total=this.levels[this.level].time;
+    const pct=clamp(this.timeLeft/total*100,0,100);
+    const bar=$('#timeBar');
+    bar.style.width=pct+'%';
+    bar.style.background=pct>50?'var(--grad-mint)':pct>25?'linear-gradient(90deg,#ffd27a,#f59136)':'linear-gradient(90deg,#ff7d8e,#ff5d73)';
+  },
+  renderStringCheck(){
+    const labels=['6弦','5弦','4弦','3弦','2弦','1弦'];
+    $('#stringCheck').innerHTML=this.cur.frets.map((f,i)=>{
+      let cls='sc';
+      if(f<0) cls+=' muted';
+      if(this.done[i]==='done') cls+=' done';
+      const target=f<0?null:OPEN_MIDI[i]+f;
+      const txt=f<0?'×':(f===0?'空':f+'品');
+      return `<div class="${cls}" data-i="${i}"><b>${f<0?'×':noteNameNoOct(target)}</b><span>${labels[i]} ${txt}</span></div>`;
+    }).join('');
+  },
+  onPitch(r){
+    if(!this.running||!this.cur||r.freq==null){ this.cand=null; return; }
+    const mf=69+12*Math.log2(r.freq/440);
+    // 找匹配目标弦（允许八度等价，防止泛音误判）
+    let hit=null, bestCents=99;
+    for(let i=0;i<6;i++){
+      if(this.done[i]!==false) continue;
+      const f=this.cur.frets[i];
+      if(f<0) continue;
+      const target=OPEN_MIDI[i]+f;
+      let diff=mf-target;
+      // 量化到最近八度
+      diff=diff-Math.round(diff/12)*12;
+      if(Math.abs(diff)<0.6 && Math.abs(diff*100)<bestCents){
+        // 但必须优先匹配非八度的真实音
+        const realDiff=mf-target;
+        if(Math.abs(realDiff)<0.7){ hit=i; bestCents=realDiff*100; }
+        else if(!hit){ hit=i; bestCents=diff*100; }
+      }
+    }
+    if(hit!==null){
+      if(this.cand===hit){ this.candCount++; } else { this.cand=hit; this.candCount=1; }
+      if(this.candCount>=2){
+        this.cand=null; this.candCount=0;
+        this.markDone(hit);
+      }
+      return;
+    }
+    // 是否是错误音：最近半音不在和弦音集合内
+    const nearest=Math.round(mf);
+    const chordPC=this.cur.notes.map(n=>NOTE_NAMES.indexOf(n.replace('b','#')));
+    const pc=((nearest%12)+12)%12;
+    const isChordTone=chordPC.some(c=>c===pc);
+    const now=performance.now();
+    if(!isChordTone && now-this.lastWrongAt>700){
+      this.lastWrongAt=now;
+      // 找出可能弹错的弦（未完成的弦）
+      const miss=[];
+      for(let i=0;i<6;i++) if(this.done[i]===false) miss.push(i);
+      if(miss.length){
+        const sc=$(`.sc[data-i="${miss[0]}"]`);
+        if(sc){ sc.classList.add('miss'); setTimeout(()=>sc.classList.remove('miss'),450); }
+        $('#gameTip').innerHTML='这个音不对，检查手指是否按牢、按准品位';
+      }
+    }
+    this.cand=null;
+  },
+  markDone(i){
+    this.done[i]='done';
+    AudioEngine.pluck(freqFromMidi(OPEN_MIDI[i]+this.cur.frets[i]),0,0.9,.18);
+    this.renderStringCheck();
+    if(this.done.every(x=>x!==false)){
+      // 本和弦完成
+      this.running=false;
+      clearInterval(this.timer);
+      this.okCount++;
+      this.combo++;
+      this.maxCombo=Math.max(this.maxCombo,this.combo);
+      const bonus=Math.ceil(this.timeLeft)*2 + this.combo*2;
+      const gain=10+bonus;
+      this.score+=gain;
+      $('#gameScore').textContent=this.score;
+      $('#gameCombo').textContent=this.combo;
+      const pop=$('#comboPop');
+      pop.textContent= this.combo>1 ? this.combo+' 连击 +'+gain : '+'+gain;
+      pop.classList.remove('go'); void pop.offsetWidth; pop.classList.add('go');
+      $('#gameTip').textContent='完成！准备下一个和弦…';
+      setTimeout(()=>{
+        this.idx++;
+        this.running=true;
+        this.nextChord();
+      },750);
+    }
+  },
+  finish(){
+    this.running=false;
+    clearInterval(this.timer);
+    $('#gamePlay').style.display='none';
+    $('#gameResult').style.display='block';
+    const pass=this.okCount>=6;
+    $('#resultTitle').textContent=pass?'恭喜通关':'本轮结束';
+    $('#resultSub').textContent=pass?'全部和弦判定正确，继续挑战更高难度吧':'正确 '+this.okCount+'/'+this.total+'，回到和弦库复习指法后再战';
+    $('#rScore').textContent=this.score;
+    $('#rOk').textContent=this.okCount+'/'+this.total;
+    $('#rCombo').textContent=this.maxCombo;
+  },
+  stopMic(){
+    this.running=false;
+    clearInterval(this.timer);
+    if(this.mic){ Mic.stop(); this.mic=false; }
+  },
+  quit(){
+    this.stopMic();
+    $('#gamePlay').style.display='none';
+    $('#gameResult').style.display='none';
+    $('#gameIntro').style.display='block';
+    $('#gameStart').innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg> 开启麦克风开始';
+  }
+};
+onRouteEnter.game=()=>Game.init();
+
+/* ============================================================
+   模块 5：练耳训练
+   ============================================================ */
+const Ear = {
+  mode:'note', n:0, ok:0, streak:0, bestStreak:0, answer:null, answered:false, opts:[],
+  intervals:[
+    {semi:2,label:'大二度',ex:'Do–Re'},
+    {semi:3,label:'小三度',ex:'La–Do'},
+    {semi:4,label:'大三度',ex:'Do–Mi'},
+    {semi:5,label:'纯四度',ex:'Do–Fa'},
+    {semi:7,label:'纯五度',ex:'Do–Sol'},
+    {semi:9,label:'大六度',ex:'Do–La'},
+    {semi:10,label:'小七度',ex:'Do–Bb'},
+    {semi:12,label:'纯八度',ex:'Do–Do'}
+  ],
+  triads:[
+    {iv:[0,4,7],label:'大三和弦',ex:'明亮 稳定'},
+    {iv:[0,3,7],label:'小三和弦',ex:'柔和 暗淡'},
+    {iv:[0,3,6],label:'减三和弦',ex:'紧张 收缩'},
+    {iv:[0,4,8],label:'增三和弦',ex:'悬浮 不安'}
+  ],
+  sevenths:[
+    {iv:[0,4,7,10],label:'属七和弦',ex:'想要解决'},
+    {iv:[0,4,7,11],label:'大七和弦',ex:'梦幻 爵士'},
+    {iv:[0,3,7,10],label:'小七和弦',ex:'慵懒 柔和'},
+    {iv:[0,3,6,10],label:'半减七和弦',ex:'幽暗 紧张'}
+  ],
+  init(){
+    if(this.inited) return; this.inited=true;
+    $('#earMode').onclick=e=>{
+      const b=e.target.closest('button'); if(!b)return;
+      $$('#earMode button').forEach(x=>x.classList.toggle('on',x===b));
+      this.mode=b.dataset.m;
+      this.n=0; this.ok=0; this.streak=0;
+      this.updateStats();
+      this.newQuestion();
+    };
+    $('#earPlay').onclick=()=>{ AudioEngine.ensure(); this.play(); };
+    $('#earOptions').onclick=e=>{
+      const b=e.target.closest('.ear-opt'); if(!b||this.answered)return;
+      this.answered=true;
+      const idx=+b.dataset.i;
+      const right=idx===this.answer;
+      $$('.ear-opt').forEach((x,i)=>{
+        x.classList.add('disabled');
+        if(i===this.answer) x.classList.add('right');
+        else if(i===idx) x.classList.add('wrong');
+      });
+      this.n++;
+      if(right){this.ok++;this.streak++;this.bestStreak=Math.max(this.bestStreak,this.streak);$('#earQ').textContent='回答正确！';}
+      else{this.streak=0;$('#earQ').textContent='正确答案已标绿，再听一遍';}
+      this.updateStats();
+      setTimeout(()=>this.newQuestion(),1500);
+    };
+    this.newQuestion();
+  },
+  updateStats(){
+    $('#earN').textContent=this.n;
+    $('#earOk').textContent=this.ok;
+    $('#earRate').textContent=this.n?Math.round(this.ok/this.n*100)+'%':'0%';
+    $('#earStreak').textContent=this.streak;
+  },
+  shuffle(arr){return arr.map(v=>[Math.random(),v]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);},
+  newQuestion(){
+    this.answered=false;
+    if(this.mode==='note'){
+      const pool=[60,62,64,65,67,69,71,72];
+      const midi=pool[Math.floor(Math.random()*pool.length)];
+      const label=noteNameNoOct(midi);
+      const names=[...new Set(pool.map(m=>noteNameNoOct(m)))];
+      const wrongs=this.shuffle(names.filter(x=>x!==label)).slice(0,3);
+      this.opts=this.shuffle([label,...wrongs]);
+      this.answer=this.opts.indexOf(label);
+      this._play=()=>{ AudioEngine.tone(freqFromMidi(midi),1.6,'sine',.3); };
+      $('#earQ').textContent='这是哪个音？（C 大调）';
+    }
+    if(this.mode==='interval'){
+      const root=52+Math.floor(Math.random()*10);
+      const item=this.intervals[Math.floor(Math.random()*this.intervals.length)];
+      this._play=()=>{
+        AudioEngine.tone(freqFromMidi(root),1,'sine',.28);
+        AudioEngine.tone(freqFromMidi(root+item.semi),1.4,'sine',.28,1.05);
+      };
+      const labels=this.intervals.map(x=>x.label);
+      const wrongs=this.shuffle(labels.filter(x=>x!==item.label)).slice(0,3);
+      this.opts=this.shuffle([item.label,...wrongs]);
+      this.answer=this.opts.indexOf(item.label);
+      $('#earQ').textContent='两个音之间是什么音程？';
+    }
+    if(this.mode==='triad'||this.mode==='seven'){
+      const list=this.mode==='triad'?this.triads:this.sevenths;
+      const item=list[Math.floor(Math.random()*list.length)];
+      const root=50+Math.floor(Math.random()*8);
+      this._play=()=>{
+        // 先分解后柱式
+        item.iv.forEach((v,i)=>AudioEngine.tone(freqFromMidi(root+v),1.4,'sine',.16,0.15+i*0.18));
+        item.iv.forEach(v=>AudioEngine.tone(freqFromMidi(root+v),1.8,'triangle',.12,0.15+item.iv.length*0.18+0.25));
+      };
+      const labels=list.map(x=>x.label);
+      const wrongs=this.shuffle(labels.filter(x=>x!==item.label)).slice(0,3);
+      this.opts=this.shuffle([item.label,...wrongs]);
+      this.answer=this.opts.indexOf(item.label);
+      $('#earQ').textContent='这是什么和弦色彩？';
+    }
+    const list=this.mode==='triad'?this.triads:this.mode==='seven'?this.sevenths:this.intervals;
+    const exMap={};
+    if(Array.isArray(list)) list.forEach(x=>exMap[x.label]=x.ex);
+    $('#earOptions').innerHTML=this.opts.map((o,i)=>
+      `<button class="ear-opt" data-i="${i}">${o}<small>${exMap[o]||''}</small></button>`).join('');
+  },
+  play(){ if(this._play) this._play(); }
+};
+onRouteEnter.ear=()=>Ear.init();
+
+/* ============================================================
+   模块 6：指板训练
+   ============================================================ */
+const Fret = {
+  mode:'browse', targetPC:null, askN:0, askOk:0, playing:false,
+  // 显示顺序：1弦（最上）到 6弦（最下）
+  strings:[64,59,55,50,45,40],
+  init(){
+    if(this.inited) return; this.inited=true;
+    this.build();
+    $('#fbMode').onclick=e=>{
+      const b=e.target.closest('button'); if(!b)return;
+      $$('#fbMode button').forEach(x=>x.classList.toggle('on',x===b));
+      this.mode=b.dataset.m;
+      this.playing=false;
+      $('#fbStart').style.display=this.mode==='find'?'inline-flex':'none';
+      $('#fbHint').innerHTML=this.mode==='browse'
+        ?'<span class="hint">点击品格试听该音，横向滑动查看 12 品</span>'
+        :'<span class="hint">点击“开始”，根据提示在指板上找音</span>';
+      this.clearMarks();
+      $('#fbScore').textContent='';
+    };
+    $('#fbShowAll').onchange=e=>{ $$('.fb-cell .nm').forEach(n=>n.style.display=e.target.checked?'':'none'); };
+    $('#fbStart').onclick=()=>this.ask();
+    $('#fbBoard').onclick=e=>{
+      const cell=e.target.closest('.fb-cell'); if(!cell)return;
+      const s=+cell.dataset.s, f=+cell.dataset.f;
+      const midi=this.strings[s]+f;
+      AudioEngine.ensure();
+      AudioEngine.pluck(freqFromMidi(midi),0,1.6,.3);
+      if(this.mode==='find'&&this.playing){
+        this.judge(cell,midi);
+      }else{
+        cell.classList.add('ring');
+        setTimeout(()=>cell.classList.remove('ring'),400);
+      }
+    };
+  },
+  build(){
+    let html='';
+    this.strings.forEach((base,s)=>{
+      html+='<div class="fb-row">';
+      html+=`<div class="fb-open">${noteNameNoOct(base)}<br>弦</div>`;
+      for(let f=1;f<=12;f++){
+        const midi=base+f, pc=((midi%12)+12)%12;
+        const dbl=f===12?'double':'';
+        const mark=[3,5,7,9,12].includes(f)?'<span class="dot-mark"></span>':'';
+        html+=`<div class="fb-cell ${dbl}" data-s="${s}" data-f="${f}" data-pc="${pc}"><span class="nm">${noteNameNoOct(midi)}</span>${mark}</div>`;
+      }
+      html+='</div>';
+    });
+    $('#fbBoard').innerHTML=html;
+    $('#fbFretNums').innerHTML='<span></span>'+[...Array(12)].map((_,i)=>`<span>${i+1}</span>`).join('');
+  },
+  clearMarks(){ $$('.fb-cell').forEach(c=>c.classList.remove('good','bad','ring')); },
+  ask(){
+    this.clearMarks();
+    this.playing=true;
+    this.askN++;
+    // 随机目标音名（在指板 1-12 品范围内出现过的）
+    const s=Math.floor(Math.random()*6);
+    const f=1+Math.floor(Math.random()*12);
+    this.targetPC=((this.strings[s]+f)%12+12)%12;
+    const name=NOTE_NAMES[this.targetPC];
+    $('#fbHint').innerHTML=`<span class="fb-ask">请找到：${name}<small>点击指板上所有 ${name} 音的位置都算对</small></span>`;
+    $('#fbScore').textContent=`${this.askOk}/${this.askN}`;
+  },
+  judge(cell,midi){
+    const pc=((midi%12)+12)%12;
+    if(pc===this.targetPC){
+      cell.classList.add('good');
+      this.askOk++;
+      this.playing=false;
+      $('#fbScore').textContent=`${this.askOk}/${this.askN}`;
+      $('#fbHint').innerHTML=`<span class="fb-ask" style="color:var(--mint)">正确！</span><span class="hint" style="margin-left:10px">点击“下一题”继续</span>`;
+      // 标出该音在指板上的所有位置
+      $$('.fb-cell').forEach(c=>{ if(+c.dataset.pc===pc) c.classList.add('ring'); });
+    }else{
+      cell.classList.add('bad');
+      setTimeout(()=>cell.classList.remove('bad'),450);
+    }
+  }
+};
+onRouteEnter.fret=()=>Fret.init();
+
+/* ============================================================
+   模块 7：录音棚（MediaRecorder，本地保存）
+   ============================================================ */
+const Studio = {
+  rec:null, chunks:[], stream:null, ac:null, analyser:null, raf:null,
+  t0:0, tickTimer:null, items:[], idx:0,
+  init(){
+    if(this.inited) return; this.inited=true;
+    $('#recBtn').onclick=()=>this.toggle();
+  },
+  fmt(sec){
+    const m=Math.floor(sec/60), s=Math.floor(sec%60);
+    return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  },
+  async toggle(){
+    if(this.rec&&this.rec.state==='recording'){ this.stop(); return; }
+    try{
+      this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false}});
+    }catch(e){
+      toast('无法访问麦克风，请检查权限','err');return;
+    }
+    const types=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];
+    let mime='';
+    for(const t of types){ if(window.MediaRecorder&&MediaRecorder.isTypeSupported(t)){mime=t;break;} }
+    if(!window.MediaRecorder){ toast('当前浏览器不支持录音功能','err');return; }
+    this.rec=mime?new MediaRecorder(this.stream,{mimeType:mime}):new MediaRecorder(this.stream);
+    this.chunks=[];
+    this.rec.ondataavailable=e=>{ if(e.data.size) this.chunks.push(e.data); };
+    this.rec.onstop=()=>{
+      const blob=new Blob(this.chunks,{type:mime||'audio/webm'});
+      const url=URL.createObjectURL(blob);
+      this.idx++;
+      const ext=(mime.includes('mp4')?'mp4':'webm');
+      const item={url,ext,dur:this.lastDur,name:'录音 '+this.idx};
+      this.items.unshift(item);
+      this.render();
+      this.stream.getTracks().forEach(t=>t.stop());
+      this.ac.close(); this.ac=null;
+      cancelAnimationFrame(this.raf);
+    };
+    // 电平表
+    this.ac=new (window.AudioContext||window.webkitAudioContext)();
+    const src=this.ac.createMediaStreamSource(this.stream);
+    this.analyser=this.ac.createAnalyser();
+    this.analyser.fftSize=512;
+    src.connect(this.analyser);
+    const buf=new Float32Array(this.analyser.fftSize);
+    const loop=()=>{
+      if(!this.analyser) return;
+      this.analyser.getFloatTimeDomainData(buf);
+      let rms=0; for(let i=0;i<buf.length;i++) rms+=buf[i]*buf[i];
+      rms=Math.sqrt(rms/buf.length);
+      $('#recLevel').style.width=clamp(rms*700,0,100)+'%';
+      this.raf=requestAnimationFrame(loop);
+    };
+    this.rec.start();
+    loop();
+    this.t0=Date.now();
+    $('#recBtn').classList.add('recording');
+    $('#recBtn').innerHTML='<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
+    $('#recHint').textContent='录音中，再点一次停止';
+    this.tickTimer=setInterval(()=>{
+      $('#recTime').textContent=this.fmt((Date.now()-this.t0)/1000);
+    },200);
+  },
+  stop(){
+    this.lastDur=(Date.now()-this.t0)/1000;
+    clearInterval(this.tickTimer);
+    $('#recTime').textContent='00:00';
+    $('#recLevel').style.width='0';
+    $('#recBtn').classList.remove('recording');
+    $('#recBtn').innerHTML='<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><circle cx="12" cy="12" r="7"/></svg>';
+    $('#recHint').textContent='点击按钮开始录音';
+    if(this.rec&&this.rec.state==='recording') this.rec.stop();
+    this.analyser=null;
+  },
+  render(){
+    if(!this.items.length) return;
+    $('#recList').innerHTML=this.items.map((it,i)=>`
+      <div class="rec-item">
+        <div class="name">${it.name}<small>${this.fmt(it.dur)} · ${it.ext.toUpperCase()}</small></div>
+        <audio controls preload="metadata" src="${it.url}"></audio>
+        <a class="btn btn-sm" style="text-decoration:none" href="${it.url}" download="六弦工坊-${it.name.replace(' ','')}.${it.ext}">下载</a>
+        <button class="rec-del" data-i="${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button>
+      </div>`).join('');
+    $('#recList').onclick=e=>{
+      const b=e.target.closest('.rec-del'); if(!b)return;
+      const i=+b.dataset.i;
+      URL.revokeObjectURL(this.items[i].url);
+      this.items.splice(i,1);
+      this.render();
+    };
+  }
+};
+onRouteEnter.studio=()=>Studio.init();
+
+/* ============================================================
+   路由清理：离开页面时停止麦克风 / 计时 / 伴奏
+   ============================================================ */
+function cleanupModules(){
+  if(typeof Metro!=='undefined' && Metro.playing) Metro.stop();
+  if(typeof Tuner!=='undefined' && Tuner.active) Tuner.toggle();
+  if(typeof Game!=='undefined' && Game.mic) Game.quit();
+  if(typeof ChordLib!=='undefined') ChordLib.stopProg();
+  if(typeof Studio!=='undefined' && Studio.rec && Studio.rec.state==='recording') Studio.stop();
+}
+const _origApply=applyRoute;
+applyRoute=function(){
+  cleanupModules();
+  _origApply();
+};
+applyRoute();
