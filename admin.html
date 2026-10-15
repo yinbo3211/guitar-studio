@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>六弦工坊 · 控制台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0b14'/%3E%3Cpath d='M21 4a3 3 0 0 0-3 3v9.2a5.5 5.5 0 1 0 3 0V11h3V8h-3V7a3 3 0 0 0 0-3z' fill='%23ffb454'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0a0b14;--bg-2:#0f1120;--card:#151829;--card-2:#1b1f33;
+  --line:rgba(255,255,255,.08);--line-strong:rgba(255,255,255,.16);
+  --txt:#eef0fa;--txt-2:#9aa0bd;--txt-3:#5f6584;
+  --amber:#ffb454;--mint:#2ee6a8;--cyan:#41d9ff;--blue:#4d9fff;
+  --red:#ff5d73;--violet:#8b7cf6;
+  --grad-amber:linear-gradient(135deg,#ffd27a 0%,#ffb454 45%,#f5863f 100%);
+  --grad-mint:linear-gradient(135deg,#5ff5c2 0%,#2ee6a8 50%,#12b986 100%);
+  --shadow-mint:0 6px 24px -6px rgba(46,230,168,.5),0 0 0 1px rgba(46,230,168,.25) inset;
+  --radius:18px;--radius-sm:12px;
+  --font-display:'Space Grotesk','PingFang SC','Microsoft YaHei',sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono',ui-monospace,monospace;
+  --font-body:'PingFang SC','Microsoft YaHei','Space Grotesk',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:radial-gradient(1200px 600px at 80% -10%,rgba(65,217,255,.08),transparent 60%),radial-gradient(1000px 500px at -10% 10%,rgba(255,180,84,.08),transparent 55%),var(--bg);color:var(--txt);font-family:var(--font-body);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;padding:0 0 60px}
+.wrap{max-width:1000px;margin:0 auto;padding:20px 16px}
+a{color:var(--cyan);text-decoration:none}
+
+/* 登录 */
+#login{min-height:100vh;display:grid;place-items:center;padding:20px}
+.login-card{width:100%;max-width:380px;background:linear-gradient(180deg,var(--card) 0%,var(--bg-2) 100%);border:1px solid var(--line);border-radius:var(--radius);padding:32px 26px;box-shadow:0 20px 60px -20px rgba(0,0,0,.7)}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.logo .mark{width:42px;height:42px;border-radius:12px;background:var(--grad-amber);display:grid;place-items:center;flex:none}
+.logo h1{font-family:var(--font-display);font-size:19px;letter-spacing:.3px}
+.logo p{font-size:12px;color:var(--txt-3)}
+.login-card .sub{color:var(--txt-2);font-size:13px;margin:18px 0 16px}
+
+/* 表单 */
+label.fld{display:block;margin:14px 0}
+label.fld span{display:block;font-size:13px;color:var(--txt-2);margin-bottom:7px;font-weight:500}
+input,select{width:100%;padding:12px 13px;background:var(--bg-2);border:1px solid var(--line-strong);border-radius:var(--radius-sm);color:var(--txt);font-size:16px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(65,217,255,.15)}
+input::placeholder{color:var(--txt-3)}
+select option{background:var(--card)}
+.hint{font-size:12px;color:var(--txt-3);margin-top:5px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.row2{grid-template-columns:1fr}}
+
+/* 按钮 */
+.btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;padding:12px 18px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .1s,filter .15s;min-height:46px}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--grad-amber);color:#1b1206;box-shadow:0 6px 20px -6px rgba(255,180,84,.55)}
+.btn-mint{background:var(--grad-mint);color:#04231a;box-shadow:var(--shadow-mint)}
+.btn-ghost{background:var(--card-2);color:var(--txt);border:1px solid var(--line-strong)}
+.btn-danger{background:rgba(255,93,115,.14);color:var(--red);border:1px solid rgba(255,93,115,.35)}
+.btn-block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+/* 卡片 */
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.head .logo h1{font-size:17px}
+.head .right{display:flex;align-items:center;gap:10px}
+.card{background:linear-gradient(180deg,var(--card) 0%,rgba(21,24,41,.6) 100%);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.card h2{font-family:var(--font-display);font-size:15px;letter-spacing:.3px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h2 .ic{color:var(--cyan)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+
+/* IP 状态 */
+.ip-hero{background:linear-gradient(150deg,rgba(46,230,168,.12),rgba(65,217,255,.06) 60%,transparent);border:1px solid rgba(46,230,168,.25);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.ip-label{font-size:12px;color:var(--txt-2);display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--txt-3);flex:none;box-shadow:0 0 0 0 rgba(46,230,168,.5)}
+.dot.ok{background:var(--mint);animation:pulse 2s infinite}
+.dot.err{background:var(--red)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,230,168,.45)}70%{box-shadow:0 0 0 8px rgba(46,230,168,0)}100%{box-shadow:0 0 0 0 rgba(46,230,168,0)}}
+.ip-addr{font-family:var(--font-mono);font-size:clamp(16px,4.2vw,22px);color:var(--mint);word-break:break-all;margin:8px 0 6px;font-weight:600}
+.ip-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.tag{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--card-2);border:1px solid var(--line);color:var(--txt-2)}
+.tag.amber{color:var(--amber);border-color:rgba(255,180,84,.3)}
+.tag.cyan{color:var(--cyan);border-color:rgba(65,217,255,.3)}
+.tag.mint{color:var(--mint);border-color:rgba(46,230,168,.3)}
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+@media(max-width:560px){.stat-row{grid-template-columns:1fr}}
+.stat{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 13px}
+.stat .k{font-size:11px;color:var(--txt-3)}
+.stat .v{font-size:14px;font-family:var(--font-mono);color:var(--txt);word-break:break-all;margin-top:3px}
+.cand{margin-top:8px;font-size:13px}
+.cand .item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-2);border:1px solid var(--line);border-radius:9px;margin-bottom:6px;font-family:var(--font-mono);font-size:12px;word-break:break-all}
+.cand .pick{margin-left:auto;flex:none;font-size:10px;color:var(--mint)}
+
+/* 开关 */
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:8px}
+.switch-row .t{font-size:14px;font-weight:600}
+.switch-row .d{font-size:12px;color:var(--txt-3)}
+.switch{position:relative;width:50px;height:28px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--card-2);border:1px solid var(--line-strong);border-radius:999px;cursor:pointer;transition:.2s}
+.slider::before{content:"";position:absolute;width:22px;height:22px;left:2px;top:2px;background:var(--txt-3);border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:var(--grad-mint)}
+.switch input:checked + .slider::before{transform:translateX(22px);background:#04231a}
+
+/* 日志 */
+#log{background:#07080f;border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px;height:220px;overflow-y:auto;font-family:var(--font-mono);font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-all}
+#log .l-err{color:var(--red)}#log .l-warn{color:var(--amber)}#log .l-ok{color:var(--mint)}#log .l-info{color:var(--txt-2)}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--card-2);border:1px solid var(--line-strong);color:var(--txt);padding:12px 20px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:99;max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{border-color:rgba(255,93,115,.5)}
+.toast.ok{border-color:rgba(46,230,168,.5)}
+.muted{color:var(--txt-3);font-size:12px}
+.back-link{font-size:13px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- 登录 -->
+<div id="login">
+  <div class="login-card">
+    <div class="logo">
+      <div class="mark"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1b1206" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+      <div><h1>六弦工坊 · 控制台</h1><p>IPv6 DDNS 与外网托管</p></div>
+    </div>
+    <div class="sub">输入管理员密码进入后台。默认密码 <code style="color:var(--amber)">admin123</code>，首次登录请尽快修改。</div>
+    <label class="fld" style="margin-top:0">
+      <span>管理员密码</span>
+      <input type="password" id="loginPwd" placeholder="请输入密码" autocomplete="current-password">
+    </label>
+    <button class="btn btn-primary btn-block" id="loginBtn">登 录</button>
+    <div class="hint" style="margin-top:16px;text-align:center"><a href="guitar-studio.html">← 返回吉他练习室</a></div>
+  </div>
+</div>
+
+<!-- 主面板 -->
+<div id="app" class="wrap hide">
+  <div class="head">
+    <div class="logo">
+      <div class="mark" style="width:38px;height:38px;border-radius:11px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1b1206" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+      <div><h1>六弦工坊 · 控制台</h1><p class="muted">IPv6 DDNS 与外网托管</p></div>
+    </div>
+    <div class="right">
+      <a class="btn btn-ghost" href="guitar-studio.html" style="min-height:40px;padding:8px 14px">打开练习室</a>
+      <button class="btn btn-ghost" id="logoutBtn" style="min-height:40px;padding:8px 14px">退出</button>
+    </div>
+  </div>
+
+  <!-- IPv6 状态 -->
+  <div class="ip-hero">
+    <div class="ip-label"><span class="dot" id="ipDot"></span><span id="ipTitle">正在检测公网 IPv6…</span></div>
+    <div class="ip-addr" id="ipAddr">—</div>
+    <div class="ip-meta" id="ipTags"></div>
+    <div class="stat-row">
+      <div class="stat"><div class="k">动态域名</div><div class="v" id="stDomain">—</div></div>
+      <div class="stat"><div class="k">DDNS 状态</div><div class="v" id="stDdns">—</div></div>
+      <div class="stat"><div class="k">最近同步</div><div class="v" id="stLast">—</div></div>
+      <div class="stat"><div class="k">服务端口</div><div class="v" id="stPort">—</div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-mint" id="refreshBtn">⟳ 重新检测 IPv6</button>
+      <button class="btn btn-primary" id="runBtn">⬆ 立即同步域名</button>
+    </div>
+    <div class="cand" id="candWrap"></div>
+  </div>
+
+  <div class="grid">
+    <!-- DDNS 配置 -->
+    <div class="card">
+      <h2><span class="ic">◈</span> DDNS 动态域名</h2>
+      <div class="switch-row">
+        <div><div class="t">自动 DDNS</div><div class="d">按间隔检测并更新域名 AAAA 记录</div></div>
+        <label class="switch"><input type="checkbox" id="ddnsEnabled"><span class="slider"></span></label>
+      </div>
+      <label class="fld"><span>DNS 服务商</span>
+        <select id="provider">
+          <option value="cloudflare">Cloudflare（免费，自带 HTTPS）</option>
+          <option value="dnspod">腾讯云 DNSPod（dnspod.cn）</option>
+        </select>
+      </label>
+      <div class="row2">
+        <label class="fld"><span>主域名</span><input id="domain" placeholder="example.com"></label>
+        <label class="fld"><span>主机记录</span><input id="sub" placeholder="guitar（@ 为根域名）"></label>
+      </div>
+      <div class="hint">完整域名 = <b id="fullPreview" style="color:var(--cyan)">guitar.example.com</b>，需在 DNS 后台托管该域名。</div>
+
+      <div id="cfFields">
+        <label class="fld"><span>Cloudflare API Token</span>
+          <input id="cfToken" type="password" placeholder="已保存，留空则不修改；填写则更新">
+          <div class="hint">Token 需勾选 Zone · DNS · Edit 权限。</div>
+        </label>
+        <div class="switch-row" style="border:none;padding:4px 0">
+          <div><div class="t">Cloudflare 橙云代理</div><div class="d">开启后自动 HTTPS，但隐藏真实 IPv6；直连请关闭</div></div>
+          <label class="switch"><input type="checkbox" id="cfProxy"><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <div id="dpFields" class="hide">
+        <div class="row2">
+          <label class="fld"><span>DNSPod Token ID</span><input id="dpId" placeholder="留空则不修改"></label>
+          <label class="fld"><span>DNSPod Token</span><input id="dpToken" type="password" placeholder="留空则不修改"></label>
+        </div>
+        <div class="hint">DNSPod 控制台 → 密钥 → 创建 API Token，得到 ID,Token。</div>
+      </div>
+
+      <div class="row2">
+        <label class="fld"><span>检测间隔（分钟）</span><input id="intervalMin" type="number" min="1" value="5"></label>
+        <label class="fld"><span>TTL（秒）</span><input id="ttl" type="number" min="60" step="60" value="120"></label>
+      </div>
+      <button class="btn btn-primary btn-block" id="saveDdnsBtn">保存 DDNS 配置</button>
+    </div>
+
+    <div>
+      <!-- 服务/端口 -->
+      <div class="card">
+        <h2><span class="ic">⚙</span> 服务与端口</h2>
+        <label class="fld"><span>Web 服务端口</span>
+          <input id="webPort" type="number" min="1" max="65535" placeholder="8080">
+          <div class="hint">外网访问：http://[你的IPv6]:端口/ ，修改后需重启服务生效。</div>
+        </label>
+        <label class="fld"><span>监听方式</span>
+          <select id="bindHost">
+            <option value="::">IPv6 + IPv4 双栈（推荐）</option>
+            <option value="0.0.0.0">仅 IPv4</option>
+          </select>
+        </label>
+        <label class="fld"><span>修改管理员密码</span>
+          <input id="newPwd" type="password" placeholder="留空则不修改">
+        </label>
+        <button class="btn btn-mint btn-block" id="saveSrvBtn">保存服务设置</button>
+      </div>
+
+      <!-- IPv6 选取 -->
+      <div class="card">
+        <h2><span class="ic">⌖</span> IPv6 来源</h2>
+        <label class="fld"><span>取值方式</span>
+          <select id="ipMode">
+            <option value="auto">自动（外部探测优先，网卡兜底）</option>
+            <option value="manual">手动指定地址</option>
+          </select>
+        </label>
+        <label class="fld" id="manualWrap"><span>手动 IPv6 地址</span>
+          <input id="manualAddr" placeholder="例如 240e:xxxx::1234">
+        </label>
+        <button class="btn btn-ghost btn-block" id="saveIpBtn">保存 IPv6 取值方式</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 日志 -->
+  <div class="card">
+    <h2><span class="ic">▤</span> 运行日志
+      <button class="btn btn-ghost" id="clearLogBtn" style="margin-left:auto;min-height:36px;padding:6px 12px;font-size:12px">清空显示</button>
+    </h2>
+    <div id="log"></div>
+  </div>
+  <p class="muted" style="text-align:center;margin-top:8px">外网用手机麦克风（调音器/和弦/音阶）需要 HTTPS：建议域名接入 Cloudflare 橙云或给 Nginx 配置证书。</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  var token = sessionStorage.getItem('gs_admin_token') || '';
+  var lastLogTs = 0, statusTimer = null, logTimer = null;
+
+  function toast(msg, type){
+    var t = $('toast'); t.textContent = msg; t.className = 'toast show ' + (type||'');
+    clearTimeout(t._t); t._t = setTimeout(function(){ t.className='toast'; }, 3200);
+  }
+  function fmtTime(ts){ if(!ts) return '—'; var d=new Date(ts); return d.toLocaleString('zh-CN',{hour12:false,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]}); }
+
+  function api(path, opt){
+    opt = opt || {};
+    opt.headers = Object.assign({'Content-Type':'application/json','Authorization':token}, opt.headers||{});
+    return fetch(path, opt).then(function(r){
+      if(r.status === 401){ doLogout(); throw new Error('登录已失效'); }
+      return r.json();
+    });
+  }
+
+  /* ---------- 登录 ---------- */
+  function doLogin(){
+    var pwd = $('loginPwd').value;
+    if(!pwd) return toast('请输入密码','err');
+    fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd})})
+      .then(function(r){return r.json()})
+      .then(function(j){
+        if(j.ok){ token=j.token; sessionStorage.setItem('gs_admin_token',token); enterApp(); }
+        else toast(j.msg||'密码错误','err');
+      }).catch(function(){toast('无法连接服务','err')});
+  }
+  function doLogout(){
+    token=''; sessionStorage.removeItem('gs_admin_token');
+    $('app').classList.add('hide'); $('login').classList.remove('hide');
+    clearInterval(statusTimer); clearInterval(logTimer);
+  }
+  function enterApp(){
+    $('login').classList.add('hide'); $('app').classList.remove('hide');
+    loadConfig(); refreshStatus();
+    statusTimer = setInterval(refreshStatus, 5000);
+    logTimer = setInterval(loadLogs, 5000);
+  }
+
+  /* ---------- 状态 ---------- */
+  function refreshStatus(){
+    api('/api/status').then(function(j){
+      if(!j.ok) return;
+      var ip = j.ipv6 || {}, d = j.ddns || {}, s = j.server || {};
+      var dot=$('ipDot'), title=$('ipTitle'), addr=$('ipAddr');
+      if(ip.address){
+        dot.className='dot ok'; title.textContent='当前公网 IPv6（来源：'+(ip.source||'?')+'）'; addr.textContent=ip.address;
+      }else if(ip.probing){
+        dot.className='dot'; title.textContent='正在检测公网 IPv6…'; addr.textContent='首次探测外部服务可能需要几秒';
+      }else{
+        dot.className='dot err'; title.textContent='未检测到公网 IPv6'; addr.textContent='请确认已分配 IPv6，或在下方手动指定地址';
+      }
+      var tags=[];
+      if(ip.external) tags.push(['外部探测 '+ip.external.slice(0,20)+'…','cyan']);
+      tags.push(['网卡候选 '+(ip.candidates?ip.candidates.length:0),'']);
+      $('ipTags').innerHTML = tags.map(function(t){return '<span class="tag '+t[1]+'">'+t[0]+'</span>'}).join('');
+      $('stDomain').textContent = d.fullDomain || '—';
+      $('stDdns').textContent = d.enabled ? (d.running?'运行中（每'+d.intervalMin+'分钟）':'已开启') : '已停止';
+      $('stDdns').style.color = d.enabled ? 'var(--mint)' : 'var(--txt-3)';
+      $('stLast').textContent = d.lastResult ? fmtTime(d.lastUpdate)+' · '+d.lastResult : '—';
+      $('stPort').textContent = s.webPort + ' · ' + (s.platform||'');
+      // 候选列表
+      var html='';
+      (ip.candidates||[]).forEach(function(c){
+        var cur = c.address===ip.address;
+        html += '<div class="item">'+esc(c.address)+'<span class="tag amber" style="flex:none">'+esc(c.iface)+'</span>'+(cur?'<span class="pick">● 使用中</span>':'')+'</div>';
+      });
+      $('candWrap').innerHTML = html ? '<div class="muted" style="margin-bottom:6px">本机网卡 IPv6：</div>'+html : '';
+    }).catch(function(){});
+  }
+
+  /* ---------- 配置 ---------- */
+  function loadConfig(){
+    api('/api/config').then(function(j){
+      if(!j.ok) return;
+      var c = j.config, d = c.ddns || {}, ip = c.ipv6 || {};
+      $('provider').value = d.provider;
+      $('domain').value = d.domain==='example.com'?'':d.domain;
+      $('sub').value = d.sub;
+      $('intervalMin').value = d.intervalMin;
+      $('ttl').value = d.ttl;
+      $('cfProxy').checked = !!d.cfProxy;
+      $('ddnsEnabled').checked = !!d.enabled;
+      $('cfToken').value=''; $('dpId').value=''; $('dpToken').value='';
+      $('webPort').value = c.webPort;
+      $('bindHost').value = c.bindHost || '::';
+      $('ipMode').value = ip.mode || 'auto';
+      $('manualAddr').value = ip.manualAddress || '';
+      toggleProvider(); toggleManual(); updatePreview();
+    }).catch(function(){});
+  }
+  function toggleProvider(){
+    var cf = $('provider').value==='cloudflare';
+    $('cfFields').classList.toggle('hide', !cf);
+    $('dpFields').classList.toggle('hide', cf);
+  }
+  function toggleManual(){ $('manualWrap').classList.toggle('hide', $('ipMode').value!=='manual'); }
+  function updatePreview(){
+    var s=$('sub').value.trim()||'guitar', dm=$('domain').value.trim()||'example.com';
+    $('fullPreview').textContent = (s==='@'?dm:s+'.'+dm);
+  }
+
+  function saveDdns(){
+    var body = {
+      provider:$('provider').value,
+      domain:$('domain').value.trim(),
+      sub:$('sub').value.trim()||'@',
+      intervalMin:Number($('intervalMin').value)||5,
+      ttl:Number($('ttl').value)||120,
+      cfProxy:$('cfProxy').checked,
+      enabled:$('ddnsEnabled').checked
+    };
+    if($('cfToken').value) body.cfToken=$('cfToken').value;
+    if($('dpId').value) body.dpId=$('dpId').value;
+    if($('dpToken').value) body.dpToken=$('dpToken').value;
+    if(!body.domain) return toast('请填写主域名','err');
+    api('/api/config',{method:'PUT',body:JSON.stringify({ddns:body})})
+      .then(function(j){ toast(j.ok?'DDNS 配置已保存':'保存失败', j.ok?'ok':'err'); if(j.ok){ if(body.enabled){/*timer已由后端启动*/} loadConfig(); } });
+  }
+  function saveServer(){
+    var pwd = $('newPwd').value;
+    var body = { webPort:Number($('webPort').value)||8080, bindHost:$('bindHost').value };
+    if(pwd) body.adminPassword=pwd;
+    api('/api/config',{method:'PUT',body:JSON.stringify(body)})
+      .then(function(j){
+        toast(j.ok?'服务设置已保存（端口改动需重启）':'保存失败', j.ok?'ok':'err');
+        $('newPwd').value='';
+      });
+  }
+  function saveIp(){
+    api('/api/config',{method:'PUT',body:JSON.stringify({ipv6:{mode:$('ipMode').value, manualAddress:$('manualAddr').value.trim()}})})
+      .then(function(j){ toast(j.ok?'IPv6 取值方式已保存':'保存失败', j.ok?'ok':'err'); if(j.ok) refreshStatus(); });
+  }
+
+  /* ---------- 动作 ---------- */
+  function runNow(){
+    var b=$('runBtn'); b.disabled=true; b.textContent='同步中…';
+    api('/api/ddns/run',{method:'POST'})
+      .then(function(j){ toast(j.msg||(j.ok?'完成':'失败'), j.ok?'ok':'err'); refreshStatus(); loadLogs(); })
+      .catch(function(e){ toast(e.message||'失败','err'); })
+      .finally(function(){ b.disabled=false; b.textContent='⬆ 立即同步域名'; });
+  }
+
+  /* ---------- 日志 ---------- */
+  function loadLogs(){
+    api('/api/logs?since='+lastLogTs).then(function(j){
+      if(!j.ok) return;
+      var el=$('log');
+      (j.logs||[]).forEach(function(l){
+        lastLogTs = Math.max(lastLogTs, l.ts);
+        var div=document.createElement('div');
+        div.className='l-'+(l.level==='ok'?'ok':l.level);
+        div.textContent = new Date(l.ts).toLocaleTimeString('zh-CN',{hour12:false})+' '+l.msg;
+        el.appendChild(div);
+      });
+      while(el.childNodes.length>300) el.removeChild(el.firstChild);
+      el.scrollTop=el.scrollHeight;
+    }).catch(function(){});
+  }
+
+  /* ---------- 事件 ---------- */
+  $('loginBtn').addEventListener('click', doLogin);
+  $('loginPwd').addEventListener('keydown',function(e){ if(e.key==='Enter') doLogin(); });
+  $('logoutBtn').addEventListener('click', doLogout);
+  $('provider').addEventListener('change', toggleProvider);
+  $('ipMode').addEventListener('change', toggleManual);
+  $('domain').addEventListener('input', updatePreview);
+  $('sub').addEventListener('input', updatePreview);
+  $('saveDdnsBtn').addEventListener('click', saveDdns);
+  $('saveSrvBtn').addEventListener('click', saveServer);
+  $('saveIpBtn').addEventListener('click', saveIp);
+  $('refreshBtn').addEventListener('click', function(){
+    api('/api/refresh-ip',{method:'POST'}).then(function(){
+      toast('已开始重新检测，稍后自动刷新');
+      $('ipTitle').textContent='正在重新检测公网 IPv6…';
+      setTimeout(refreshStatus, 2000);
+      setTimeout(refreshStatus, 5500);
+    });
+  });
+  $('runBtn').addEventListener('click', runNow);
+  $('clearLogBtn').addEventListener('click', function(){ $('log').innerHTML=''; });
+  $('ddnsEnabled').addEventListener('change', function(){
+    var on=this.checked;
+    api(on?'/api/ddns/start':'/api/ddns/stop',{method:'POST'})
+      .then(function(j){ toast(on?'已开启并立即同步一次':'已停止自动 DDNS', 'ok'); refreshStatus(); loadLogs(); })
+      .catch(function(){ /* ignore */ });
+  });
+
+  /* 已登录则直接进入 */
+  if(token){
+    api('/api/status').then(function(j){ if(j.ok) enterApp(); else doLogout(); }).catch(function(){ doLogout(); });
+  }
+})();
+</script>
+</body>
+</html>
