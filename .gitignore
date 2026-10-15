@@ -1,5 +1,15 @@
 _shots/
-_shots/
 *.log
 Thumbs.db
 .DS_Store
+
+# 运行时配置（含管理员密码与 DDNS 凭证，禁止入库）
+config.json
+
+# 依赖与 Windows 便携 Nginx（部署脚本自动生成/下载）
+node_modules/
+nginx-bin/
+*.pid
+
+# 旧单文件备份
+guitar-studio.single-file-backup.html
