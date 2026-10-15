@@ -401,6 +401,269 @@ const Fret = {
 onRouteEnter.fret=()=>Fret.init();
 
 /* ============================================================
+   模块 8：音阶练习（指板高亮 + 跟听示范 + 麦克风逐音跟弹）
+   ============================================================ */
+const SCALE_TYPES = {
+  major:     {name:'大调',     iv:[0,2,4,5,7,9,11]},
+  minor:     {name:'自然小调', iv:[0,2,3,5,7,8,10]},
+  majorPent: {name:'大调五声', iv:[0,2,4,7,9]},
+  minorPent: {name:'小调五声', iv:[0,3,5,7,10]},
+  blues:     {name:'布鲁斯',   iv:[0,3,5,6,7,10]},
+  dorian:    {name:'多利亚',   iv:[0,2,3,5,7,9,10]}
+};
+const SCALE_LIST = [
+  {root:'C',type:'major',pos:0},
+  {root:'G',type:'major',pos:0},
+  {root:'D',type:'major',pos:0},
+  {root:'A',type:'minor',pos:0},
+  {root:'E',type:'minor',pos:0},
+  {root:'C',type:'majorPent',pos:0},
+  {root:'A',type:'minorPent',pos:0},
+  {root:'A',type:'blues',pos:0},
+  {root:'A',type:'minorPent',pos:5},
+  {root:'E',type:'minorPent',pos:5},
+  {root:'G',type:'major',pos:5},
+  {root:'A',type:'dorian',pos:5}
+];
+const Scale = {
+  sel:0, mode:'idle', seq:[], cells:[], fMin:0, fMax:4, rootPc:0,
+  i:0, combo:0, ok:0, bestCombo:0,
+  mic:false, timer:null, cand:null, candN:0, cooldown:0, bpm:80,
+  init(){
+    if(this.inited) return; this.inited=true;
+    $('#scxList').innerHTML = SCALE_LIST.map((s,idx)=>{
+      const t=SCALE_TYPES[s.type];
+      const posName=s.pos===0?'开放把位':'第 '+s.pos+' 把位';
+      return `<button class="scx-pick ${idx===0?'on':''}" data-i="${idx}">
+        <b>${s.root} ${t.name}</b><span>${posName}</span></button>`;
+    }).join('');
+    $('#scxList').onclick=e=>{
+      const b=e.target.closest('.scx-pick'); if(!b)return;
+      this.stopAll();
+      $$('#scxList .scx-pick').forEach(x=>x.classList.toggle('on',x===b));
+      this.sel=+b.dataset.i;
+      this.build();
+    };
+    const sr=$('#scxBpm');
+    const paint=v=>{ sr.style.setProperty('--fill',(v-50)/130*100+'%'); };
+    paint(80);
+    sr.oninput=()=>{ this.bpm=+sr.value; $('#scxBpmVal').textContent=this.bpm+' BPM'; paint(this.bpm); };
+    $('#scxListen').onclick=()=>{ if(this.mode==='listen') this.stopListen(); else this.startListen(); };
+    $('#scxFollow').onclick=()=>{ if(this.mode==='follow') this.stopFollow(); else this.startFollow(); };
+    this.build();
+  },
+  cur(){ return SCALE_LIST[this.sel]; },
+  /* 依据根音/音阶/把位，生成指板格子与往返练习序列 */
+  build(){
+    const sel=this.cur(), t=SCALE_TYPES[sel.type];
+    const rootPc=NOTE_NAMES.indexOf(sel.root);
+    const pcSet=t.iv.map(v=>(rootPc+v)%12);
+    const fMin=sel.pos===0?0:sel.pos;
+    const fMax=sel.pos===0?4:sel.pos+3;
+    const cells=[];
+    for(let s=0;s<6;s++){
+      for(let f=fMin;f<=fMax;f++){
+        const midi=OPEN_MIDI[s]+f, pc=((midi%12)+12)%12;
+        if(pcSet.includes(pc)) cells.push({s,f,midi,pc,root:pc===rootPc});
+      }
+    }
+    // 上行路径：6弦(s=0)→1弦(s=5)，同弦按品位升序
+    const path=[...cells].sort((a,b)=>a.s-b.s||a.f-b.f);
+    let start=path.findIndex(c=>c.root);
+    if(start<0) start=0;
+    const up=[];
+    path.slice(start).forEach(c=>{
+      const last=up[up.length-1];
+      if(!last||last.midi!==c.midi) up.push(c); // 相邻弦同音去重
+    });
+    const down=up.slice(0,-1).reverse();
+    this.seq=up.concat(down);
+    this.cells=cells; this.fMin=fMin; this.fMax=fMax;
+    this.rootPc=rootPc; this.pcSet=pcSet;
+    // 组成音（按音阶顺序）
+    const ordered=t.iv.map(v=>NOTE_NAMES[(rootPc+v)%12]);
+    $('#scxNotes').innerHTML=
+      `<span class="scx-nt-label">${sel.root} ${t.name} · </span>`+
+      ordered.map((n,k)=>`<span class="scx-nt ${k===0?'root':''}">${n}</span>`).join('');
+    this.renderBoard();
+    this.resetStage();
+  },
+  dot(c){
+    return `<span class="scx-dot ${c.root?'is-root':''}"><i>${noteNameNoOct(c.midi)}</i></span>`;
+  },
+  renderBoard(){
+    const frets=[];
+    for(let f=(this.fMin===0?1:this.fMin);f<=this.fMax;f++) frets.push(f);
+    let html='';
+    for(let s=5;s>=0;s--){
+      html+='<div class="scx-row">';
+      const openCell=this.fMin===0?this.cells.find(c=>c.s===s&&c.f===0):null;
+      html+=`<div class="scx-open" data-s="${s}" data-f="0">`;
+      if(openCell){
+        html+=this.dot(openCell)+`<small class="fnum-s">${6-s}弦</small>`;
+      }else{
+        html+=`<span class="str-lbl">${noteNameNoOct(OPEN_MIDI[s])}<small>${6-s}弦</small></span>`;
+      }
+      html+='</div>';
+      for(const f of frets){
+        const cell=this.cells.find(c=>c.s===s&&c.f===f);
+        html+=`<div class="scx-cell" data-s="${s}" data-f="${f}">${cell?this.dot(cell):''}</div>`;
+      }
+      html+='</div>';
+    }
+    $('#scxBoard').innerHTML=html;
+    $('#scxFretNums').innerHTML='<span></span>'+frets.map(f=>`<span>${f}</span>`).join('');
+  },
+  cellEl(c){
+    if(c.f===0) return $(`.scx-open[data-s="${c.s}"]`);
+    return $(`.scx-cell[data-s="${c.s}"][data-f="${c.f}"]`);
+  },
+  clearAll(){ $$('.scx-cell,.scx-open').forEach(e=>e.classList.remove('now','done')); },
+  clearNow(){ $$('.now').forEach(e=>e.classList.remove('now')); },
+  markNow(c){
+    this.clearNow();
+    const el=this.cellEl(c); if(el) el.classList.add('now');
+    el&&el.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});
+  },
+  markDone(c){
+    const el=this.cellEl(c);
+    if(el){ el.classList.remove('now'); el.classList.add('done'); }
+  },
+  resetStage(){
+    this.stopAll();
+    this.i=0; this.combo=0; this.ok=0; this.bestCombo=0;
+    this.clearAll();
+    $('#scxCur').textContent='准备好了吗';
+    $('#scxPos').textContent='';
+    $('#scxProg').textContent='';
+    $('#scxCombo').textContent='';
+    $('#scxTip').textContent='先在上方选择音阶，点“跟听示范”听一遍，或开麦克风“跟弹”逐音练习';
+    this.updateButtons();
+  },
+  posText(c){ return (6-c.s)+'弦 · '+(c.f===0?'空弦':c.f+'品'); },
+  /* ---- 跟听示范（BPM 逐音，上行再下行） ---- */
+  startListen(){
+    AudioEngine.ensure();
+    this.stopFollow();
+    this.mode='listen';
+    this.i=0; this.clearAll();
+    $('#scxTip').textContent='跟听示范，注意每个音在指板上的位置';
+    this.updateButtons();
+    this.listenStep();
+  },
+  listenStep(){
+    if(this.mode!=='listen') return;
+    if(this.i>=this.seq.length){ this.finishListen(); return; }
+    const c=this.seq[this.i];
+    AudioEngine.pluck(freqFromMidi(c.midi),0,1.7,.3);
+    this.markNow(c);
+    $('#scxCur').textContent=noteNameNoOct(c.midi);
+    $('#scxPos').textContent=this.posText(c);
+    $('#scxProg').textContent=(this.i+1)+'/'+this.seq.length;
+    this.i++;
+    this.timer=setTimeout(()=>this.listenStep(), 60/this.bpm*1000);
+  },
+  stopListen(){
+    this.mode='idle';
+    clearTimeout(this.timer);
+    this.clearNow();
+    this.updateButtons();
+  },
+  finishListen(){
+    this.mode='idle';
+    clearTimeout(this.timer);
+    this.clearNow();
+    $('#scxCur').textContent='示范完成';
+    $('#scxPos').textContent='';
+    $('#scxTip').textContent='轮到你了：点“开始跟弹”，照着高亮位置逐音弹';
+    this.updateButtons();
+  },
+  /* ---- 麦克风逐音跟弹 ---- */
+  async startFollow(){
+    AudioEngine.ensure();
+    this.stopListen();
+    if(!this.mic){
+      const btn=$('#scxFollow');
+      btn.innerHTML='<span class="dots"><i></i><i></i><i></i></span>';
+      const ok=await Mic.start(r=>this.onPitch(r));
+      this.mic=ok;
+      if(!ok){ this.updateButtons(); return; }
+    }
+    this.mode='follow';
+    this.i=0; this.combo=0; this.ok=0; this.bestCombo=0;
+    this.clearAll();
+    $('#scxTip').textContent='照指板高亮的位置拨响当前音，逐音上行再下行';
+    $('#scxCombo').textContent='0';
+    this.updateButtons();
+    this.showTarget();
+  },
+  showTarget(){
+    const c=this.seq[this.i];
+    $('#scxCur').textContent=noteNameNoOct(c.midi);
+    $('#scxPos').textContent=this.posText(c);
+    $('#scxProg').textContent=(this.i+1)+'/'+this.seq.length;
+    this.markNow(c);
+  },
+  onPitch(r){
+    if(this.mode!=='follow') return;
+    if(performance.now()<this.cooldown) return;
+    const c=this.seq[this.i];
+    if(!c || !r.freq){ this.cand=null; return; }
+    const diff=midiFromFreq(r.freq)-c.midi;
+    if(Math.abs(diff)<0.6){
+      if(this.cand===this.i) this.candN++;
+      else { this.cand=this.i; this.candN=1; }
+      if(this.candN>=2){ this.cand=null; this.candN=0; this.advance(); }
+    }else{
+      this.cand=null;
+    }
+  },
+  advance(){
+    const c=this.seq[this.i];
+    AudioEngine.pluck(freqFromMidi(c.midi),0,0.9,.15);
+    this.markDone(c);
+    this.ok++; this.combo++;
+    this.bestCombo=Math.max(this.bestCombo,this.combo);
+    $('#scxCombo').textContent=this.combo;
+    this.i++;
+    this.cooldown=performance.now()+420; // 等余音衰减，避免连判
+    if(this.i>=this.seq.length){ this.finishFollow(); return; }
+    setTimeout(()=>{ if(this.mode==='follow' && this.i<this.seq.length) this.showTarget(); }, 320);
+  },
+  finishFollow(){
+    this.mode='idle';
+    this.stopMic();
+    this.clearNow();
+    $('#scxCur').textContent='完成！';
+    $('#scxPos').textContent='共弹对 '+this.ok+' 个音';
+    $('#scxTip').textContent='最高连击 '+this.bestCombo+'，提高速度或换个音阶继续';
+    this.updateButtons();
+    toast('音阶练习完成，最高连击 '+this.bestCombo,'ok');
+  },
+  stopFollow(){
+    if(this.mode==='follow'){ this.stopMic(); }
+    this.mode='idle';
+    this.updateButtons();
+  },
+  stopMic(){ if(this.mic){ Mic.stop(); this.mic=false; } },
+  stopAll(){
+    clearTimeout(this.timer);
+    this.stopMic();
+    this.mode='idle';
+  },
+  updateButtons(){
+    const lb=$('#scxListen'), fb=$('#scxFollow');
+    if(!lb||!fb) return;
+    lb.textContent=this.mode==='listen'?'停止示范':'跟听示范';
+    lb.classList.toggle('btn-danger',this.mode==='listen');
+    fb.textContent=this.mode==='follow'?'停止跟弹':'开始跟弹（麦克风）';
+    fb.classList.toggle('btn-danger',this.mode==='follow');
+    fb.classList.toggle('btn-primary',this.mode!=='follow');
+  }
+};
+onRouteEnter.scale=()=>Scale.init();
+
+/* ============================================================
    模块 7：录音棚（MediaRecorder，本地保存）
    ============================================================ */
 const Studio = {
@@ -503,6 +766,7 @@ function cleanupModules(){
   if(typeof Metro!=='undefined' && Metro.playing) Metro.stop();
   if(typeof Tuner!=='undefined' && Tuner.active) Tuner.toggle();
   if(typeof Game!=='undefined' && Game.mic) Game.quit();
+  if(typeof Scale!=='undefined' && Scale.mode!=='idle') Scale.stopAll();
   if(typeof ChordLib!=='undefined') ChordLib.stopProg();
   if(typeof Studio!=='undefined' && Studio.rec && Studio.rec.state==='recording') Studio.stop();
 }
