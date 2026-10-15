@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0b14">
+<title>六弦工坊 · AI 吉他练习室</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0b14'/%3E%3Cpath d='M21 4a3 3 0 0 0-3 3v9.2a5.5 5.5 0 1 0 3 0V11h3V8h-3V7a3 3 0 0 0 0-3z' fill='%23ffb454'/%3E%3Ccircle cx='15' cy='23' r='1.6' fill='%230a0b14'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* ============================================================
+   六弦工坊 · 设计令牌
+   夜间排练室主题：深色舞台 + 琥珀金（木吉他） + 霓虹青（准音）
+   ============================================================ */
+:root{
+  --bg:#0a0b14;
+  --bg-2:#0f1120;
+  --card:#151829;
+  --card-2:#1b1f33;
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.16);
+  --txt:#eef0fa;
+  --txt-2:#9aa0bd;
+  --txt-3:#5f6584;
+  --amber:#ffb454;
+  --amber-deep:#f59136;
+  --mint:#2ee6a8;
+  --cyan:#41d9ff;
+  --blue:#4d9fff;
+  --red:#ff5d73;
+  --violet:#8b7cf6;
+  --grad-amber:linear-gradient(135deg,#ffd27a 0%,#ffb454 45%,#f5863f 100%);
+  --grad-mint:linear-gradient(135deg,#5ff5c2 0%,#2ee6a8 50%,#12b986 100%);
+  --shadow-amber:0 6px 24px -6px rgba(255,180,84,.55), 0 0 0 1px rgba(255,180,84,.25) inset;
+  --shadow-mint:0 6px 24px -6px rgba(46,230,168,.5), 0 0 0 1px rgba(46,230,168,.25) inset;
+  --radius:18px;
+  --radius-sm:12px;
+  --font-display:'Space Grotesk','PingFang SC','Microsoft YaHei',sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono',ui-monospace,monospace;
+  --font-body:'PingFang SC','Microsoft YaHei','Space Grotesk',sans-serif;
+  --tabbar-h:64px;
+  --sidebar-w:232px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--txt);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer}
+input,select{font-family:inherit}
+::selection{background:rgba(255,180,84,.35)}
+/* 背景氛围层 */
+.stage-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.stage-bg::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(620px 420px at 12% -8%,rgba(139,124,246,.18),transparent 60%),
+    radial-gradient(700px 480px at 100% 0%,rgba(65,217,255,.12),transparent 55%),
+    radial-gradient(700px 600px at 50% 115%,rgba(255,180,84,.10),transparent 60%);
+}
+.stage-bg::after{
+  content:"";position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:44px 44px;
+  mask-image:radial-gradient(circle at 50% 30%,#000 0%,transparent 75%);
+}
+/* ============================================================
+   布局
+   ============================================================ */
+.app{position:relative;z-index:1;display:flex;height:100%}
+/* 桌面侧边栏 */
+.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;height:100%;
+  display:flex;flex-direction:column;gap:6px;padding:22px 14px;
+  background:linear-gradient(180deg,rgba(21,24,41,.92),rgba(15,17,32,.92));
+  border-right:1px solid var(--line);
+  backdrop-filter:blur(18px);
+}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 10px 18px}
+.brand-logo{
+  width:40px;height:40px;border-radius:12px;flex-shrink:0;
+  background:var(--grad-amber);
+  display:grid;place-items:center;
+  box-shadow:0 8px 20px -6px rgba(255,180,84,.6);
+}
+.brand-logo svg{width:23px;height:23px}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:.5px;line-height:1.15}
+.brand-name small{display:block;font-size:10.5px;font-weight:500;color:var(--txt-3);letter-spacing:2.5px;margin-top:2px}
+.nav{display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.nav-item{
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:11px 13px;border-radius:13px;
+  color:var(--txt-2);font-size:14.5px;font-weight:500;
+  transition:transform .18s cubic-bezier(.22,1,.36,1),background .18s,color .18s,box-shadow .18s;
+  position:relative;
+}
+.nav-item svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.9}
+.nav-item:hover{background:rgba(255,255,255,.05);color:var(--txt);transform:translateX(3px)}
+.nav-item.active{
+  color:#1a1206;background:var(--grad-amber);
+  box-shadow:0 8px 22px -8px rgba(255,180,84,.65);
+  font-weight:600;
+}
+.nav-item.active svg{filter:none}
+.nav-item .nav-dot{
+  margin-left:auto;width:7px;height:7px;border-radius:50%;
+  background:var(--mint);box-shadow:0 0 10px var(--mint);
+  display:none;
+}
+.nav-group-label{font-size:10.5px;letter-spacing:2px;color:var(--txt-3);padding:14px 13px 6px;font-family:var(--font-display)}
+.sidebar-foot{margin-top:auto;padding:12px 13px 4px;font-size:11px;color:var(--txt-3);line-height:1.7;border-top:1px solid var(--line)}
+/* 主内容 */
+.main{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;position:relative}
+.topbar{
+  height:58px;flex-shrink:0;display:none;align-items:center;gap:12px;
+  padding:0 18px;padding-top:env(safe-area-inset-top);
+  border-bottom:1px solid var(--line);
+  background:rgba(10,11,20,.82);backdrop-filter:blur(16px);
+}
+.topbar-title{font-family:var(--font-display);font-weight:700;font-size:17px}
+.views{flex:1;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth}
+.view{display:none;max-width:1080px;margin:0 auto;padding:30px 34px 50px;animation:viewIn .38s cubic-bezier(.22,1,.36,1)}
+.view.active{display:block}
+@keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* 移动端底部 tabbar */
+.tabbar{
+  display:none;flex-shrink:0;
+  height:calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  border-top:1px solid var(--line);
+  background:rgba(12,14,26,.9);backdrop-filter:blur(20px);
+}
+.tabbar-inner{display:flex;height:var(--tabbar-h)}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--txt-3);font-size:10.5px;font-weight:500;
+  transition:color .2s;position:relative;
+}
+.tab svg{width:22px;height:22px;stroke-width:1.9;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.tab.active{color:var(--amber)}
+.tab.active svg{transform:translateY(-2px) scale(1.08);filter:drop-shadow(0 3px 8px rgba(255,180,84,.6))}
+.tab.active::before{
+  content:"";position:absolute;top:0;width:26px;height:3px;border-radius:0 0 3px 3px;
+  background:var(--grad-amber);box-shadow:0 0 12px var(--amber);
+}
+/* ============================================================
+   通用组件
+   ============================================================ */
+.view-head{margin-bottom:24px}
+.view-title{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:12px}
+.view-title .title-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(255,180,84,.12);border:1px solid rgba(255,180,84,.25)}
+.view-title .title-icon svg{width:21px;height:21px;stroke:var(--amber)}
+.view-sub{color:var(--txt-2);font-size:13.5px;margin-top:7px;line-height:1.65;padding-left:1px}
+.card{
+  background:linear-gradient(160deg,var(--card),var(--bg-2));
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:22px;
+  position:relative;
+}
+.card + .card{margin-top:16px}
+.glass{background:rgba(255,255,255,.045);border:1px solid var(--line-strong);backdrop-filter:blur(14px)}
+.grid{display:grid;gap:14px}
+/* 按钮：uiverse 风格发光主按钮 */
+.btn{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:13px 24px;border-radius:14px;
+  font-size:14.5px;font-weight:600;letter-spacing:.5px;
+  background:var(--card-2);color:var(--txt);
+  border:1px solid var(--line-strong);
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .2s,background .2s;
+  user-select:none;min-height:46px;
+}
+.btn svg{width:18px;height:18px;stroke-width:2}
+.btn:active{transform:scale(.95)}
+.btn:hover{border-color:rgba(255,255,255,.3)}
+.btn-primary{
+  background:var(--grad-amber);color:#1a1206;border:none;
+  box-shadow:0 10px 26px -8px rgba(255,180,84,.6), 0 0 0 1px rgba(255,200,120,.4) inset;
+}
+.btn-primary:hover{box-shadow:0 14px 34px -8px rgba(255,180,84,.75), 0 0 0 1px rgba(255,200,120,.6) inset}
+.btn-primary:active{box-shadow:0 5px 14px -6px rgba(255,180,84,.7)}
+.btn-mint{background:var(--grad-mint);color:#052018;border:none;box-shadow:var(--shadow-mint)}
+.btn-ghost{background:rgba(255,255,255,.04)}
+.btn-danger{background:linear-gradient(135deg,#ff7d8e,#ff5d73);color:#2a070d;border:none;box-shadow:0 8px 22px -8px rgba(255,93,115,.6)}
+.btn-block{width:100%}
+.btn-sm{padding:8px 15px;min-height:36px;font-size:13px;border-radius:11px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+/* 圆形图标大按钮 */
+.btn-round{
+  width:76px;height:76px;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--grad-amber);color:#1a1206;
+  box-shadow:0 14px 36px -10px rgba(255,180,84,.7), 0 0 0 6px rgba(255,180,84,.12), 0 0 0 2px rgba(255,200,120,.5) inset;
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1);
+}
+.btn-round:active{transform:scale(.92)}
+.btn-round svg{width:32px;height:32px}
+.btn-round.recording{background:linear-gradient(135deg,#ff7d8e,#ff5d73);color:#2a070d;box-shadow:0 14px 36px -10px rgba(255,93,115,.7), 0 0 0 6px rgba(255,93,115,.14);animation:pulseRec 1.4s ease-in-out infinite}
+@keyframes pulseRec{0%,100%{box-shadow:0 14px 36px -10px rgba(255,93,115,.7), 0 0 0 6px rgba(255,93,115,.12)}50%{box-shadow:0 14px 36px -10px rgba(255,93,115,.9), 0 0 0 14px rgba(255,93,115,.05)}}
+/* 分段选择器 */
+.seg{display:inline-flex;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:4px;gap:2px;flex-wrap:wrap}
+.seg button{
+  padding:8px 15px;border-radius:9px;font-size:13px;font-weight:500;color:var(--txt-2);
+  transition:all .18s;min-height:36px;
+}
+.seg button.on{background:var(--card-2);color:var(--amber);box-shadow:0 2px 10px rgba(0,0,0,.35), 0 0 0 1px rgba(255,180,84,.3);font-weight:600}
+/* 数字显示 */
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+/* 滑块 */
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;
+  background:linear-gradient(90deg,var(--amber) var(--fill,50%),rgba(255,255,255,.1) var(--fill,50%));
+  outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:#fff;border:3px solid var(--amber);
+  box-shadow:0 3px 10px rgba(255,180,84,.6);cursor:pointer;
+  transition:transform .15s;
+}
+input[type=range]::-webkit-slider-thumb:active{transform:scale(1.2)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--amber);box-shadow:0 3px 10px rgba(255,180,84,.6);cursor:pointer}
+/* 标签 */
+.tag{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:99px;font-size:11.5px;font-weight:600;letter-spacing:.5px}
+.tag-amber{background:rgba(255,180,84,.13);color:var(--amber);border:1px solid rgba(255,180,84,.3)}
+.tag-mint{background:rgba(46,230,168,.12);color:var(--mint);border:1px solid rgba(46,230,168,.3)}
+.tag-violet{background:rgba(139,124,246,.14);color:var(--violet);border:1px solid rgba(139,124,246,.32)}
+/* toast */
+.toast-wrap{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:88vw}
+.toast{
+  background:rgba(24,27,46,.96);border:1px solid var(--line-strong);
+  padding:11px 20px;border-radius:13px;font-size:13.5px;color:var(--txt);
+  box-shadow:0 14px 40px rgba(0,0,0,.5);
+  display:flex;align-items:center;gap:9px;
+  animation:toastIn .3s cubic-bezier(.22,1,.36,1);
+  backdrop-filter:blur(12px);
+}
+.toast svg{width:17px;height:17px;flex-shrink:0}
+.toast.out{animation:toastOut .3s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateY(14px) scale(.95)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-8px)}}
+/* 开关 */
+.switch{position:relative;width:48px;height:28px;flex-shrink:0}
+.switch input{opacity:0;width:100%;height:100%;cursor:pointer;position:relative;z-index:1}
+.switch .track{position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:99px;transition:.25s}
+.switch .thumb{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.25s cubic-bezier(.34,1.56,.64,1);box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.switch input:checked + .track{background:var(--mint)}
+.switch input:checked + .track + .thumb{left:23px}
+/* 加载点 */
+.dots{display:inline-flex;gap:5px}
+.dots i{width:7px;height:7px;border-radius:50%;background:currentColor;animation:dots 1s ease-in-out infinite}
+.dots i:nth-child(2){animation-delay:.15s}
+.dots i:nth-child(3){animation-delay:.3}
+@keyframes dots{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-5px);opacity:1}}
+/* 空态/提示 */
+.hint{font-size:12.5px;color:var(--txt-3);line-height:1.7}
+.hint b{color:var(--txt-2);font-weight:600}
+.mic-note{font-size:11.5px;color:var(--txt-3);margin-top:10px;text-align:center;line-height:1.6}
+.mic-note.warn{color:var(--amber)}
+/* 首页 */
+.hero{
+  border-radius:24px;padding:34px 32px;position:relative;overflow:hidden;
+  background:
+    radial-gradient(500px 260px at 88% -20%,rgba(255,180,84,.22),transparent 60%),
+    linear-gradient(150deg,#1c1f36 0%,#12142a 60%,#0e1020 100%);
+  border:1px solid var(--line-strong);
+}
+.hero h1{font-family:var(--font-display);font-size:34px;font-weight:700;line-height:1.2;letter-spacing:.5px}
+.hero h1 em{font-style:normal;background:var(--grad-amber);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--txt-2);font-size:14px;margin-top:12px;line-height:1.75;max-width:560px}
+.hero-deco{position:absolute;right:-30px;bottom:-46px;opacity:.5;pointer-events:none}
+.hero-tags{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.tool-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+.tool-card{
+  position:relative;border-radius:18px;padding:20px;
+  width:100%;text-align:left;font:inherit;
+  background:linear-gradient(160deg,var(--card),var(--bg-2));
+  border:1px solid var(--line);
+  overflow:hidden;cursor:pointer;
+  transition:transform .25s cubic-bezier(.22,1,.36,1),border-color .25s,box-shadow .25s;
+  min-height:150px;display:flex;flex-direction:column;
+}
+.tool-card:hover{transform:translateY(-5px);border-color:rgba(255,180,84,.4);box-shadow:0 18px 40px -18px rgba(255,180,84,.35)}
+.tool-card:active{transform:translateY(-2px) scale(.99)}
+.tool-card .tc-icon{
+  width:44px;height:44px;border-radius:13px;display:grid;place-items:center;margin-bottom:14px;
+  transition:transform .25s;
+}
+.tool-card:hover .tc-icon{transform:scale(1.1) rotate(-4deg)}
+.tool-card .tc-icon svg{width:23px;height:23px}
+.ic-amber{background:rgba(255,180,84,.14);border:1px solid rgba(255,180,84,.3);color:var(--amber)}
+.ic-mint{background:rgba(46,230,168,.12);border:1px solid rgba(46,230,168,.3);color:var(--mint)}
+.ic-cyan{background:rgba(65,217,255,.12);border:1px solid rgba(65,217,255,.3);color:var(--cyan)}
+.ic-violet{background:rgba(139,124,246,.14);border:1px solid rgba(139,124,246,.32);color:var(--violet)}
+.ic-red{background:rgba(255,93,115,.12);border:1px solid rgba(255,93,115,.3);color:var(--red)}
+.ic-blue{background:rgba(77,159,255,.12);border:1px solid rgba(77,159,255,.3);color:var(--blue)}
+.tool-card h3{font-size:16px;font-weight:600;font-family:var(--font-display)}
+.tool-card p{font-size:12.5px;color:var(--txt-2);margin-top:6px;line-height:1.6}
+.tool-card .tc-mic{position:absolute;top:16px;right:15px}
+.quick-row{display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap}
+/* 占位视图 */
+.view-placeholder{display:none}
+/* ============================================================
+   响应式：手机优先，iPhone 16 Pro 逻辑宽 402px
+   ============================================================ */
+@media (max-width:860px){
+  .sidebar{display:none}
+  .topbar{display:flex}
+  .tabbar{display:block}
+  .view{padding:18px 16px 90px}
+  .view-head{margin-bottom:16px}
+  .view-title{display:none}
+  .view-sub{margin-top:0}
+  .hero{padding:24px 20px}
+  .hero h1{font-size:25px}
+  .hero-deco{opacity:.28;right:-60px}
+  .tool-grid{grid-template-columns:repeat(2,1fr);gap:11px}
+  .tool-card{min-height:138px;padding:16px}
+  .card{padding:18px 16px}
+}
+@media (max-width:380px){
+  .tool-grid{grid-template-columns:1fr}
+}
+@media (min-width:861px){
+  .views{padding-top:0}
+}
+/* 桌面端更宽时的卡片排版 */
+@media (min-width:1000px){
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .two-col > .card{margin-top:0}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<div class="stage-bg"></div>
+<div class="app">
+  <!-- ============ 桌面侧边栏 ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="#1a1206"><path d="M15.5 2.5A2.6 2.6 0 0 0 13 5v7.1a4.8 4.8 0 1 0 2.6 0V9.3h2.6V7h-2.6V5.1c0-.3.1-.6.2-.8a2.6 2.6 0 0 0-.3-1.8z"/><circle cx="11" cy="19" r="1.4" fill="#ffb454"/></svg>
+      </div>
+      <div class="brand-name">六弦工坊<small>SIX STRING LAB</small></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-route="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>首页<span class="nav-dot"></span>
+      </button>
+      <div class="nav-group-label">练习工具</div>
+      <button class="nav-item" data-route="tuner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M12 3v18"/><path d="M8 21h8"/></svg>调音器
+      </button>
+      <button class="nav-item" data-route="metro">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg>节拍器
+      </button>
+      <button class="nav-item" data-route="game">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/><circle cx="12" cy="14" r="1.6" fill="currentColor"/></svg>和弦闯关
+      </button>
+      <div class="nav-group-label">乐理与素材</div>
+      <button class="nav-item" data-route="chords">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/></svg>和弦库
+      </button>
+      <button class="nav-item" data-route="ear">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/><path d="M9 13a3 3 0 0 0 3 3"/></svg>练耳训练
+      </button>
+      <button class="nav-item" data-route="fret">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="10" cy="18" r="1.4" fill="currentColor"/></svg>指板训练
+      </button>
+      <button class="nav-item" data-route="studio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg>录音棚
+      </button>
+    </nav>
+    <div class="sidebar-foot">
+      所有音频处理均在本地浏览器完成<br>麦克风声音不会上传到任何服务器
+    </div>
+  </aside>
+
+  <!-- ============ 主区域 ============ -->
+  <div class="main">
+    <header class="topbar">
+      <div class="brand-logo" style="width:34px;height:34px;border-radius:10px">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="#1a1206"><path d="M15.5 2.5A2.6 2.6 0 0 0 13 5v7.1a4.8 4.8 0 1 0 2.6 0V9.3h2.6V7h-2.6V5.1c0-.3.1-.6.2-.8a2.6 2.6 0 0 0-.3-1.8z"/></svg>
+      </div>
+      <div class="topbar-title" id="topbarTitle">六弦工坊</div>
+    </header>
+
+    <main class="views" id="views">
+
+      <!-- ===== 视图：首页 ===== -->
+      <section class="view active" id="view-home">
+        <div class="hero">
+          <h1>把整间吉他练习室<br>装进<em>你的浏览器</em></h1>
+          <p>调音、节拍、和弦闯关、练耳、录音——七个模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
+          <div class="hero-tags">
+            <span class="tag tag-amber">麦克风实时识别</span>
+            <span class="tag tag-mint">零延迟节拍器</span>
+            <span class="tag tag-violet">本地运行 · 隐私安全</span>
+          </div>
+          <div class="quick-row">
+            <button class="btn btn-primary" data-route="tuner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg>
+              立即调音
+            </button>
+            <button class="btn" data-route="game">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11V8a6 6 0 0 1 12 0v3"/><rect x="4" y="11" width="16" height="10" rx="3"/></svg>
+              开始和弦闯关
+            </button>
+          </div>
+          <svg class="hero-deco" width="260" height="260" viewBox="0 0 24 24" fill="none" stroke="#ffb454" stroke-width=".6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 2.5A2.6 2.6 0 0 0 13 5v7.1a4.8 4.8 0 1 0 2.6 0V9.3h2.6V7h-2.6V5.1c0-.3.1-.6.2-.8a2.6 2.6 0 0 0-.3-1.8z"/></svg>
+        </div>
+
+        <div class="tool-grid" id="toolGrid">
+          <button type="button" class="tool-card" data-route="tuner">
+            <span class="tag tag-mint tc-mic">麦克风</span>
+            <div class="tc-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg></div>
+            <h3>调音器</h3><p>自相关算法实时识别基频，六弦/半音阶双模式，音分偏差一目了然</p>
+          </button>
+          <button type="button" class="tool-card" data-route="metro">
+            <div class="tc-icon ic-mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg></div>
+            <h3>节拍器</h3><p>40–240 BPM 精准调度，TAP 测速、多种拍号与节拍细分，强弱拍可视化</p>
+          </button>
+          <button type="button" class="tool-card" data-route="game">
+            <span class="tag tag-mint tc-mic">麦克风</span>
+            <div class="tc-icon ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg></div>
+            <h3>和弦闯关</h3><p>听提示、按和弦、对着麦克风拨弦，AI 听音判定，连击计分越练越快</p>
+          </button>
+          <button type="button" class="tool-card" data-route="chords">
+            <div class="tc-icon ic-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/></svg></div>
+            <h3>和弦库</h3><p>常用开放和弦指法图，点卡片即可试听合成扫弦，支持左手模式</p>
+          </button>
+          <button type="button" class="tool-card" data-route="ear">
+            <div class="tc-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/><path d="M9 13a3 3 0 0 0 3 3"/></svg></div>
+            <h3>练耳训练</h3><p>单音、音程、和弦三级听辨，选择题作答即时反馈，建立内心音高感</p>
+          </button>
+          <button type="button" class="tool-card" data-route="fret">
+            <div class="tc-icon ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/></svg></div>
+            <h3>指板训练</h3><p>指板音名图与爬格子引导，点击品位发声，熟悉每一个音的位置</p>
+          </button>
+          <button type="button" class="tool-card" data-route="studio">
+            <div class="tc-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg></div>
+            <h3>录音棚</h3><p>一键录制练习片段，波形回放、对比原速，支持下载保存为音频文件</p>
+          </button>
+          <button type="button" class="tool-card" data-route="metro">
+            <div class="tc-icon ic-mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+            <h3>常用节奏型</h3><p>节拍器内置分解、扫弦常用节奏模板，跟着练不再干巴巴</p>
+          </button>
+          <button type="button" class="tool-card" data-route="chords">
+            <div class="tc-icon ic-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M12 4v16"/><circle cx="12" cy="12" r="9"/></svg></div>
+            <h3>和弦进行</h3><p>卡农、流行四和弦等经典进行循环试听，培养和声进行感</p>
+          </button>
+        </div>
+      </section>
