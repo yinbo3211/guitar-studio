@@ -14,6 +14,19 @@
 | 指板训练 | 0–12 品指板音名图，点击发声；“找音游戏”训练指板记忆 | 否 |
 | 录音棚 | 麦克风录音、回听、下载 WebM/MP4 音频 | 是 |
 
+## 文件结构
+
+页面代码按模块拆成 1 个 HTML + 3 个 JavaScript，它们**必须放在同一个文件夹里，缺一不可**：
+
+- `guitar-studio.html`：页面结构与样式，入口文件
+- `app-1.js`：通用工具 / 路由 / 调音器
+- `app-2.js`：节拍器 / 和弦库
+- `app-3.js`：和弦闯关 / 练耳 / 指板 / 录音
+- `server.ps1`、`启动吉他工具.bat`：Windows 一键本地服务
+- `index.html`：GitHub Pages 根地址自动跳转到 `guitar-studio.html`
+
+拷贝或转发时请把上述文件**整个文件夹一起复制**，不要只单独发送 `guitar-studio.html`，否则会因为找不到 `app-1.js / app-2.js / app-3.js` 而白屏。
+
 ## Windows 10 一键部署（推荐 Microsoft Edge）
 
 1. 把整个文件夹放到任意位置（如 `D:\guitar-studio`）。
@@ -44,6 +57,7 @@
 ## 技术说明
 
 - 纯原生 HTML / CSS / JavaScript，无构建、无前端框架、无后端。
+- JS 用普通 `<script src>` 标签拆分为 `app-1.js / app-2.js / app-3.js` 引用，无需打包，`file://` 双击或经本地服务均可运行（但麦克风功能仍需 localhost 或 HTTPS）。
 - 音频：Web Audio API（OscillatorNode 合成、AnalyserNode 时域采样）。
 - 音高检测：经典自相关算法（autocorrelation with quadratic interpolation），本地实时运行。
 - 录音：MediaRecorder API。
