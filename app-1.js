@@ -33,7 +33,7 @@ function toast(msg, type='info', ms=2200){
 }
 
 /* ---------- 路由 ---------- */
-const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',game:'和弦闯关',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚'};
+const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚'};
 const onRouteEnter = {};
 function go(route){
   location.hash = '#/'+route;
@@ -56,12 +56,13 @@ document.addEventListener('click', e=>{
 /* 移动端更多菜单 */
 const MORE_ROUTES = [
   {r:'chords',label:'和弦库',ic:'<circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/>'},
+  {r:'scale',label:'音阶',ic:'<path d="M4 19h4v-5h4V9h4V4h4"/>'},
   {r:'ear',label:'练耳',ic:'<path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/>'},
   {r:'fret',label:'指板',ic:'<path d="M4 6h16M4 12h16M4 18h16"/>'},
   {r:'studio',label:'录音',ic:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/>'}
 ];
 $('#moreGrid').innerHTML = MORE_ROUTES.map(m=>`
-  <button class="more-item" data-route="${m.r}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);transition:all .2s">
+  <button class="more-item" data-route="${m.r}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);transition:all .2">
     <span style="width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:rgba(255,180,84,.12);color:var(--amber)">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m.ic}</svg>
     </span>
