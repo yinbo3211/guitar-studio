@@ -62,7 +62,7 @@ const MORE_ROUTES = [
   {r:'studio',label:'录音',ic:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/>'}
 ];
 $('#moreGrid').innerHTML = MORE_ROUTES.map(m=>`
-  <button class="more-item" data-route="${m.r}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);transition:all .2">
+  <button class="more-item" data-route="${m.r}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);transition:all .2s">
     <span style="width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:rgba(255,180,84,.12);color:var(--amber)">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m.ic}</svg>
     </span>
