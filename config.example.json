@@ -17,6 +17,8 @@
     "cfToken": "",
     "dpId": "",
     "dpToken": "",
+    "aliId": "",
+    "aliSecret": "",
     "intervalMin": 5
   },
   "lastIPv6": "",
