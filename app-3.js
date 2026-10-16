@@ -462,7 +462,7 @@ const Scale = {
     const fMax=sel.pos===0?4:sel.pos+3;
     const cells=[];
     for(let s=0;s<6;s++){
-      for(let f=fMin;f<=ffMax;f++){
+      for(let f=fMin;f<=fMax;f++){
         const midi=OPEN_MIDI[s]+f, pc=((midi%12)+12)%12;
         if(pcSet.includes(pc)) cells.push({s,f,midi,pc,root:pc===rootPc});
       }
