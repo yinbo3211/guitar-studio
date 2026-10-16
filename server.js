@@ -3,7 +3,7 @@
    - 同时托管吉他网页与后台面板，根路径只返回吉他网页
    - 双栈监听（IPv6 + IPv4），端口可在后台 / 命令行 / 配置文件调配
    - 网卡枚举 + 外部探测双路获取公网 IPv6
-   - 支持 Cloudflare / 腾讯云 DNSPod 的 AAAA 记录动态更新
+   - 支持 Cloudflare / 腾讯云 DNSPod / 阿里云 的 AAAA 记录动态更新
    - Windows / CentOS 通用，也可直接放在 Nginx 之后（/api 反代）
    运行：node server.js [--port=8080]
    ============================================================ */
@@ -32,7 +32,7 @@ const DEFAULT_CONFIG = {
   },
   ddns: {
     enabled: false,
-    provider: 'cloudflare',       // cloudflare | dnspod
+    provider: 'cloudflare',       // cloudflare | dnspod | aliyun
     domain: 'example.com',        // 主域名
     sub: 'guitar',                // 主机记录；@ 表示根域名
     ttl: 120,
@@ -40,6 +40,8 @@ const DEFAULT_CONFIG = {
     cfToken: '',
     dpId: '',                     // DNSPod Token ID
     dpToken: '',                  // DNSPod Token
+    aliId: '',                    // 阿里云 AccessKey ID（建议 RAM 子账号）
+    aliSecret: '',                // 阿里云 AccessKey Secret
     intervalMin: 5
   },
   lastIPv6: '',
@@ -81,6 +83,8 @@ function publicConfig(){
   if(d.cfToken) d.cfToken = '••••••••' + d.cfToken.slice(-4);
   if(d.dpToken) d.dpToken = '••••••••' + d.dpToken.slice(-4);
   if(d.dpId) d.dpId = '••••' + d.dpId.slice(-4);
+  if(d.aliId) d.aliId = '••••' + d.aliId.slice(-4);
+  if(d.aliSecret) d.aliSecret = '••••••••' + d.aliSecret.slice(-4);
   return c;
 }
 
@@ -325,6 +329,55 @@ const DDNS = {
     return records.length ? '已更新' : '已新建';
   },
 
+  /* ---------- 阿里云云解析 DNS（alidns，RPC + HMAC-SHA1 签名） ---------- */
+  _aliPe(s){ // RPC 风格 percentEncode（RFC3986）
+    return encodeURIComponent(String(s))
+      .replace(/\+/g,'%20').replace(/\*/g,'%2A').replace(/%7E/g,'~')
+      .replace(/!/g,'%21').replace(/'/g,'%27').replace(/\(/g,'%28').replace(/\)/g,'%29');
+  },
+  async _aliReq(params){
+    const d = config.ddns;
+    const all = Object.assign({
+      Format:'JSON',
+      Version:'2015-01-09',
+      AccessKeyId:d.aliId,
+      SignatureMethod:'HMAC-SHA1',
+      SignatureVersion:'1.0',
+      SignatureNonce:crypto.randomBytes(16).toString('hex'),
+      Timestamp:new Date().toISOString().replace(/\.\d{3}Z$/,'Z')
+    }, params);
+    const cqs = Object.keys(all).sort().map(k => this._aliPe(k)+'='+this._aliPe(all[k])).join('&');
+    const stringToSign = 'GET&' + this._aliPe('/') + '&' + this._aliPe(cqs);
+    all.Signature = crypto.createHmac('sha1', d.aliSecret + '&').update(stringToSign).digest('base64');
+    const qs = Object.keys(all).map(k => this._aliPe(k)+'='+this._aliPe(all[k])).join('&');
+    const res = await httpRequest('GET', 'https://alidns.aliyuncs.com/?'+qs);
+    return res.json;
+  },
+  async aliyun(ip){
+    const d = config.ddns;
+    if(!d.aliId || !d.aliSecret) throw new Error('缺少阿里云 AccessKey ID / Secret');
+    const sub = (!d.sub || d.sub === '@') ? '@' : d.sub;
+    // 1) 查询该主机记录下的 AAAA
+    const list = await this._aliReq({
+      Action:'DescribeDomainRecords',
+      DomainName:d.domain,
+      PageNumber:1,
+      PageSize:100
+    });
+    if(!list || !list.DomainRecords)
+      throw new Error('阿里云查询失败：' + (list && (list.Message||list.Code) ? (list.Message+' ('+list.Code+')') : '请检查域名与 AccessKey'));
+    const rec = (list.DomainRecords.Record || []).find(r => r.RR === sub && r.Type === 'AAAA');
+    let r;
+    if(rec){
+      r = await this._aliReq({ Action:'UpdateDomainRecord', RecordId:rec.RecordId, RR:sub, Type:'AAAA', Value:ip });
+    }else{
+      r = await this._aliReq({ Action:'AddDomainRecord', DomainName:d.domain, RR:sub, Type:'AAAA', Value:ip });
+    }
+    if(!r || !r.RecordId)
+      throw new Error('阿里云写入失败：' + (r && (r.Message||r.Code) ? (r.Message+' ('+r.Code+')') : '未知错误'));
+    return rec ? '已更新' : '已新建';
+  },
+
   /* 执行一次 DDNS 同步 */
   async run(){
     const d = config.ddns;
@@ -344,7 +397,9 @@ const DDNS = {
       return { ok:true, msg:'IP 未变化，无需更新', detect: det, changed:false };
     }
     try{
-      const action = d.provider === 'dnspod' ? await this.dnspod(det.address) : await this.cloudflare(det.address);
+      const action = d.provider === 'dnspod' ? await this.dnspod(det.address)
+        : d.provider === 'aliyun' ? await this.aliyun(det.address)
+        : await this.cloudflare(det.address);
       config.lastIPv6 = det.address;
       config.lastUpdate = Date.now();
       config.lastResult = `${action} ${this.fullDomain()} → ${det.address}`;
@@ -499,7 +554,7 @@ const server = http.createServer(async (req, res) => {
         if(body.ddns){
           const d = body.ddns;
           const cur = config.ddns;
-          if(d.provider) cur.provider = d.provider === 'dnspod' ? 'dnspod' : 'cloudflare';
+          if(d.provider) cur.provider = ['dnspod','aliyun','cloudflare'].includes(d.provider) ? d.provider : 'cloudflare';
           if(d.domain !== undefined) cur.domain = String(d.domain).trim();
           if(d.sub !== undefined) cur.sub = String(d.sub).trim();
           if(d.ttl !== undefined) cur.ttl = Number(d.ttl) || 120;
@@ -509,6 +564,8 @@ const server = http.createServer(async (req, res) => {
           if(d.cfToken && !d.cfToken.includes('•')) cur.cfToken = d.cfToken;
           if(d.dpId && !d.dpId.includes('•')) cur.dpId = d.dpId;
           if(d.dpToken && !d.dpToken.includes('•')) cur.dpToken = d.dpToken;
+          if(d.aliId && !d.aliId.includes('•')) cur.aliId = d.aliId;
+          if(d.aliSecret && !d.aliSecret.includes('•')) cur.aliSecret = d.aliSecret;
           if(d.enabled !== undefined) cur.enabled = !!d.enabled;
         }
         saveConfig();
