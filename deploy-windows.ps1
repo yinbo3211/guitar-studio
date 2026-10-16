@@ -83,7 +83,7 @@ if(-not $NoNginx){
 }
 
 # ---- 4. 写 config.json ----
-$webRootJs = $Root.Replace('\\','/')
+$webRootJs = $Root.Replace('\','/')
 if($nginxExe){
     $bind = "127.0.0.1"; $listenPort = $ApiPort
     Ok ">> 模式：Nginx 容器托管（静态由 Nginx，API 反代 Node）"
