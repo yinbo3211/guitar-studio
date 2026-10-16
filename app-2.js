@@ -80,8 +80,8 @@ const Metro = {
   },
   stop(){
     this.playing=false;
-    clearInterval(this.timer);
-    cancelAnimationFrame(this.raf);
+    if(this.timer){ clearInterval(this.timer); this.timer=null; }
+    if(this.raf){ cancelAnimationFrame(this.raf); this.raf=null; }
     $('#metroToggle').innerHTML='<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>';
     $('#metroToggle').classList.remove('recording');
     const rod=$('#pendulumRod');
@@ -209,7 +209,8 @@ function renderDiagram(chord, opts={}){
     const muted=fAt(i)===-1;
     out+=`<line x1="${X(i)}" y1="${nutY}" x2="${X(i)}" y2="${nutY+4*fretH}" stroke="${muted?'rgba(255,255,255,.12)':'rgba(255,255,255,.4)'}" stroke-width="${s}"/>`;
   }
-  out+=`<rect x="${X(0)-4*s}" y="${nutY-5*s}" width="${X(5)-X(0)+8*s}" height="${5*s}" rx="${2*s}" fill="rgba(255,255,255,.55)"/>`;
+  const nutX=Math.min(X(0),X(5))-4*s, nutW=Math.abs(X(5)-X(0))+8*s;
+  out+=`<rect x="${nutX}" y="${nutY-5*s}" width="${nutW}" height="${5*s}" rx="${2*s}" fill="rgba(255,255,255,.55)"/>`;
   for(let i=0;i<6;i++){
     const f=fAt(i);
     if(f===-1){
