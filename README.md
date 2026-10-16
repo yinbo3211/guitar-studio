@@ -183,3 +183,13 @@ journalctl -u guitar-studio -f     # 实时日志
 - IPv6 探测：网卡枚举全局单播地址（2000::/3）+ 多个外部回显服务（`6.ipw.cn`、`api-ipv6.ip.sb`、`v6.ident.me`、`api6.ipify.org`），后台异步探测、状态接口秒回。
 - DDNS：Cloudflare（自动查 Zone、AAAA 记录不存在则新建）、DNSPod（dnsapi.cn Record.List/Create/Modify）、阿里云（alidns RPC + HMAC-SHA1 签名，DescribeDomainRecords/Add/UpdateDomainRecord）。
 - 界面：深色霓虹风格，移动端（iPhone 16 Pro 逻辑宽度）与桌面端（Edge）响应式适配。
+
+## V2.0 升级 · M1 工程化改造（已交付）
+
+按《产品需求文档与升级方案 v2.0》以**渐进式迁移**推进，V1 的两条产品底线（本地隐私、零依赖部署）保持不变：
+
+- **音频算法库化**：自相关测频（含 MPM 抗低八度误锁）、中位数平滑、音名换算、节拍调度、闯关/跟弹判定统一抽取到 `lib/audio-core.js` 纯函数模块（浏览器全局 `AudioCore`，Node 直接 `require`）。
+- **单元测试**：`test/audio-core.test.js` 基于 Node 内置 test runner，**零依赖**，运行 `node --test` 即可（17 个用例，覆盖六弦标准音全范围识别、抗泛音、八度量化、TAP 测速等）。
+- **PWA 离线**：新增 `manifest.webmanifest` + `sw.js` + 品牌图标，核心静态资源缓存优先、`/api/*` 永不缓存；HTTPS 环境可安装到桌面，离线也能练习。
+- **健康检查**：`GET /api/v1/health`（无需登录），供监控探针与负载均衡使用，返回服务名、版本、运行时长。
+- **Bug 修复**：修复纯音下自相关算法低八度误锁（220Hz 判为 110Hz）；修复 C7 和弦 `Bb` 音名解析错误导致弹对音被误判；修复闯关匹配 `!hit` 将弦索引 0 误判为空的隐患。

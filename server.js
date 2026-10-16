@@ -457,6 +457,7 @@ const MIME = {
   '.html':'text/html; charset=utf-8', '.htm':'text/html; charset=utf-8',
   '.js':'application/javascript; charset=utf-8', '.css':'text/css; charset=utf-8',
   '.json':'application/json; charset=utf-8', '.txt':'text/plain; charset=utf-8',
+  '.webmanifest':'application/manifest+json; charset=utf-8',
   '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.gif':'image/gif',
   '.svg':'image/svg+xml', '.ico':'image/x-icon',
   '.webm':'audio/webm', '.mp4':'audio/mp4', '.wav':'audio/wav', '.ogg':'audio/ogg',
@@ -465,7 +466,8 @@ const MIME = {
 /* 仅允许这些静态文件被外部访问，避免泄露源码/配置/部署脚本 */
 const ALLOWED_FILES = new Set([
   'guitar-studio.html', 'admin.html', 'index.html',
-  'app-1.js', 'app-2.js', 'app-3.js'
+  'app-1.js', 'app-2.js', 'app-3.js',
+  'audio-core.js', 'sw.js', 'manifest.webmanifest'   // V2 M1：算法库 / Service Worker / PWA 清单
 ]);
 const ALLOWED_EXT = new Set(['.png','.jpg','.jpeg','.gif','.svg','.ico','.webm','.mp4','.wav','.ogg','.woff','.woff2','.css']);
 
@@ -522,6 +524,17 @@ const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://localhost');
   const pathname = u.pathname;
   try{
+    /* V2 M1：公开健康检查（供负载均衡/监控探针使用，无需登录；PRD API 一览） */
+    if(pathname === '/api/v1/health' && req.method === 'GET'){
+      return sendJSON(res, 200, {
+        ok: true,
+        service: 'guitar-studio',
+        version: '2.0.0-m1',
+        uptimeSec: Math.round(process.uptime()),
+        ts: Date.now()
+      });
+    }
+
     /* 登录 */
     if(pathname === '/api/login' && req.method === 'POST'){
       const body = await readBody(req);

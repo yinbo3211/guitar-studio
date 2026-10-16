@@ -7,6 +7,9 @@
 <title>六弦工坊 · AI 吉他练习室</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0b14'/%3E%3Cpath d='M21 4a3 3 0 0 0-3 3v9.2a5.5 5.5 0 1 0 3 0V11h3V8h-3V7a3 3 0 0 0 0-3z' fill='%23ffb454'/%3E%3Ccircle cx='15' cy='23' r='1.6' fill='%230a0b14'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<!-- V2 M1：PWA 离线能力（manifest + 主题色，Service Worker 见页尾注册） -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0b14">
 <style>
 /* ============================================================
    六弦工坊 · 设计令牌
@@ -1049,8 +1052,16 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 
 <div class="toast-wrap" id="toastWrap"></div>
 
+<!-- V2 M1：音频核心算法库（纯函数，须先于 app-*.js 加载） -->
+<script src="lib/audio-core.js"></script>
 <script src="app-1.js"></script>
 <script src="app-2.js"></script>
 <script src="app-3.js"></script>
+<script>
+/* V2 M1：Service Worker 注册——离线缓存核心资源；file:// 协议下自动跳过 */
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
 </body>
 </html>

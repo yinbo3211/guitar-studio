@@ -1,0 +1,17 @@
+{
+  "name": "六弦工坊 · AI吉他练习室",
+  "short_name": "六弦工坊",
+  "description": "调音器、节拍器、和弦闯关、音阶练习、和弦库、练耳、指板、录音棚——纯前端吉他练习室",
+  "lang": "zh-CN",
+  "start_url": "./guitar-studio.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0b14",
+  "theme_color": "#0a0b14",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

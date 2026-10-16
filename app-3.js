@@ -103,35 +103,28 @@ const Game = {
   onPitch(r){
     if(!this.running||!this.cur||r.freq==null){ this.cand=null; return; }
     const mf=69+12*Math.log2(r.freq/440);
-    // 找匹配目标弦（允许八度等价，防止泛音误判）
-    let hit=null, bestCents=99;
+    // 找匹配目标弦（允许八度等价，防止泛音误判）——V2 M1：核心匹配迁至 AudioCore.matchFretTarget
+    const targets=[];
     for(let i=0;i<6;i++){
       if(this.done[i]!==false) continue;
       const f=this.cur.frets[i];
       if(f<0) continue;
-      const target=OPEN_MIDI[i]+f;
-      let diff=mf-target;
-      // 量化到最近八度
-      diff=diff-Math.round(diff/12)*12;
-      if(Math.abs(diff)<0.6 && Math.abs(diff*100)<bestCents){
-        // 但必须优先匹配非八度的真实音
-        const realDiff=mf-target;
-        // Fix-2: bestCents 必须更新为当前匹配项的实际 cents 绝对值（负值会导致后续比较失效）
-        if(Math.abs(realDiff)<0.7){ hit=i; bestCents=Math.abs(realDiff*100); }
-        else if(!hit){ hit=i; bestCents=Math.abs(diff*100); }
-      }
+      targets.push({i, target:OPEN_MIDI[i]+f});
     }
-    if(hit!==null){
-      if(this.cand===hit){ this.candCount++; } else { this.cand=hit; this.candCount=1; }
+    const m=AudioCore.matchFretTarget(mf, targets);
+    if(m!==null){
+      if(this.cand===m.i){ this.candCount++; } else { this.cand=m.i; this.candCount=1; }
       if(this.candCount>=2){
         this.cand=null; this.candCount=0;
-        this.markDone(hit);
+        this.markDone(m.i);
       }
       return;
     }
     // 是否是错误音：最近半音不在和弦音集合内
+    // V2 M1 BugFix：旧实现 n.replace('b','#') 会把 'Bb' 变成 'B#'（indexOf=-1），
+    // 导致 C7 和弦弹对 Bb 也被误判为错音；改用 AudioCore.pcFromName 正确解析升降号
     const nearest=Math.round(mf);
-    const chordPC=this.cur.notes.map(n=>NOTE_NAMES.indexOf(n.replace('b','#')));
+    const chordPC=this.cur.notes.map(n=>AudioCore.pcFromName(n));
     const pc=((nearest%12)+12)%12;
     const isChordTone=chordPC.some(c=>c===pc);
     const now=performance.now();
@@ -614,8 +607,8 @@ const Scale = {
     if(performance.now()<this.cooldown) return;
     const c=this.seq[this.i];
     if(!c || !r.freq){ this.cand=null; return; }
-    const diff=midiFromFreq(r.freq)-c.midi;
-    if(Math.abs(diff)<0.6){
+    // V2 M1：阈值判定迁至 AudioCore.isPitchMatch
+    if(AudioCore.isPitchMatch(midiFromFreq(r.freq), c.midi)){
       if(this.cand===this.i) this.candN++;
       else { this.cand=this.i; this.candN=1; }
       if(this.candN>=2){ this.cand=null; this.candN=0; this.advance(); }

@@ -1,6 +1,8 @@
 /* ============================================================
    模块 2：节拍器（lookahead 调度，音频时钟驱动）
    ============================================================ */
+/* V2 M1：算法与常量已迁移至 lib/audio-core.js（AudioCore） */
+const { OPEN_MIDI, tapBpm, beatDuration, stepDuration, isSubAccent } = AudioCore;
 const Metro = {
   bpm:90, beats:2, sub:1, playing:false,
   beat:0, subIdx:0, nextTime:0, startAudioTime:0,
@@ -31,11 +33,8 @@ const Metro = {
       if(taps.length>6) taps.shift();
       AudioEngine.ensure(); AudioEngine.click(false);
       if(taps.length>=2){
-        const gaps=[];
-        for(let i=1;i<taps.length;i++) gaps.push(taps[i]-taps[i-1]);
-        gaps.sort((a,b)=>a-b);
-        const med=gaps[Math.floor(gaps.length/2)];
-        setBpm(Math.round(60000/med));
+        const bpm=tapBpm(taps); // V2 M1：中位间隔测速迁至 AudioCore
+        if(bpm) setBpm(bpm);
       }
     };
     // 拍号
@@ -59,7 +58,7 @@ const Metro = {
       let cls='beat-dot';
       let label=i+1;
       if(i===0) cls+=' strong';
-      else if(this.beats===6&&i===3) cls+=' sub';
+      else if(isSubAccent(this.beats,i)) cls+=' sub';
       else cls+=' weak';
       html+=`<div class="${cls}" data-i="${i}">${label}</div>`;
     }
@@ -93,13 +92,13 @@ const Metro = {
   },
   schedule(){
     const ctx=AudioEngine.ctx;
-    const beatDur=60/this.bpm;
-    const stepDur=beatDur/this.sub;
+    const beatDur=beatDuration(this.bpm);          // V2 M1：节拍计算迁至 AudioCore
+    const stepDur=stepDuration(this.bpm,this.sub);
     while(this.nextTime<ctx.currentTime+0.12){
       if(this.subIdx===0){
         // 主拍：强 / 次强 / 弱
         let accent=this.beat===0;
-        let subAccent=this.beats===6&&this.beat===3;
+        let subAccent=isSubAccent(this.beats,this.beat);
         AudioEngine.click(accent, this.nextTime-ctx.currentTime);
         if(subAccent) AudioEngine.click(false, this.nextTime-ctx.currentTime); // 6/8 次强稍作强调
       }else{
@@ -126,7 +125,7 @@ const Metro = {
       if(!this.playing) return;
       const ctx=AudioEngine.ctx;
       const elapsed=ctx.currentTime-this.startAudioTime;
-      const beatDur=60/this.bpm;
+      const beatDur=beatDuration(this.bpm); // V2 M1
       const pos=elapsed/beatDur;
       const curBeat=Math.floor(pos)%this.beats;
       // 摆锤：每拍到达端点
@@ -138,7 +137,7 @@ const Metro = {
         d.className=d.className.replace(/flash-\w+/g,'').trim();
         if(i===curBeat){
           if(i===0) d.classList.add('flash-strong');
-          else if(this.beats===6&&i===3) d.classList.add('flash-sub');
+          else if(isSubAccent(this.beats,i)) d.classList.add('flash-sub');
           else d.classList.add('flash-weak');
         }
       });
@@ -152,7 +151,6 @@ onRouteEnter.metro=()=>Metro.init();
 /* ============================================================
    模块 3：和弦库（数据 + 指法图 + 扫弦 + 进行伴奏）
    ============================================================ */
-const OPEN_MIDI=[40,45,50,55,59,64]; // 6弦→1弦
 const CHORDS={
   major:[
     {name:'C', cat:'major', frets:[-1,3,2,0,1,0], notes:['C','E','G']},

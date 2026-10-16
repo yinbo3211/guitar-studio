@@ -3,16 +3,13 @@
    ============================================================ */
 'use strict';
 
-/* ---------- 通用工具 ---------- */
+/* ---------- 通用工具 ----------
+   V2 M1：算法与常量已迁移至 lib/audio-core.js（AudioCore），
+   此处仅解构为原有名称，保证后续代码零改动、行为一致。 */
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
-const clamp = (v,a,b)=>Math.min(b,Math.max(a,v));
-const midiFromFreq = f => 69 + 12*Math.log2(f/440);
-const freqFromMidi = m => 440*Math.pow(2,(m-69)/12);
-const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const NOTE_CN = {'C':'哆','C#':'升哆','D':'来','D#':'升来','E':'咪','F':'发','F#':'升发','G':'嗦','G#':'升嗦','A':'拉','A#':'升拉','B':'西'};
-function noteName(midi){ return NOTE_NAMES[((midi%12)+12)%12] + (Math.floor(midi/12)-1); }
-function noteNameNoOct(midi){ return NOTE_NAMES[((midi%12)+12)%12]; }
+const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct,
+        makeSmoother, PitchDetect } = AudioCore;
 const SVG_ICONS = {
   mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v3"/></svg>',
   play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>',
@@ -193,62 +190,9 @@ const Mic = {
   }
 };
 
-/* ---------- 归一化自相关基频检测（对相位不敏感，含抛物线插值） ---------- */
-function PitchDetect(buf, sampleRate){
-  const SIZE=buf.length;
-  // 去直流（不修改输入缓冲）
-  let mean=0;
-  for(let i=0;i<SIZE;i++) mean+=buf[i];
-  mean/=SIZE;
-  const x=new Float32Array(SIZE);
-  for(let i=0;i<SIZE;i++) x[i]=buf[i]-mean;
-  // 能量 / RMS
-  let e2=0;
-  for(let i=0;i<SIZE;i++) e2+=x[i]*x[i];
-  const rms=Math.sqrt(e2/SIZE);
-  if(rms<0.01) return {freq:null,rms,clarity:0};
-  // 基频范围：约 50Hz（低音区）~ 1320Hz（E6）
-  const maxLag=Math.min(SIZE-1, Math.floor(sampleRate/50));
-  const minLag=Math.floor(sampleRate/1320);
-  // 按样本数归一化的自相关，补偿不同滞后长度造成的能量衰减
-  const ac=new Float32Array(maxLag+1);
-  for(let lag=0;lag<=maxLag;lag++){
-    let s=0; const n=SIZE-lag;
-    for(let i=0;i<n;i++) s+=x[i]*x[i+lag];
-    ac[lag]=s/n;
-  }
-  // 越过 lag0 后的下降段抵达谷底，再在其后寻找最高峰（即基频周期）
-  let lag=minLag;
-  while(lag<maxLag && ac[lag+1]<=ac[lag]) lag++;
-  let bestLag=lag, bestVal=ac[lag];
-  for(let i=lag;i<=maxLag;i++){ if(ac[i]>bestVal){ bestVal=ac[i]; bestLag=i; } }
-  const clarity=clamp(bestVal/ac[0],0,1);
-  if(clarity<0.25) return {freq:null,rms,clarity};
-  // 抛物线插值细化周期
-  let refined=bestLag;
-  if(bestLag>0 && bestLag<maxLag){
-    const a=ac[bestLag-1], b=ac[bestLag], c=ac[bestLag+1];
-    const den=(a-2*b+c);
-    if(den!==0){
-      const p=0.5*(a-c)/den;
-      if(isFinite(p) && Math.abs(p)<1) refined=bestLag+p;
-    }
-  }
-  const freq=sampleRate/refined;
-  if(freq<50||freq>1320) return {freq:null,rms,clarity:0};
-  return {freq,rms,clarity};
-}
-
-/* 平滑工具：值稳定才采纳 */
-function makeSmoother(frames=3){
-  const arr=[];
-  return v=>{
-    if(v==null){ arr.length=0; return null; }
-    arr.push(v); if(arr.length>frames) arr.shift();
-    arr.sort((a,b)=>a-b);
-    return arr[Math.floor(arr.length/2)];
-  };
-}
+/* V2 M1：PitchDetect（归一化自相关基频检测，含 MPM 抗低八度误锁与抛物线插值）
+   与 makeSmoother（中位数平滑）已迁移至 lib/audio-core.js，由顶部解构引入，
+   算法回归测试见 test/audio-core.test.js。 */
 
 /* ============================================================
    模块 1：调音器
