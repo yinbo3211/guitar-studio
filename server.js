@@ -165,13 +165,20 @@ function fetchExternalIPv6(){
 /* 综合得到当前应使用的公网 IPv6 */
 async function detectIPv6(){
   const candidates = localIPv6Candidates();
+  // 手动指定地址：立即采用，不等待外部探测（外部探测结果在该模式下不使用，避免无谓等待数秒）
+  if(config.ipv6.mode === 'manual' && config.ipv6.manualAddress){
+    return {
+      address: config.ipv6.manualAddress.trim().toLowerCase(),
+      external: null,
+      candidates,
+      source: 'manual',
+      ts: Date.now()
+    };
+  }
   let external = null;
   try{ external = await fetchExternalIPv6(); }catch(e){}
   let selected = null, source = '';
-  if(config.ipv6.mode === 'manual' && config.ipv6.manualAddress){
-    selected = config.ipv6.manualAddress.trim().toLowerCase();
-    source = 'manual';
-  }else if(external){
+  if(external){
     selected = external;
     source = candidates.find(c => c.address === external) ? 'external+nic' : 'external';
   }else if(candidates.length){
