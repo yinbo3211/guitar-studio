@@ -236,6 +236,11 @@ select option{background:var(--card)}
         </label>
         <button class="btn btn-mint btn-block" id="saveSrvBtn">保存服务设置</button>
       </div>
+      <!-- P2-11：默认密码强制提醒定位锚点 -->
+      <div class="card" id="pwdCard" style="display:none">
+        <h2><span class="ic">⚠</span> 安全提醒</h2>
+        <p style="color:#ff5d73;font-size:13px;line-height:1.6">当前仍在使用默认密码 admin123，任何人都能登录此后台。<b>请立即在上方「修改管理员密码」中设置新密码并保存。</b></p>
+      </div>
 
       <!-- IPv6 选取 -->
       <div class="card">
@@ -295,7 +300,20 @@ select option{background:var(--card)}
     fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd})})
       .then(function(r){return r.json()})
       .then(function(j){
-        if(j.ok){ token=j.token; sessionStorage.setItem('gs_admin_token',token); enterApp(); }
+        if(j.ok){
+          token=j.token; sessionStorage.setItem('gs_admin_token',token); enterApp();
+          // P2-11：仍在使用默认密码时，登录后立即显示强制改密提醒
+          var card=$('pwdCard');
+          if(j.mustChangePassword){
+            if(card) card.style.display='';
+            setTimeout(function(){
+              toast('安全提醒：当前使用默认密码，请立即修改！','err');
+              if(card){ card.scrollIntoView({behavior:'smooth',block:'center'});
+                card.style.outline='2px solid #ff5d73';
+                setTimeout(function(){ card.style.outline=''; },5000); }
+            },400);
+          }
+        }
         else toast(j.msg||'密码错误','err');
       }).catch(function(){toast('无法连接服务','err')});
   }
@@ -403,6 +421,8 @@ select option{background:var(--card)}
       .then(function(j){
         toast(j.ok?'服务设置已保存（端口改动需重启）':'保存失败', j.ok?'ok':'err');
         $('newPwd').value='';
+        // P2-11：密码已修改，撤下默认密码提醒
+        if(j.ok && pwd){ var card=$('pwdCard'); if(card) card.style.display='none'; }
       });
   }
   function saveIp(){

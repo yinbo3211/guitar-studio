@@ -114,6 +114,23 @@ test('makeSmoother：滑动窗口中位数，异常值被抑制', () => {
   assert.strictEqual(s(7), 7, 'null 重置后重新开始');
 });
 
+/* P0-01 回归（bug 排查手册）：FIFO 中位数——音高下降必须跟随，不允许卡死。
+   旧实现 sort 后 shift 会丢掉窗口最小值（= 新检测到的低音高），
+   连续下降音永远进不了窗口，调音器永久卡在高音；FIFO 丢最旧值则立即跟随。 */
+test('P0-01 回归：音高持续下降时平滑器必须跟随（修复 sort+shift 卡死）', () => {
+  const s = AC.makeSmoother(3);
+  [64,64,64].forEach(v=>s(v));   // 稳定在 E4≈64
+  assert.strictEqual(s(40), 64); // 过渡帧：窗口 [64,64,40] 中位数 64（符合中位数语义）
+  assert.strictEqual(s(40), 40); // [64,40,40] → 40，已开始跟随
+  assert.strictEqual(s(40), 40); // [40,40,40] → 40
+  assert.strictEqual(s(64), 40); // 回弹过渡 [40,40,64] → 40
+  assert.strictEqual(s(64), 64); // [40,64,64] → 64
+  s(null);
+  [64,64,64].forEach(v=>s(v));
+  for(let i=0;i<10;i++) s(40);   // 持续下降 10 帧
+  assert.strictEqual(s(40), 40, '连续下降后必须稳定在 40（旧实现永远卡在 64）');
+});
+
 test('makeSmoother：默认帧数 3', () => {
   const s = AC.makeSmoother();
   s(5); s(5);
@@ -150,6 +167,24 @@ test('matchFretTarget：cents 恒为绝对值（回归 Fix-2）', () => {
   assert.strictEqual(r.i, 1);
   assert.ok(r.cents >= 0, 'cents 不应为负');
   near(r.cents, 30, 1e-6);
+});
+
+/* P1-04 回归（bug 排查手册）：两轮匹配——精确命中必须优先于八度等价。
+   手册场景：C 和弦未完成弦候选 {5弦C3:48, 4弦E3:52, 3弦G3:55, 2弦C4:60, 1弦E4:64} */
+test('P1-04 回归：精确匹配优先，八度等价不得抢占（C 和弦场景）', () => {
+  const cands = [
+    { i: 1, target: 48 }, { i: 2, target: 52 }, { i: 3, target: 55 },
+    { i: 4, target: 60 }, { i: 5, target: 64 }
+  ];
+  const r48 = AC.matchFretTarget(48, cands);
+  assert.deepStrictEqual(r48, { i: 1, cents: 0 }, '弹 5 弦 C3 应命中 5 弦');
+  const r60 = AC.matchFretTarget(60, cands);
+  assert.deepStrictEqual(r60, { i: 4, cents: 0 }, '弹 2 弦 C4 必须精确命中 2 弦（V1 被 5 弦八度等价抢占）');
+  const r72 = AC.matchFretTarget(72, cands);
+  assert.deepStrictEqual(r72, { i: 1, cents: 0 }, '弹 C5(72) 无精确候选，八度兜底命中 5 弦 C3');
+  assert.strictEqual(AC.matchFretTarget(53, cands), null, '53 介于 E3/G3 之间，不匹配任何候选');
+  const r0 = AC.matchFretTarget(40, [{ i: 0, target: 40 }]);
+  assert.deepStrictEqual(r0, { i: 0, cents: 0 }, '弦索引 0（6 弦）不得被 falsy 判断吞掉');
 });
 
 /* ============ 5. 音阶跟弹判定 ============ */

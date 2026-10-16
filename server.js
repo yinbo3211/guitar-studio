@@ -121,6 +121,30 @@ function newSession(ip){
   return token;
 }
 
+/* ---------------- 登录防爆破（P2-11） ---------------- */
+/* 按来源 IP 记录失败次数：连续 5 次失败锁定 10 分钟，登录成功即清零 */
+const LOGIN_MAX_FAILS = 5;
+const LOGIN_LOCK_MS = 10*60*1000;
+const loginFails = new Map();   // ip -> { count, lockUntil }
+function loginAllowed(ip){
+  const f = loginFails.get(ip);
+  return !(f && f.lockUntil > Date.now());
+}
+function loginFail(ip){
+  const f = loginFails.get(ip) || { count:0, lockUntil:0 };
+  f.count++;
+  if(f.count >= LOGIN_MAX_FAILS){
+    f.lockUntil = Date.now() + LOGIN_LOCK_MS; f.count = 0;
+    log('检测到连续登录失败，来源 IP 已临时锁定 10 分钟', 'warn');
+  }
+  loginFails.set(ip, f);
+  if(loginFails.size > 256){ // 防内存膨胀：清理已解锁且无计数的条目
+    const now = Date.now();
+    for(const [k,v] of loginFails){ if(v.lockUntil <= now && !v.count) loginFails.delete(k); }
+  }
+}
+function loginOk(ip){ loginFails.delete(ip); }
+
 /* ============================================================
    IPv6 探测
    ============================================================ */
@@ -159,19 +183,27 @@ function fetchExternalIPv6(){
   ];
   return new Promise((resolve) => {
     let done = false;
+    // P1-06 修复：V1 在任何 end（含返回非法内容）时都 clearTimeout，
+    // 若其余服务全部失败，Promise 将永久挂起，ipState 停在「探测中」。
+    // 改为：仅成功取得有效 IPv6 才提前结束；并统计已结束的请求数，
+    // 全部失败时立即 resolve(null)，6 秒兜底定时器仅作最后保险。
     const timer = setTimeout(()=>{ if(!done){ done = true; resolve(null); } }, 6000);
+    const finish = () => { if(done) return; done = true; clearTimeout(timer); resolve(null); };
+    let pending = services.length;
+    const settled = () => { if(--pending === 0) finish(); };
     services.forEach(u => {
       const req = https.get(u, { timeout: 5000, headers: { 'User-Agent': 'guitar-studio-ddns/1.0' } }, res => {
         let data = '';
         res.setEncoding('utf8');
         res.on('data', c => data += c);
         res.on('end', () => {
-          clearTimeout(timer);
+          if(done) return;
           const ip = data.trim().split(/\r?\n/)[0].trim().toLowerCase();
-          if(!done && isGlobalUnicastV6(ip)){ done = true; resolve(ip); }
+          if(isGlobalUnicastV6(ip)){ done = true; clearTimeout(timer); resolve(ip); }
+          else settled();
         });
       });
-      req.on('error', () => {});
+      req.on('error', () => { if(!done) settled(); });
       req.on('timeout', () => req.destroy());
     });
   });
@@ -236,8 +268,17 @@ function httpRequest(method, urlStr, { headers={}, body=null, timeout=12000 } = 
       hostname: u.hostname,
       port: u.port || 443,
       path: u.pathname + u.search,
+      // P2-13 修复：携带请求体时补 Content-Length——V1 缺失该头，
+      // 部分网关/服务端（严格 HTTP 实现）会按无Body处理或挂起等待，DDNS 随机失败
       headers: { 'User-Agent': 'guitar-studio-ddns/1.0', ...headers }
     };
+    if(body){
+      const len = Buffer.byteLength(body);
+      if(!Object.keys(opts.headers).some(k => k.toLowerCase() === 'content-length'))
+        opts.headers['Content-Length'] = len;
+      if(!Object.keys(opts.headers).some(k => k.toLowerCase() === 'content-type'))
+        opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    }
     const req = https.request(opts, res => {
       let data = '';
       res.setEncoding('utf8');
@@ -378,21 +419,30 @@ const DDNS = {
     const d = config.ddns;
     if(!d.aliId || !d.aliSecret) throw new Error('缺少阿里云 AccessKey ID / Secret');
     const sub = (!d.sub || d.sub === '@') ? '@' : d.sub;
-    // 1) 查询该主机记录下的 AAAA
-    const list = await this._aliReq({
-      Action:'DescribeDomainRecords',
-      DomainName:d.domain,
-      PageNumber:1,
-      PageSize:100
-    });
-    if(!list || !list.DomainRecords)
-      throw new Error('阿里云查询失败：' + (list && (list.Message||list.Code) ? (list.Message+' ('+list.Code+')') : '请检查域名与 AccessKey'));
-    const rec = (list.DomainRecords.Record || []).find(r => r.RR === sub && r.Type === 'AAAA');
+    // P2-18 修复①：分页拉全 DescribeDomainRecords——V1 只查第 1 页（≤100 条），
+    // 域名记录数超页时找不到已有记录，会误建重复 AAAA 记录
+    let rec = null, pageNum = 1, totalPages = 1;
+    while(pageNum <= totalPages && !rec){
+      const page = await this._aliReq({
+        Action:'DescribeDomainRecords',
+        DomainName:d.domain,
+        PageNumber:pageNum,
+        PageSize:100
+      });
+      if(!page || !page.DomainRecords)
+        throw new Error('阿里云查询失败：' + (page && (page.Message||page.Code) ? (page.Message+' ('+page.Code+')') : '请检查域名与 AccessKey'));
+      rec = (page.DomainRecords.Record || []).find(r => r.RR === sub && r.Type === 'AAAA');
+      const total = Number(page.TotalCount) || 0;
+      totalPages = Math.ceil(total/100) || 1;
+      pageNum++;
+    }
+    // P2-18 修复②：写入带上 TTL（阿里云最小 600 秒，配置低于 600 按 600）
+    const ttl = String(Math.max(600, Number(d.ttl) || 600));
     let r;
     if(rec){
-      r = await this._aliReq({ Action:'UpdateDomainRecord', RecordId:rec.RecordId, RR:sub, Type:'AAAA', Value:ip });
+      r = await this._aliReq({ Action:'UpdateDomainRecord', RecordId:rec.RecordId, RR:sub, Type:'AAAA', Value:ip, TTL:ttl });
     }else{
-      r = await this._aliReq({ Action:'AddDomainRecord', DomainName:d.domain, RR:sub, Type:'AAAA', Value:ip });
+      r = await this._aliReq({ Action:'AddDomainRecord', DomainName:d.domain, RR:sub, Type:'AAAA', Value:ip, TTL:ttl });
     }
     if(!r || !r.RecordId)
       throw new Error('阿里云写入失败：' + (r && (r.Message||r.Code) ? (r.Message+' ('+r.Code+')') : '未知错误'));
@@ -499,16 +549,36 @@ function sendJSON(res, code, obj){
 function readBody(req){
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', c => { data += c; if(data.length > 200000) req.destroy(); });
+    let settled = false;
+    // 附录 1 修复：超限先 reject 明确错误再断开连接——V1 只 destroy()，
+    // 'end' 不会触发，外层 await 永远挂起，连接被占用
+    req.on('data', c => {
+      if(settled) return;
+      data += c;
+      if(data.length > 200000){
+        settled = true;
+        reject(new Error('请求体超过 200KB 限制'));
+        req.destroy();
+      }
+    });
     req.on('end', () => {
+      if(settled) return;
+      settled = true;
       if(!data) return resolve({});
       try{ resolve(JSON.parse(data)); }catch(e){ reject(new Error('请求体不是合法 JSON')); }
     });
-    req.on('error', reject);
+    req.on('error', e => {
+      if(settled) return;          // 超限主动断开导致的错误已处理
+      settled = true;
+      reject(e);
+    });
   });
 }
 function auth(req){
-  const t = req.headers['authorization'] || (req.url.includes('token=') ? new URL(req.url, 'http://x').searchParams.get('token') : '');
+  // P2-12 修复：令牌只从 Authorization 请求头读取——V1 还接受 URL
+  // 查询参数 ?token=，会被访问日志/代理日志/Referer 泄露；
+  // admin.html 前端本就只用请求头方式，此分支可安全移除
+  const t = req.headers['authorization'] || '';
   if(!t) return false;
   const s = sessions.get(t);
   if(!s) return false;
@@ -537,12 +607,22 @@ const server = http.createServer(async (req, res) => {
 
     /* 登录 */
     if(pathname === '/api/login' && req.method === 'POST'){
+      const ip = (req.socket && req.socket.remoteAddress) || '';
+      // P2-11：锁定中的 IP 直接拒绝，不再校验密码
+      if(!loginAllowed(ip)){
+        log('登录尝试被拒绝（该 IP 锁定中）', 'warn');
+        return sendJSON(res, 429, { ok:false, msg:'失败次数过多，请 10 分钟后再试' });
+      }
       const body = await readBody(req);
       if(body.password && body.password === config.adminPassword){
+        loginOk(ip);
         const token = newSession(req.socket && req.socket.remoteAddress); // Fix-5: 记录会话来源 IP
         log('管理员登录成功', 'ok');
-        return sendJSON(res, 200, { ok:true, token });
+        // P2-11 修复②：仍在使用默认密码时返回标记，admin.html 据此显示强制改密提醒
+        const mustChangePassword = config.adminPassword === 'admin123';
+        return sendJSON(res, 200, { ok:true, token, mustChangePassword });
       }
+      loginFail(ip);
       log('管理员登录失败（密码错误）', 'warn');
       return sendJSON(res, 401, { ok:false, msg:'密码错误' });
     }
@@ -657,19 +737,22 @@ function parseArgs(){
     if(h) config.bindHost = h[1];
   });
 }
+/* 附录 3 修复：error 监听只注册一次——V1 在 listen(host) 内注册，
+   IPv6 回退 IPv4 再次 listen 时会重复注册，同一次失败打出两遍日志 */
+server.on('error', err => {
+  if((err.code === 'EADDRINUSE')){
+    log(`端口 ${currentPort} 被占用，请在后台或用 --port=xxxx 修改端口`, 'err');
+    process.exit(1);
+  } else if((err.code === 'EAFNOSUPPORT' || err.code === 'EINVAL') && !server._fellBackToV4){
+    server._fellBackToV4 = true;
+    log('系统不支持 IPv6 双栈，回退到 IPv4 0.0.0.0', 'warn');
+    server.listen(currentPort, '0.0.0.0');
+  } else {
+    log('服务启动失败：' + err.message, 'err');
+    process.exit(1);
+  }
+});
 function listen(host){
-  server.on('error', err => {
-    if((err.code === 'EADDRINUSE')){
-      log(`端口 ${currentPort} 被占用，请在后台或用 --port=xxxx 修改端口`, 'err');
-      process.exit(1);
-    } else if(host === '::' && (err.code === 'EAFNOSUPPORT' || err.code === 'EINVAL')){
-      log('系统不支持 IPv6 双栈，回退到 IPv4 0.0.0.0', 'warn');
-      server.listen(currentPort, '0.0.0.0');
-    } else {
-      log('服务启动失败：' + err.message, 'err');
-      process.exit(1);
-    }
-  });
   server.listen(currentPort, host, () => {
     currentPort = config.webPort;
     log('================================================', 'info');
@@ -692,6 +775,19 @@ function listen(host){
     if(config.ddns.enabled) startTimer();
   });
 }
+/* 附录 2 修复：优雅退出——收到 SIGINT/SIGTERM 时停止 DDNS 定时器、
+   关闭 HTTP 监听并保存配置后再退出，避免状态文件损坏 */
+function shutdown(signal){
+  log(`收到 ${signal}，正在优雅退出…`, 'info');
+  try{ if(ddnsTimer){ clearInterval(ddnsTimer); ddnsTimer = null; } }catch(e){}
+  try{ saveConfig(); }catch(e){}
+  try{
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref(); // 3 秒强制兜底
+  }catch(e){ process.exit(0); }
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 loadConfig();
 parseArgs();
 currentPort = config.webPort;

@@ -36,6 +36,10 @@ function go(route){
   location.hash = '#/'+route;
 }
 function applyRoute(){
+  // P1-05 修复：切页清理必须放在 applyRoute 内部——
+  // V1 在 app-3.js 里重包装 applyRoute，但 hashchange 监听绑定的仍是
+  // 旧函数引用，包装永远不会被触发，导致切页不清理麦克风/伴奏/录音。
+  if(typeof cleanupModules==='function') cleanupModules();
   const route = (location.hash.replace('#/','')||'home').split('?')[0];
   $$('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+route));
   $$('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.route===route));
@@ -117,10 +121,10 @@ const AudioEngine = {
     // 起音小噪声，模拟拨弦
     return t0;
   },
-  /* 扫弦：从低音弦到高音弦依次拨响 */
-  strum(freqs, dir='down', vol=.28){
+  /* 扫弦：从低音弦到高音弦依次拨响（when 为音频时钟偏移，供进度伴奏提前调度） */
+  strum(freqs, dir='down', vol=.28, when=0){
     const order = dir==='down' ? freqs : freqs.slice().reverse();
-    order.forEach((f,i)=> this.pluck(f, i*0.032, 1.8, vol));
+    order.forEach((f,i)=> this.pluck(f, when + i*0.032, 1.8, vol));
   },
   /* 节拍器 click：方波短促 */
   click(accent=false, when=0){
@@ -151,9 +155,12 @@ const AudioEngine = {
 
 /* ---------- 麦克风管理 ---------- */
 const Mic = {
-  stream:null, ctx:null, analyser:null, raf:null,
+  stream:null, ctx:null, analyser:null, raf:null, cb:null, frame:0,
   async start(onPitch){
-    if(this.stream) return true;
+    // P0-02 修复：Mic 为全局单例，复用旧流时必须刷新回调，
+    // 否则切换模块后检测结果仍发给旧模块、判定完全失效
+    this.cb = onPitch;
+    if(this.stream) return true; // 已有流：只换回调，不重复申请
     try{
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}
@@ -173,16 +180,21 @@ const Mic = {
     this.analyser.fftSize=2048;
     src.connect(this.analyser);
     this.buf=new Float32Array(this.analyser.fftSize);
+    this.frame=0;
     const loop=()=>{
+      // P2-19 修复：PitchDetect 为 O(maxLag×SIZE)，rAF(~60fps) 全帧检测
+      // 在低端手机易掉帧，降为 ~30fps（隔帧检测）
+      this.raf=requestAnimationFrame(loop);
+      if(++this.frame%2===0) return;
       this.analyser.getFloatTimeDomainData(this.buf);
       const r=PitchDetect(this.buf, this.ctx.sampleRate);
-      onPitch(r);
-      this.raf=requestAnimationFrame(loop);
+      if(this.cb) this.cb(r); // P0-02：始终调用最新回调
     };
     loop();
     return true;
   },
   stop(){
+    this.cb=null; // P0-02：停止后不再向任何模块回调
     if(this.raf) cancelAnimationFrame(this.raf);
     this.raf=null;
     if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
@@ -331,7 +343,13 @@ const Tuner = {
       targetMidi=Math.round(69+12*Math.log2(targetFreq/this.a4));
       cents=(smoothed-targetMidi)*100;
       if(Math.abs(cents)>60){ // 偏差太大，忽略
+        // P2-20 修复：返回前清空残留 UI——V1 只清状态文字，
+        // 指针/音名/频率仍停在上一帧，给人"卡住"的错觉
         $('#tunerStatus').textContent='';
+        $('#tunerNote').textContent='--';
+        $('#tunerFreq').textContent='';
+        $('#dialNeedle').style.transform='rotate(0deg)';
+        $('#dialGlow').style.opacity='0';
         return;
       }
       displayName=best.label;

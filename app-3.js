@@ -1,6 +1,12 @@
 /* ============================================================
    模块 4：和弦闯关（麦克风逐弦判定）
    ============================================================ */
+/* P2-09 修复：检测音高换算跟随调音器的 A4 基准设置（V1 硬编码 440，
+   用户在调音器里改了 A4 后，闯关与音阶跟弹的判定基准仍然不变，导致判定偏移） */
+function baseMidi(freq){
+  const a4 = (typeof Tuner!=='undefined' && Tuner.a4) ? Tuner.a4 : 440;
+  return 69 + 12*Math.log2(freq/a4);
+}
 const Game = {
   levels:[
     {name:'第 1 关 · 入门开放和弦', pool:['C','G','Am','Em'], time:18},
@@ -26,7 +32,8 @@ const Game = {
       this.level=+c.dataset.i;
     };
     $('#gameStart').onclick=()=>this.startRound();
-    $('#gameSkip').onclick=()=>{ this.combo=0; this.nextChord(); };
+    // P0-03 修复：跳过必须推进题号，否则永久卡在同一和弦
+    $('#gameSkip').onclick=()=>{ this.skipChord(); };
     $('#gameQuit').onclick=()=>this.quit();
     $('#gameAgain').onclick=()=>{ $('#gameResult').style.display='none'; this.startRound(); };
     $('#gameBack').onclick=()=>{ this.stopMic(); $('#gameResult').style.display='none'; $('#gamePlay').style.display='none'; $('#gameIntro').style.display='block'; };
@@ -55,6 +62,8 @@ const Game = {
     this.nextChord();
   },
   nextChord(){
+    // P0-03：清掉尚未触发的超时跳转，防止超时等待期间点"跳过"造成双重推进
+    if(this.skipTimer){ clearTimeout(this.skipTimer); this.skipTimer=null; }
     if(this.idx>=this.total){ this.finish(); return; }
     const name=this.queue[this.idx];
     this.cur=CHORD_MAP[name];
@@ -73,14 +82,23 @@ const Game = {
     this.timer=setInterval(()=>{
       this.timeLeft-=0.1;
       if(this.timeLeft<=0){
-        this.combo=0; $('#gameCombo').textContent=0;
+        // P0-03 修复：超时同样必须推进题号（V1 只重绘同一和弦，永久卡死）
         $('#gameTip').textContent='超时，下一个和弦…';
-        setTimeout(()=>this.nextChord(),500);
-        clearInterval(this.timer);
+        this.skipChord();
         return;
       }
       this.renderTime();
     },100);
+  },
+  /* P0-03：跳过/超时统一入口——先推进题号再进入下一题 */
+  skipChord(){
+    if(!this.running) return;
+    clearInterval(this.timer);
+    this.combo=0;
+    this.idx++;
+    $('#gameCombo').textContent=0;
+    // 略作停顿给出反馈，期间再点跳过由 nextChord 开头的 skipTimer 清理兜底
+    this.skipTimer=setTimeout(()=>{ this.skipTimer=null; this.nextChord(); },400);
   },
   renderTime(){
     const total=this.levels[this.level].time;
@@ -102,7 +120,7 @@ const Game = {
   },
   onPitch(r){
     if(!this.running||!this.cur||r.freq==null){ this.cand=null; return; }
-    const mf=69+12*Math.log2(r.freq/440);
+    const mf=baseMidi(r.freq); // P2-09：跟随 A4 基准
     // 找匹配目标弦（允许八度等价，防止泛音误判）——V2 M1：核心匹配迁至 AudioCore.matchFretTarget
     const targets=[];
     for(let i=0;i<6;i++){
@@ -183,6 +201,8 @@ const Game = {
   stopMic(){
     this.running=false;
     clearInterval(this.timer);
+    // P0-03：退出/结算时清掉待触发的跳题定时器，避免界面残留跳转
+    if(this.skipTimer){ clearTimeout(this.skipTimer); this.skipTimer=null; }
     if(this.mic){ Mic.stop(); this.mic=false; }
   },
   quit(){
@@ -261,7 +281,8 @@ const Ear = {
   newQuestion(){
     this.answered=false;
     if(this.mode==='note'){
-      const pool=[60,62,64,65,67,69,71,72];
+      // 附录优化 5：去掉与 60 重复的 72（都是 C），否则 C 被抽中概率是其它音的两倍
+      const pool=[60,62,64,65,67,69,71];
       const midi=pool[Math.floor(Math.random()*pool.length)];
       const label=noteNameNoOct(midi);
       const names=[...new Set(pool.map(m=>noteNameNoOct(m)))];
@@ -324,7 +345,11 @@ const Fret = {
       $$('#fbMode button').forEach(x=>x.classList.toggle('on',x===b));
       this.mode=b.dataset.m;
       this.playing=false;
+      // P2-16 修复：切换模式必须重置练习进度与记分（V1 残留旧 askN/askOk，
+      // 新模式的第 1 题就显示成 N/M 的错误计数）
+      this.askN=0; this.askOk=0; this.targetPC=null;
       $('#fbStart').style.display=this.mode==='find'?'inline-flex':'none';
+      $('#fbStart').textContent='开始找音'; // P2-16：按钮文案回到初始状态
       $('#fbHint').innerHTML=this.mode==='browse'
         ?'<span class="hint">点击品格试听该音，横向滑动查看 12 品</span>'
         :'<span class="hint">点击“开始”，根据提示在指板上找音</span>';
@@ -375,6 +400,7 @@ const Fret = {
     const name=NOTE_NAMES[this.targetPC];
     $('#fbHint').innerHTML=`<span class="fb-ask">请找到：${name}<small>点击指板上所有 ${name} 音的位置都算对</small></span>`;
     $('#fbScore').textContent=`${this.askOk}/${this.askN}`;
+    $('#fbStart').textContent='下一题'; // P2-16：出题后按钮文案切换
   },
   judge(cell,midi){
     const pc=((midi%12)+12)%12;
@@ -607,8 +633,8 @@ const Scale = {
     if(performance.now()<this.cooldown) return;
     const c=this.seq[this.i];
     if(!c || !r.freq){ this.cand=null; return; }
-    // V2 M1：阈值判定迁至 AudioCore.isPitchMatch
-    if(AudioCore.isPitchMatch(midiFromFreq(r.freq), c.midi)){
+    // V2 M1：阈值判定迁至 AudioCore.isPitchMatch；P2-09：跟随 A4 基准
+    if(AudioCore.isPitchMatch(baseMidi(r.freq), c.midi)){
       if(this.cand===this.i) this.candN++;
       else { this.cand=this.i; this.candN=1; }
       if(this.candN>=2){ this.cand=null; this.candN=0; this.advance(); }
@@ -677,12 +703,15 @@ const Studio = {
   },
   async toggle(){
     if(this.rec&&this.rec.state==='recording'){ this.stop(); return; }
+    // P1-08 修复：MediaRecorder 支持性检查必须先于 getUserMedia——
+    // V1 先申请麦克风再检查，旧浏览器不支持时直接 return，
+    // 已获取的 stream 永远不会释放，麦克风指示灯常亮（泄漏）。
+    if(!window.MediaRecorder){ toast('当前浏览器不支持录音功能','err');return; }
     try{
       this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false}});
     }catch(e){
       toast('无法访问麦克风，请检查权限','err');return;
     }
-    if(!window.MediaRecorder){ toast('当前浏览器不支持录音功能','err');return; }
     const types=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];
     let mime='';
     for(const t of types){ if(MediaRecorder.isTypeSupported(t)){mime=t;break;} }
@@ -740,7 +769,14 @@ const Studio = {
     this.analyser=null;
   },
   render(){
-    if(!this.items.length) return;
+    // P1-07 修复：列表为空时也要清空 DOM 并解除旧事件绑定——
+    // V1 提前 return，删除最后一条录音后旧节点（含 <audio>）永远留在页面上。
+    // 防御：删除回调里对越界索引先判空，避免极端时序下报错。
+    if(!this.items.length){
+      $('#recList').innerHTML='';
+      $('#recList').onclick=null;
+      return;
+    }
     $('#recList').innerHTML=this.items.map((it,i)=>`
       <div class="rec-item">
         <div class="name">${it.name}<small>${this.fmt(it.dur)} · ${it.ext.toUpperCase()}</small></div>
@@ -751,6 +787,7 @@ const Studio = {
     $('#recList').onclick=e=>{
       const b=e.target.closest('.rec-del'); if(!b)return;
       const i=+b.dataset.i;
+      if(!this.items[i]) return; // P1-07：越界防御
       URL.revokeObjectURL(this.items[i].url);
       this.items.splice(i,1);
       this.render();
@@ -761,6 +798,9 @@ onRouteEnter.studio=()=>Studio.init();
 
 /* ============================================================
    路由清理：离开页面时停止麦克风 / 计时 / 伴奏
+   P1-05 修复：本函数现由 app-1.js 的 applyRoute 内部调用
+   （typeof 保护，初始加载时若未定义则跳过），
+   V1 在此处包装 applyRoute 因监听绑定旧引用而从不生效，已删除。
    ============================================================ */
 function cleanupModules(){
   if(typeof Metro!=='undefined' && Metro.playing) Metro.stop();
@@ -771,9 +811,4 @@ function cleanupModules(){
   if(typeof Fret!=='undefined') Fret.playing=false;
   if(typeof Studio!=='undefined' && Studio.rec && Studio.rec.state==='recording') Studio.stop();
 }
-const _origApply=applyRoute;
-applyRoute=function(){
-  cleanupModules();
-  _origApply();
-};
 applyRoute();

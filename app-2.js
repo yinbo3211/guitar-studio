@@ -41,13 +41,20 @@ const Metro = {
     $('#timeSig').onclick=e=>{
       const b=e.target.closest('button'); if(!b)return;
       $$('#timeSig button').forEach(x=>x.classList.toggle('on',x===b));
-      this.beats=+b.dataset.beats; this.renderDots();
+      this.beats=+b.dataset.beats;
+      // P2-17 修复：播放中切换拍号必须把拍指针折回有效范围——
+      // V1 残留 this.beat，如从 4/4 的第 3 拍切到 2/4 会出现越界拍与强拍错位
+      this.beat=this.beat%this.beats;
+      this.subIdx=this.subIdx%this.sub;
+      this.renderDots();
     };
     // 细分
     $('#subdiv').onclick=e=>{
       const b=e.target.closest('button'); if(!b)return;
       $$('#subdiv button').forEach(x=>x.classList.toggle('on',x===b));
       this.sub=+b.dataset.sub;
+      // P2-17：切换细分同样把细分指针折回
+      this.subIdx=this.subIdx%this.sub;
     };
     $('#metroToggle').onclick=()=>this.toggle();
     this.renderDots();
@@ -239,7 +246,10 @@ function renderDiagram(chord, opts={}){
   out+=`<defs><linearGradient id="dotGrad${s}" x1="0" y1="0" x2="1" y2="1">
     <stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#f59136"/></linearGradient></defs>`;
   for(let f=1;f<=4;f++){
-    out+=`<text x="${X(5)+12*s}" y="${nutY+fretH*(f-0.5)+3*s}" font-size="${9*s}" fill="rgba(255,255,255,.35)" font-family="JetBrains Mono,monospace">${f}</text>`;
+    // P2-14 修复：左手镜像模式下品位数字应放在视觉上最后一根弦的外侧
+    // （V1 恒用 X(5)+12*s，左手模式时数字叠进弦区）
+    const numX=Math.max(X(0),X(5))+12*s;
+    out+=`<text x="${numX}" y="${nutY+fretH*(f-0.5)+3*s}" font-size="${9*s}" fill="rgba(255,255,255,.35)" font-family="JetBrains Mono,monospace">${f}</text>`;
   }
   return out+'</svg>';
 }
@@ -333,23 +343,37 @@ const ChordLib = {
     btn.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
     document.querySelector(`.prog-item[data-i="${i}"]`).classList.add('playing');
     const ctx=AudioEngine.ctx;
-    let idx=0;
-    const scheduleBar=()=>{
+    /* P2-15 修复：V1 每小节用 setTimeout(±抖动) 重新取 currentTime+0.12 起音，
+       节拍随播放逐渐漂移、和弦与高亮错位。改为与节拍器相同的 lookahead 方案：
+       时间轴锚定在 AudioContext.currentTime，提前把未来 2 小节排进音频时钟
+       （精确采样时刻，永不对称轴漂移）；setTimeout 只负责续排与 UI 高亮。 */
+    let nextBarTime=ctx.currentTime+0.1;
+    let barIdx=0;
+    this.progUiTimers=[];
+    const highlightBar=(curIdx)=>{
       if(this.progPlaying!==i) return;
-      const c=CHORD_MAP[p.chords[idx%p.chords.length]];
-      const when1=ctx.currentTime+0.12;
-      AudioEngine.strum(chordFreqs(c),'down',0.12,.26);
-      const up=chordFreqs(c).slice().reverse();
-      up.forEach((f,k)=>AudioEngine.pluck(f,0.12+bar/2+k*0.02,1.2,.13));
-      const curIdx=idx%p.chords.length;
       const chips=document.querySelectorAll(`.prog-item[data-i="${i}"] .prog-chords b`);
       chips.forEach((x,k)=>{
         const on=k===curIdx;
         x.style.background=on?'rgba(46,230,168,.25)':'';
         x.style.color=on?'var(--mint)':'';
       });
-      idx++;
-      this.progTimer=setTimeout(scheduleBar,bar*1000-50);
+    };
+    const scheduleBar=()=>{
+      if(this.progPlaying!==i) return;
+      while(nextBarTime < ctx.currentTime + 2*bar){
+        const curIdx=barIdx%p.chords.length;
+        const c=CHORD_MAP[p.chords[curIdx]];
+        const offset=nextBarTime-ctx.currentTime;
+        AudioEngine.strum(chordFreqs(c),'down',.26,offset);       // 小节头下扫
+        const up=chordFreqs(c).slice().reverse();
+        up.forEach((f,k)=>AudioEngine.pluck(f,offset+bar/2+k*0.02,1.2,.13)); // 半小节上琶音
+        // UI 高亮与该小节的音频时刻对齐（仅视觉，允许毫秒级误差）
+        this.progUiTimers.push(setTimeout(()=>highlightBar(curIdx), Math.max(0,offset*1000)));
+        barIdx++;
+        nextBarTime+=bar;
+      }
+      this.progTimer=setTimeout(scheduleBar,1000); // 只负责续排，无累积漂移
     };
     scheduleBar();
   },
@@ -357,6 +381,8 @@ const ChordLib = {
     // Fix-10: 防御性清理——清空定时器引用，避免快速切换进度时旧定时器对象堆积
     clearTimeout(this.progTimer);
     this.progTimer=null;
+    // P2-15：清理 UI 高亮定时器
+    if(this.progUiTimers){ this.progUiTimers.forEach(clearTimeout); this.progUiTimers=null; }
     if(this.progPlaying!==null){
       const i=this.progPlaying;
       const btn=document.querySelector(`.prog-play[data-i="${i}"]`);
