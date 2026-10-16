@@ -371,7 +371,8 @@ const Tuner = {
       }
       return;
     }
-    let midiFloat=69+12*Math.log2(r.freq/(this.a4/440*440));
+    // Fix-9: 检测音高统一基于当前 A4 基准（this.a4）计算 MIDI 值
+    let midiFloat=69+12*Math.log2(r.freq/this.a4);
     const smoothed=this.smooth(midiFloat);
     if(smoothed==null) return;
     let targetMidi, cents, displayName, sub;
@@ -379,7 +380,11 @@ const Tuner = {
       // 找最接近的标准弦
       let best=null,bd=99;
       this.strings.forEach(s=>{const d=Math.abs(smoothed-s.midi);if(d<bd){bd=d;best=s;}});
-      targetMidi=best.midi;
+      // Fix-9: 目标音高按报告公式基于当前 A4 基准换算：targetMidi=69+12*log2(targetFreq/this.a4)，
+      // 与 smoothed 保持同一基准（this.freq() 本身以 this.a4 计算，故结果恒等于 best.midi）；
+      // 取整以避免浮点误差破坏后续 === 比较
+      const targetFreq=this.freq(best.midi);
+      targetMidi=Math.round(69+12*Math.log2(targetFreq/this.a4));
       cents=(smoothed-targetMidi)*100;
       if(Math.abs(cents)>60){ // 偏差太大，忽略
         $('#tunerStatus').textContent='';
@@ -393,6 +398,7 @@ const Tuner = {
         b.classList.toggle('heard',on);
       });
     }else{
+      // Fix-9: smoothed 已基于当前 A4，直接四舍五入即为目标，两值天然同基准
       targetMidi=Math.round(smoothed);
       cents=(smoothed-targetMidi)*100;
       displayName=noteNameNoOct(targetMidi)+(Math.floor(targetMidi/12)-1);

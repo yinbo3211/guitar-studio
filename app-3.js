@@ -116,8 +116,9 @@ const Game = {
       if(Math.abs(diff)<0.6 && Math.abs(diff*100)<bestCents){
         // 但必须优先匹配非八度的真实音
         const realDiff=mf-target;
-        if(Math.abs(realDiff)<0.7){ hit=i; bestCents=realDiff*100; }
-        else if(!hit){ hit=i; bestCents=diff*100; }
+        // Fix-2: bestCents 必须更新为当前匹配项的实际 cents 绝对值（负值会导致后续比较失效）
+        if(Math.abs(realDiff)<0.7){ hit=i; bestCents=Math.abs(realDiff*100); }
+        else if(!hit){ hit=i; bestCents=Math.abs(diff*100); }
       }
     }
     if(hit!==null){
@@ -543,6 +544,8 @@ const Scale = {
   posText(c){ return (6-c.s)+'弦 · '+(c.f===0?'空弦':c.f+'品'); },
   /* ---- 跟听示范（BPM 逐音，上行再下行） ---- */
   startListen(){
+    // Fix-6: 空序列保护——该音阶/把位在指板上无可用音符时直接提示并返回
+    if(!this.seq||!this.seq.length){ toast('该音阶在当前把位无可用音符','warn'); return; }
     AudioEngine.ensure();
     this.stopFollow();
     this.mode='listen';
@@ -580,6 +583,8 @@ const Scale = {
   },
   /* ---- 麦克风逐音跟弹 ---- */
   async startFollow(){
+    // Fix-6: 空序列保护——该音阶/把位在指板上无可用音符时直接提示并返回
+    if(!this.seq||!this.seq.length){ toast('该音阶在当前把位无可用音符','warn'); return; }
     AudioEngine.ensure();
     this.stopListen();
     if(!this.mic){
@@ -684,10 +689,10 @@ const Studio = {
     }catch(e){
       toast('无法访问麦克风，请检查权限','err');return;
     }
+    if(!window.MediaRecorder){ toast('当前浏览器不支持录音功能','err');return; }
     const types=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];
     let mime='';
-    for(const t of types){ if(window.MediaRecorder&&MediaRecorder.isTypeSupported(t)){mime=t;break;} }
-    if(!window.MediaRecorder){ toast('当前浏览器不支持录音功能','err');return; }
+    for(const t of types){ if(MediaRecorder.isTypeSupported(t)){mime=t;break;} }
     this.rec=mime?new MediaRecorder(this.stream,{mimeType:mime}):new MediaRecorder(this.stream);
     this.chunks=[];
     this.rec.ondataavailable=e=>{ if(e.data.size) this.chunks.push(e.data); };
@@ -737,6 +742,8 @@ const Studio = {
     $('#recBtn').innerHTML='<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><circle cx="12" cy="12" r="7"/></svg>';
     $('#recHint').textContent='点击按钮开始录音';
     if(this.rec&&this.rec.state==='recording') this.rec.stop();
+    // Fix-7: 停止录音时立即取消电平表 rAF 循环，避免访问已释放的 analyser 资源
+    if(this.raf){ cancelAnimationFrame(this.raf); this.raf=null; }
     this.analyser=null;
   },
   render(){

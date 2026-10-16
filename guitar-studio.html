@@ -35,9 +35,10 @@
   --shadow-mint:0 6px 24px -6px rgba(46,230,168,.5), 0 0 0 1px rgba(46,230,168,.25) inset;
   --radius:18px;
   --radius-sm:12px;
-  --font-display:'Space Grotesk','PingFang SC','Microsoft YaHei',sans-serif;
-  --font-mono:'JetBrains Mono','SF Mono',ui-monospace,monospace;
-  --font-body:'PingFang SC','Microsoft YaHei','Space Grotesk',sans-serif;
+  /* Fix-8: 本地字体回退栈——CDN 不可用时逐级回退到系统字体，保证排版正常 */
+  --font-display:'Space Grotesk','PingFang SC','Microsoft YaHei',system-ui,-apple-system,'Segoe UI','Noto Sans SC',sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono',ui-monospace,'Cascadia Mono','Consolas','Courier New',monospace;
+  --font-body:'PingFang SC','Microsoft YaHei',system-ui,-apple-system,'Segoe UI','Noto Sans SC',sans-serif;
   --tabbar-h:64px;
   --sidebar-w:232px;
 }

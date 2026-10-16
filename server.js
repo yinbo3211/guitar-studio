@@ -101,10 +101,24 @@ function log(msg, level='info'){
 }
 
 /* ---------------- 会话 ---------------- */
-let sessionToken = null;
-function newSession(){
-  sessionToken = crypto.randomBytes(24).toString('hex');
-  return sessionToken;
+/* Fix-5: 会话令牌加固——改为 Map 多会话存储并带过期时间，取代单一全局令牌：
+   1. 每次登录生成独立令牌，互不影响，带 TTL 自动过期；
+   2. 请求校验时惰性清理过期会话，活跃会话自动续期；
+   3. 会话数量上限，防止内存被恶意刷登录撑爆。 */
+const SESSION_TTL = 24*60*60*1000;      // 会话有效期 24 小时
+const SESSION_MAX = 16;                 // 最大并发会话数
+const sessions = new Map();             // token -> { expires, ip, ts }
+function newSession(ip){
+  const now = Date.now();
+  for(const [k,v] of sessions){ if(v.expires <= now) sessions.delete(k); } // 清理过期
+  if(sessions.size >= SESSION_MAX){       // 超限淘汰最早创建的会话
+    let oldestKey = null, oldestTs = Infinity;
+    for(const [k,v] of sessions){ if(v.ts < oldestTs){ oldestTs = v.ts; oldestKey = k; } }
+    if(oldestKey !== null) sessions.delete(oldestKey);
+  }
+  const token = crypto.randomBytes(24).toString('hex');
+  sessions.set(token, { expires: now + SESSION_TTL, ip: String(ip || ''), ts: now });
+  return token;
 }
 
 /* ============================================================
@@ -493,7 +507,12 @@ function readBody(req){
 }
 function auth(req){
   const t = req.headers['authorization'] || (req.url.includes('token=') ? new URL(req.url, 'http://x').searchParams.get('token') : '');
-  return t && t === sessionToken;
+  if(!t) return false;
+  const s = sessions.get(t);
+  if(!s) return false;
+  if(s.expires <= Date.now()){ sessions.delete(t); return false; } // 已过期：即时剔除
+  s.expires = Date.now() + SESSION_TTL;                            // 活跃会话自动续期
+  return true;
 }
 
 /* ============================================================
@@ -507,7 +526,7 @@ const server = http.createServer(async (req, res) => {
     if(pathname === '/api/login' && req.method === 'POST'){
       const body = await readBody(req);
       if(body.password && body.password === config.adminPassword){
-        const token = newSession();
+        const token = newSession(req.socket && req.socket.remoteAddress); // Fix-5: 记录会话来源 IP
         log('管理员登录成功', 'ok');
         return sendJSON(res, 200, { ok:true, token });
       }

@@ -85,8 +85,10 @@ const Metro = {
     $('#metroToggle').innerHTML='<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>';
     $('#metroToggle').classList.remove('recording');
     const rod=$('#pendulumRod');
-    rod.style.transition='transform .3s ease';
-    rod.style.transform='rotate(0deg)';
+    if(rod){ // Fix-3: 与 visualLoop 相同的空值守卫
+      rod.style.transition='transform .3s ease';
+      rod.style.transform='rotate(0deg)';
+    }
     $$('.beat-dot').forEach(d=>d.className=d.className.replace(/flash-\w+/g,'').trim());
   },
   schedule(){
@@ -118,6 +120,8 @@ const Metro = {
   visualLoop(){
     if(!this.playing) return;
     const rod=$('#pendulumRod');
+    // Fix-3: 空值守卫——DOM 结构变更或渲染延迟时避免对 null 元素做样式操作
+    if(!rod) return;
     const loop=()=>{
       if(!this.playing) return;
       const ctx=AudioEngine.ctx;
@@ -352,7 +356,9 @@ const ChordLib = {
     scheduleBar();
   },
   stopProg(){
+    // Fix-10: 防御性清理——清空定时器引用，避免快速切换进度时旧定时器对象堆积
     clearTimeout(this.progTimer);
+    this.progTimer=null;
     if(this.progPlaying!==null){
       const i=this.progPlaying;
       const btn=document.querySelector(`.prog-play[data-i="${i}"]`);
