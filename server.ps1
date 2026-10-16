@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # 六弦工坊 · AI 吉他练习室 - 本地静态服务器
 # 仅供本机/局域网练习使用，零依赖，Win10 自带 PowerShell 即可运行
 # ============================================================
@@ -93,7 +93,7 @@ while ($listener.IsListening) {
         $raw = $ctx.Request.Url.AbsolutePath
         $rel = [System.Uri]::UnescapeDataString($raw.TrimStart('/'))
         if ([string]::IsNullOrWhiteSpace($rel)) { $rel = $Entry }
-        $path = Join-Path $Root ($rel -replace '/', '\\')
+        $path = Join-Path $Root ($rel -replace '/', '\')
         $fullRoot = (Resolve-Path $Root).Path
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'not found' }
         $fullPath = (Resolve-Path -LiteralPath $path).Path
