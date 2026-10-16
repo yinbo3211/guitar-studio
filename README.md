@@ -54,7 +54,7 @@
    ├── /              → 吉他网页（根路径只返回这个页面）
    ├── /admin         → 后台控制面板（密码登录）
    └── /api/*         → 反代到本机 Node 服务
-                         └─ 探测公网 IPv6 → 定时更新域名 AAAA（Cloudflare / DNSPod）
+                         └─ 探测公网 IPv6 → 定时更新域名 AAAA（Cloudflare / DNSPod / 阿里云）
 ```
 
 - 网页静态文件由 Nginx 直接托管（**外网只暴露这个吉他站点，后端源码/配置/脚本全部禁止访问**）。
@@ -64,7 +64,7 @@
 ### 你需要准备的东西
 
 1. **一条公网 IPv6**：宽带已分配 IPv6（本项目会自动探测；可在后台看到网卡候选地址）。
-2. **一个域名**，并把域名的 DNS 托管在 Cloudflare 或腾讯云 DNSPod（二选一）。
+2. **一个域名**，并把域名的 DNS 托管在 Cloudflare、腾讯云 DNSPod 或阿里云（三选一）。
 3. **路由器/光猫放行 IPv6 入站端口**（IPv6 没有 NAT，是放行防火墙，不是端口映射）。
 4. 外网用手机麦克风**必须 HTTPS**：推荐把域名接入 Cloudflare 橙云（自动 HTTPS），或用 certbot 给 Nginx 申请证书。
 
@@ -79,6 +79,14 @@
 1. 域名在 DNSPod 解析。
 2. 控制台 → **账号中心 → API 密钥 / DNSPod Token**，创建得到 **ID** 和 **Token**。
 3. 后台分别填入“DNSPod Token ID / Token”。
+
+**阿里云（万网域名 · 云解析 DNS）**
+1. 域名已在阿里云控制台「云解析 DNS」里正常解析（确认主域名出现在解析列表）。
+2. 强烈建议创建 **RAM 子账号专用 AccessKey**（不要用主账号 AK）：控制台 → **访问控制 RAM → 用户 → 创建用户**，勾选“OpenAPI 调用访问”，创建后保存 **AccessKey ID / Secret**。
+3. 给该 RAM 用户授权系统策略 **AliyunDNSFullAccess**（仅授予改 DNS 所需权限）。
+4. 后台服务商选“阿里云”，分别填入 **AccessKey ID / Secret**。
+
+> 注意：阿里云 DNS 本身不提供 HTTPS，外网手机麦克风仍需给 Nginx 配证书（certbot），或在前面套一层 Cloudflare。
 
 ### 第 2 步：Windows 10/11 部署
 
@@ -173,5 +181,5 @@ journalctl -u guitar-studio -f     # 实时日志
 - 音频：Web Audio API（OscillatorNode 合成、AnalyserNode 时域采样）；音高检测为自相关算法；录音为 MediaRecorder API。
 - 后端：仅用 Node.js 内置模块（`http/https/os/fs/crypto`），Node 10+ 即可运行，无需 npm install。
 - IPv6 探测：网卡枚举全局单播地址（2000::/3）+ 多个外部回显服务（`6.ipw.cn`、`api-ipv6.ip.sb`、`v6.ident.me`、`api6.ipify.org`），后台异步探测、状态接口秒回。
-- DDNS：Cloudflare（自动查 Zone、AAAA 记录不存在则新建）、DNSPod（dnsapi.cn Record.List/Create/Modify）。
+- DDNS：Cloudflare（自动查 Zone、AAAA 记录不存在则新建）、DNSPod（dnsapi.cn Record.List/Create/Modify）、阿里云（alidns RPC + HMAC-SHA1 签名，DescribeDomainRecords/Add/UpdateDomainRecord）。
 - 界面：深色霓虹风格，移动端（iPhone 16 Pro 逻辑宽度）与桌面端（Edge）响应式适配。
