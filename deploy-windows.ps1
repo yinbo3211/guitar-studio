@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # 六弦工坊 · Windows 10/11 一键部署（Nginx + Node + IPv6 DDNS）
 # 用法（管理员 PowerShell）：
 #   .\deploy-windows.ps1                         # 默认对外 8080，内部 3000，自动尝试 Nginx
@@ -83,7 +83,7 @@ if(-not $NoNginx){
 }
 
 # ---- 4. 写 config.json ----
-$webRootJs = $Root.Replace('\','/')
+$webRootJs = $Root.Replace('\\','/')
 if($nginxExe){
     $bind = "127.0.0.1"; $listenPort = $ApiPort
     Ok ">> 模式：Nginx 容器托管（静态由 Nginx，API 反代 Node）"
@@ -110,7 +110,9 @@ Ok ">> Node 后端已启动（$bind`:$listenPort）"
 # ---- 6. 配置并启动 Nginx ----
 if($nginxExe){
     $ngDir = Split-Path -Parent $nginxExe
-    $ngPrefix = Split-Path -Parent $ngDir
+    # Nginx prefix 必须是 nginx.exe 所在目录（其下才有 conf/、html/、logs/），
+    # 便携版解压后形如 nginx-bin/nginx-1.26.2/，不能再取上一级。
+    $ngPrefix = $ngDir
     # 从模板生成 server 块
     $tpl = Get-Content (Join-Path $Root "nginx\guitar-studio.conf.template") -Raw
     # 只取第一个 server { ... } 块（忽略底部 HTTPS 注释示例）
