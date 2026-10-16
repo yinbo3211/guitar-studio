@@ -1,4 +1,4 @@
-﻿# ============================================================
+# ============================================================
 # 六弦工坊 · AI 吉他练习室 - 本地静态服务器
 # 仅供本机/局域网练习使用，零依赖，Win10 自带 PowerShell 即可运行
 # ============================================================
@@ -93,12 +93,16 @@ while ($listener.IsListening) {
         $raw = $ctx.Request.Url.AbsolutePath
         $rel = [System.Uri]::UnescapeDataString($raw.TrimStart('/'))
         if ([string]::IsNullOrWhiteSpace($rel)) { $rel = $Entry }
-        $path = Join-Path $Root ($rel -replace '/', '\')
+        $path = Join-Path $Root ($rel -replace '/', '\\')
         $fullRoot = (Resolve-Path $Root).Path
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'not found' }
         $fullPath = (Resolve-Path -LiteralPath $path).Path
         if (-not $fullPath.StartsWith($fullRoot)) { throw 'forbidden' }
         $ext = [System.IO.Path]::GetExtension($fullPath).ToLower()
+        $leaf = [System.IO.Path]::GetFileName($fullPath)
+        # 安全：后端源码 / 配置（含密码与 DDNS 凭证）/ 部署脚本一律不对外提供
+        $denyExt = @('.sh','.ps1','.bat','.service','.conf','.template','.log','.bak','.json','.md')
+        if ($denyExt -contains $ext -or $leaf -eq 'server.js') { throw 'not found' }
         if ($Mime.ContainsKey($ext)) { $ctx.Response.ContentType = $Mime[$ext] }
         else { $ctx.Response.ContentType = 'application/octet-stream' }
         $bytes = [System.IO.File]::ReadAllBytes($fullPath)
