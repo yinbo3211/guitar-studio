@@ -193,52 +193,50 @@ const Mic = {
   }
 };
 
-/* ---------- 自相关基频检测（autocorrelation, 基于公开的 ACF2+ 算法） ---------- */
+/* ---------- 归一化自相关基频检测（对相位不敏感，含抛物线插值） ---------- */
 function PitchDetect(buf, sampleRate){
-  let SIZE=buf.length;
-  let rms=0;
-  for(let i=0;i<SIZE;i++) rms+=buf[i]*buf[i];
-  rms=Math.sqrt(rms/SIZE);
-  if(rms<0.008) return {freq:null,rms,clarity:0};
-  // 去直流
-  let mean=0; for(let i=0;i<SIZE;i++) mean+=buf[i]; mean/=SIZE;
-  for(let i=0;i<SIZE;i++) buf[i]-=mean;
-  // 限定吉他基频范围：约 60Hz(E2) ~ 1320Hz(E6)
-  let r1=Math.floor(sampleRate/1320);
-  let r2=Math.min(SIZE-1, Math.floor(sampleRate/55));
-  let bestR=-1, bestV=0, bestDip=1;
-  const thresh=0;
-  for(let i=0;i<=r1;i++){ /* no-op */ }
-  // 找到第一个过零点
-  let r=r1;
-  while(r<r2 && buf[r]>=thresh) r++;
-  while(r<r2 && buf[r]<=thresh) r++;
-  for(;r<r2;r++){
-    let sum=0;
-    for(let i=0;i<SIZE-r;i++) sum+=buf[i]*buf[i+r];
-    let v=sum/(SIZE-r);
-    if(v>bestV){ bestV=v; bestR=r; bestDip=1; }
-    else if(bestR>0){
-      let dip=v/bestV;
-      if(dip<bestDip) bestDip=dip;
-      if(dip>0.95) break; // 越过主峰
+  const SIZE=buf.length;
+  // 去直流（不修改输入缓冲）
+  let mean=0;
+  for(let i=0;i<SIZE;i++) mean+=buf[i];
+  mean/=SIZE;
+  const x=new Float32Array(SIZE);
+  for(let i=0;i<SIZE;i++) x[i]=buf[i]-mean;
+  // 能量 / RMS
+  let e2=0;
+  for(let i=0;i<SIZE;i++) e2+=x[i]*x[i];
+  const rms=Math.sqrt(e2/SIZE);
+  if(rms<0.01) return {freq:null,rms,clarity:0};
+  // 基频范围：约 50Hz（低音区）~ 1320Hz（E6）
+  const maxLag=Math.min(SIZE-1, Math.floor(sampleRate/50));
+  const minLag=Math.floor(sampleRate/1320);
+  // 按样本数归一化的自相关，补偿不同滞后长度造成的能量衰减
+  const ac=new Float32Array(maxLag+1);
+  for(let lag=0;lag<=maxLag;lag++){
+    let s=0; const n=SIZE-lag;
+    for(let i=0;i<n;i++) s+=x[i]*x[i+lag];
+    ac[lag]=s/n;
+  }
+  // 越过 lag0 后的下降段抵达谷底，再在其后寻找最高峰（即基频周期）
+  let lag=minLag;
+  while(lag<maxLag && ac[lag+1]<=ac[lag]) lag++;
+  let bestLag=lag, bestVal=ac[lag];
+  for(let i=lag;i<=maxLag;i++){ if(ac[i]>bestVal){ bestVal=ac[i]; bestLag=i; } }
+  const clarity=clamp(bestVal/ac[0],0,1);
+  if(clarity<0.25) return {freq:null,rms,clarity};
+  // 抛物线插值细化周期
+  let refined=bestLag;
+  if(bestLag>0 && bestLag<maxLag){
+    const a=ac[bestLag-1], b=ac[bestLag], c=ac[bestLag+1];
+    const den=(a-2*b+c);
+    if(den!==0){
+      const p=0.5*(a-c)/den;
+      if(isFinite(p) && Math.abs(p)<1) refined=bestLag+p;
     }
   }
-  if(bestR<0) return {freq:null,rms,clarity:0};
-  // 二次曲线插值提高精度
-  let x0=bestR-1, x1=bestR, x2=bestR+1;
-  const corr=(lag)=>{
-    if(lag<=0||lag>=SIZE) return 0;
-    let s=0; for(let i=0;i<SIZE-lag;i++) s+=buf[i]*buf[i+lag];
-    return s/(SIZE-lag);
-  };
-  let a=corr(x0),b=corr(x1),c=corr(x2);
-  let shift=(a-c)/(2*(a-2*b+c)+1e-9);
-  shift=clamp(isFinite(shift)?shift:0,-1,1);
-  let refined=bestR+shift;
-  const clarity=clamp((1-bestDip),0,1);
-  if(clarity<0.25) return {freq:null,rms,clarity};
-  return {freq:sampleRate/refined, rms, clarity};
+  const freq=sampleRate/refined;
+  if(freq<50||freq>1320) return {freq:null,rms,clarity:0};
+  return {freq,rms,clarity};
 }
 
 /* 平滑工具：值稳定才采纳 */
