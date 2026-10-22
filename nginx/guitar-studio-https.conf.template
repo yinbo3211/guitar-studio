@@ -1,0 +1,92 @@
+# ============================================================
+# 六弦工坊 · Nginx HTTPS 站点配置（阿里云域名版）
+# 由 deploy-https-aliyun.sh / enable-https-aliyun.ps1 自动替换占位符：
+#   __WEBROOT__   吉他项目所在目录（绝对路径）
+#   __HTTPPORT__  HTTP 端口（仅用于 301 跳转到 HTTPS，默认 80）
+#   __APIPORT__   本机 Node 服务端口（默认 3000，仅本机回环）
+#   __DOMAIN__    你的阿里云域名，如 guitar.example.com
+#   __SSL_CERT__  证书 fullchain.pem 绝对路径
+#   __SSL_KEY__   证书私钥 privkey.pem 绝对路径
+#
+# 结构：80 端口 301 跳转 → 443 SSL 提供全部服务。
+# 说明：静态网页由 Nginx 直接托管，/api/ 反代给本机 Node 服务。
+#       麦克风（调音器/录音）必须在 HTTPS 下才能工作。
+# ============================================================
+
+# ---------- HTTP：全部 301 跳转到 HTTPS ----------
+server {
+    listen       __HTTPPORT__;
+    listen       [::]:__HTTPPORT__;
+    server_name  __DOMAIN__;
+    return 301 https://__DOMAIN__$request_uri;
+}
+
+# ---------- HTTPS 主服务 ----------
+server {
+    # P0-01：为文本类响应统一声明 UTF-8，避免中文乱码
+    charset utf-8;
+    charset_types text/html text/css text/plain
+                  application/javascript application/json
+                  application/manifest+json;
+    listen       443 ssl http2;   # 旧版 nginx(<1.25) 兼容写法
+    listen       [::]:443 ssl http2;
+    server_name  __DOMAIN__;
+
+    ssl_certificate     __SSL_CERT__;
+    ssl_certificate_key __SSL_KEY__;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    root         __WEBROOT__;
+    index        guitar-studio.html;
+
+    server_tokens off;
+    autoindex off;
+    client_max_body_size 20m;
+
+    location = / {
+        try_files /guitar-studio.html =404;
+    }
+
+    location = /admin {
+        try_files /admin.html =404;
+    }
+
+    location /api/ {
+        proxy_pass         http://127.0.0.1:__APIPORT__/api/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    location ~* \.(?:js|css)$ {
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
+    location ~* \.(?:png|jpg|jpeg|gif|svg|ico|webm|mp4|wav|ogg|woff2?)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
+        try_files $uri =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /guitar-studio.html;
+    }
+
+    # ---- 安全：禁止访问后端源码 / 配置 / 部署脚本 ----
+    location ~* (?:^|/)\.                         { deny all; }
+    location =  /server.js                        { deny all; }
+    location ~* \.(?:json|sh|ps1|bat|service|conf|template|log|md|bak|html~)$ { deny all; }
+    location ~* single-file-backup                { deny all; }
+    location ^~ /nginx/                           { deny all; }
+    location ^~ /deploy/                          { deny all; }
+    location ^~ /_shots/                          { deny all; }
+    location ^~ /node_modules/                    { deny all; }
+}

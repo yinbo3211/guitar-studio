@@ -707,6 +707,8 @@ const Studio = {
     // V1 先申请麦克风再检查，旧浏览器不支持时直接 return，
     // 已获取的 stream 永远不会释放，麦克风指示灯常亮（泄漏）。
     if(!window.MediaRecorder){ toast('当前浏览器不支持录音功能','err');return; }
+    // P0-03 修复：HTTP 明文下 mediaDevices 为 undefined，先校验再调用
+    if(typeof micGuard==='function' && !micGuard()) return;
     try{
       this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false}});
     }catch(e){

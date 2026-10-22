@@ -98,6 +98,13 @@ sed -e "s|__WEBROOT__|$ROOT|g" \
     -e "s|__PORT__|$PORT|g" \
     -e "s|__APIPORT__|$APIPORT|g" \
     "$ROOT/nginx/guitar-studio.conf.template" > "$NGINX_CONF"
+
+# P1-07 修复：无全局 IPv6 时移除 [::] 监听，避免 nginx socket() failed 退出
+if ! ip -6 addr show scope global 2>/dev/null | grep -q 'inet6'; then
+  sed -i '/listen \[::\]/d' "$NGINX_CONF"
+  c_y ">> 未检测到可用 IPv6，已移除 [::] 监听"
+fi
+
 c_g ">> nginx 站点配置已写入：$NGINX_CONF"
 
 # 处理 SELinux（允许 nginx 反代、读取站点目录）
@@ -107,9 +114,21 @@ if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" = "Enforcing" ]; t
   chcon -Rt httpd_sys_content_t "$ROOT" || true
 fi
 
-nginx -t
+# P1-08 修复：nginx -t 校验失败必须中断，否则 restart 后 nginx 不在运行，
+# 脚本却继续打印「部署完成」，用户拿到的是打不开的站点
+if ! nginx -t; then
+  c_r ">> nginx 配置校验失败，部署中止。请检查 $NGINX_CONF"
+  exit 1
+fi
 systemctl enable nginx >/dev/null 2>&1
 systemctl restart nginx
+# P1-08 补充：restart 后确认 nginx 确实在运行
+sleep 1
+if ! systemctl is-active --quiet nginx; then
+  c_r ">> nginx 启动失败，部署中止。请执行：journalctl -u nginx -e"
+  exit 1
+fi
+c_g ">> nginx 已启动，对外端口 $PORT（含 UTF-8 charset，中文不会乱码）"
 
 # ---------- 6. 防火墙放行 ----------
 if systemctl is-active --quiet firewalld; then

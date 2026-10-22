@@ -4,7 +4,7 @@
 #   .\deploy-windows.ps1                         # 默认对外 8080，内部 3000，自动尝试 Nginx
 #   .\deploy-windows.ps1 -Port 9000              # 自定义对外端口
 #   .\deploy-windows.ps1 -NoNginx                # 不使用 Nginx，Node 直接双栈对外
-# 双击「启动外网托管.bat」会自动以管理员运行本脚本。
+# 双击「start-hosting.bat」会自动以管理员运行本脚本。
 # ============================================================
 param(
     [int]$Port = 8080,
@@ -24,7 +24,7 @@ function Err($m){ Write-Host $m -ForegroundColor Red }
 # ---- 管理员权限（防火墙、监听端口需要）----
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){
-    Err "请以管理员身份运行：右键「启动外网托管.bat」→ 以管理员身份运行"
+    Err "请以管理员身份运行：右键「start-hosting.bat」→ 以管理员身份运行"
     Read-Host "按回车退出"; exit 1
 }
 
@@ -132,14 +132,57 @@ http {
     # 确保便携版存在 mime.types
     $confDir = Join-Path $ngPrefix "conf"
     $confPath = Join-Path $confDir "guitar-studio.conf"
-    $conf | Out-File -FilePath $confPath -Encoding ascii -Force
+    # P1-07 修复：无 IPv6 环境（内核禁用/虚拟机未开启）下 listen [::] 会导致
+    # nginx 报 socket() failed (97: Address family not supported) 并退出。
+    $hasV6 = (Get-NetIPAddress -AddressFamily IPv6 -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -notlike 'fe80*' -and $_.IPAddress -ne '::1' } |
+        Select-Object -First 1)
+    if(-not $hasV6){
+        $conf = $conf -replace '(?m)^\s*listen\s+\[::\]:\d+;.*$', ''
+        Warn ">> 未检测到可用 IPv6，已移除 [::] 监听"
+    }
+    # P1-05 修复：-Encoding ascii 会把中文路径（root 行）写成乱码字节，
+    # 导致 nginx 找不到站点目录、全站 404/403。改用无 BOM 的 UTF-8。
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($confPath, $conf, $utf8NoBom)
     # 停止旧 nginx 再启动
     Push-Location $ngPrefix
     Start-Process -FilePath $nginxExe -ArgumentList "-s","stop" -WindowStyle Hidden -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 800
     Start-Process -FilePath $nginxExe -ArgumentList "-p","`"$ngPrefix`"","-c","conf/guitar-studio.conf" -WindowStyle Hidden
     Pop-Location
-    Ok ">> Nginx 已启动，对外端口 $Port"
+    # P1-06 修复：启动 nginx 后探测真实响应，失败自动回退 Node 直连，
+    # 不再无条件打印「部署完成」。
+    $up = $false
+    for($i=0; $i -lt 12; $i++){
+        Start-Sleep -Milliseconds 500
+        try{
+            $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/guitar-studio.html" -UseBasicParsing -TimeoutSec 3
+            if($r.StatusCode -eq 200){ $up = $true; break }
+        }catch{}
+    }
+    if(-not $up){
+        Warn ">> Nginx 未能对外提供服务（端口占用/配置错误），自动回退 Node 直连模式"
+        Start-Process -FilePath $nginxExe -ArgumentList "-s","stop" -WindowStyle Hidden -ErrorAction SilentlyContinue
+        # 改写 config.json 为双栈直连后重启 Node
+        $fallbackScript = @"
+const fs=require('fs'),path=require('path');
+const root=process.cwd();
+const p=path.join(root,'config.json');
+let c=JSON.parse(fs.readFileSync(p,'utf8'));
+c.webPort=$Port; c.bindHost='::';
+fs.writeFileSync(p,JSON.stringify(c,null,2));
+console.log('config.json fallback: ::'+'$Port');
+"@
+        Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like "*server.js*" -and $_.CommandLine -like "*$Root*" } |
+            ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+        $fallbackScript | node -
+        Start-Process -FilePath "node" -ArgumentList "server.js" -WorkingDirectory $Root -WindowStyle Minimized
+        Ok ">> 已回退：Node 直接双栈对外（IPv6+IPv4），端口 $Port"
+    } else {
+        Ok ">> Nginx 已启动，对外端口 $Port"
+    }
 }
 
 # ---- 7. 防火墙放行 ----
@@ -160,7 +203,7 @@ Ok "================ 部署完成 ================"
 Write-Host "  本机访问： http://localhost:$Port/guitar-studio.html"
 if($v4){ Write-Host "  局域网：   http://$v4`:$Port/guitar-studio.html" }
 if($v6){ Write-Host "  外网 IPv6：http://[$v6]:$Port/guitar-studio.html" }
-Write-Host "  后台面板： http://localhost:$Port/admin  （默认密码 admin123）"
+Write-Host "  后台面板： http://localhost:$Port/admin"
 Write-Host ""
 Warn "  还需在路由器/光猫放行 IPv6 入站 TCP $Port。"
 Warn "  外网手机麦克风需 HTTPS：域名接入 Cloudflare 橙云或配置证书。"

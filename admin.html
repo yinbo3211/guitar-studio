@@ -121,7 +121,7 @@ select option{background:var(--card)}
       <div class="mark"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1b1206" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
       <div><h1>六弦工坊 · 控制台</h1><p>IPv6 DDNS 与外网托管</p></div>
     </div>
-    <div class="sub">输入管理员密码进入后台。默认密码 <code style="color:var(--amber)">admin123</code>，首次登录请尽快修改。</div>
+    <div class="sub">输入管理员密码进入后台。<!-- P2-11 修复：不在登录页展示默认口令，公网暴露风险 -->首次登录后请尽快修改为强密码。</div>
     <label class="fld" style="margin-top:0">
       <span>管理员密码</span>
       <input type="password" id="loginPwd" placeholder="请输入密码" autocomplete="current-password">

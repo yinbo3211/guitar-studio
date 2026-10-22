@@ -91,11 +91,12 @@
 ### 第 2 步：Windows 10/11 部署
 
 1. 安装 Node.js LTS（若没有，脚本会尝试用 winget 自动装；也可手动到 https://nodejs.org 安装）。
-2. **右键 `启动外网托管.bat` → 以管理员身份运行**（首次会自动申请管理员权限）。
+2. **右键 `start-hosting.bat` → 以管理员身份运行**（首次会自动申请管理员权限）。
    - 默认对外端口 **8080**，内部 Node 端口 3000。
    - 脚本会自动下载便携版 Nginx 到 `nginx-bin\`（若下载失败则自动改为 Node 直连，功能不受影响）。
    - 自动放行 Windows 防火墙入站端口。
-3. 也可在管理员 PowerShell 里自定义端口：
+3. **需要 HTTPS（外网手机麦克风必须）且有阿里云域名**：见 `docs/阿里云域名HTTPS部署指南.md`，CentOS 用 `deploy-https-aliyun.sh`、Windows 用 `enable-https-aliyun.ps1` 一条命令完成证书签发与 443 托管（含自动续期）。
+4. 也可在管理员 PowerShell 里自定义端口：
    ```powershell
    .\deploy-windows.ps1 -Port 9000
    .\deploy-windows.ps1 -NoNginx        # 不使用 Nginx，Node 直接双栈对外
@@ -162,7 +163,7 @@ journalctl -u guitar-studio -f     # 实时日志
 - `config.example.json`：配置模板（运行后生成的 `config.json` 含密码与凭证，**不会入库**）
 - `nginx/guitar-studio.conf.template`：Nginx 站点配置模板（IPv4+IPv6、安全拦截）
 - `deploy-centos.sh`：CentOS 一键部署（含 systemd / firewalld / SELinux）
-- `deploy-windows.ps1`、`启动外网托管.bat`：Windows 一键部署（含便携 Nginx / 防火墙）
+- `deploy-windows.ps1`、`start-hosting.bat`：Windows 一键部署（含便携 Nginx / 防火墙）
 
 > 转发时请把**整个文件夹**一起复制；`config.json`、`node_modules`、`nginx-bin` 已在 `.gitignore` 忽略。
 

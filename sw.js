@@ -12,7 +12,7 @@
    版本升级：递增 CACHE 版本号，activate 时清理旧缓存。
    ============================================================ */
 'use strict';
-const CACHE = 'guitar-studio-v1.1.0';
+const CACHE = 'guitar-studio-v1.1.1'; // P2-09：发版必须递增，旧缓存在 activate 时自动清理
 /* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试 */
 const CORE = [
   './',
@@ -45,6 +45,11 @@ self.addEventListener('activate', e => {
     await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
+});
+
+/* P2-09：允许页面发送 {type:'SKIP_WAITING'} 让新 SW 立即接管 */
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', e => {

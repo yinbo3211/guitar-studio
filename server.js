@@ -204,7 +204,9 @@ function fetchExternalIPv6(){
         });
       });
       req.on('error', () => { if(!done) settled(); });
-      req.on('timeout', () => req.destroy());
+      // P2-12 修复：timeout 只 destroy 不计数时，极端情况要等 6 秒兜底才继续；
+      // destroy 会触发 'error'，但仍需同步调用 settled() 立即收敛
+      req.on('timeout', () => { req.destroy(); if(!done) settled(); });
     });
   });
 }
@@ -519,7 +521,16 @@ const ALLOWED_FILES = new Set([
   'app-1.js', 'app-2.js', 'app-3.js',
   'audio-core.js', 'sw.js', 'manifest.webmanifest'   // V2 M1：算法库 / Service Worker / PWA 清单
 ]);
-const ALLOWED_EXT = new Set(['.png','.jpg','.jpeg','.gif','.svg','.ico','.webm','.mp4','.wav','.ogg','.woff','.woff2','.css']);
+const ALLOWED_EXT = new Set(['.png','.jpg','.jpeg','.gif','.svg','.ico','.webm','.mp4','.wav','.ogg','.woff','.woff2','.css','.js']);
+/* P2-14 修复：按扩展名放行 + 敏感文件黑名单。
+   之前纯白名单硬编码，新增 js/css 会直接 404；改为扩展名放行后，
+   必须挡住后端源码与配置文件本身。 */
+const DENY_FILES = new Set([
+  'server.js', 'config.json', 'config.example.json',
+  'package.json', 'package-lock.json',
+  'deploy-windows.ps1', 'deploy-centos.sh', 'server.ps1'
+]);
+const DENY_DIRS = ['nginx/', 'test/', 'node_modules/'];
 
 function serveStatic(req, res, pathname){
   let rel = decodeURIComponent(pathname);
@@ -531,7 +542,11 @@ function serveStatic(req, res, pathname){
   if(!filePath.startsWith(ROOT)){ res.writeHead(403); return res.end('403 Forbidden'); }
   const base = path.basename(filePath);
   const ext = path.extname(filePath).toLowerCase();
-  const allowed = ALLOWED_FILES.has(base) || (ALLOWED_EXT.has(ext) && !base.startsWith('.'));
+  // P2-14：扩展名放行 + 黑名单（文件名 + 目录）
+  const relNorm = safe.replace(/\\/g, '/');
+  const deniedDir = DENY_DIRS.some(d => ('/' + relNorm).includes('/' + d));
+  const allowed = !deniedDir && !DENY_FILES.has(base) &&
+    (ALLOWED_FILES.has(base) || (ALLOWED_EXT.has(ext) && !base.startsWith('.')));
   if(!allowed){ res.writeHead(404, {'Content-Type':'text/plain; charset=utf-8'}); return res.end('404 Not Found'); }
   fs.readFile(filePath, (err, data) => {
     if(err){ res.writeHead(404, {'Content-Type':'text/plain; charset=utf-8'}); return res.end('404 Not Found'); }

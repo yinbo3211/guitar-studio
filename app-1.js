@@ -154,6 +154,21 @@ const AudioEngine = {
 };
 
 /* ---------- 麦克风管理 ---------- */
+/* P0-03 修复：HTTP 明文（非 localhost）下浏览器判定非安全上下文，
+   navigator.mediaDevices 本身是 undefined，直接调用会抛 TypeError。
+   先做存在性/安全性校验，把「为什么不能用」讲清楚，再谈授权。 */
+function micGuard(){
+  if(!window.isSecureContext){
+    toast('当前是 HTTP 明文访问，浏览器已禁用麦克风。','err',4500);
+    toast('请用 HTTPS 域名访问（Cloudflare 橙云 / Caddy / certbot）或本机 localhost。','err',4500);
+    return false;
+  }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    toast('当前浏览器未开放麦克风接口，请更换 Chrome/Edge 并用 HTTPS 访问。','err',4500);
+    return false;
+  }
+  return true;
+}
 const Mic = {
   stream:null, ctx:null, analyser:null, raf:null, cb:null, frame:0,
   async start(onPitch){
@@ -161,6 +176,7 @@ const Mic = {
     // 否则切换模块后检测结果仍发给旧模块、判定完全失效
     this.cb = onPitch;
     if(this.stream) return true; // 已有流：只换回调，不重复申请
+    if(!micGuard()) return false; // P0-03：安全上下文/接口存在性前置校验
     try{
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}
