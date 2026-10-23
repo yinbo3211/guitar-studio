@@ -12,7 +12,7 @@
    版本升级：递增 CACHE 版本号，activate 时清理旧缓存。
    ============================================================ */
 'use strict';
-const CACHE = 'guitar-studio-v1.2.0'; // P2-09：发版必须递增，旧缓存在 activate 时自动清理
+const CACHE = 'guitar-studio-v1.2.1'; // P2-09：发版必须递增，旧缓存在 activate 时自动清理
 /* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试 */
 const CORE = [
   './',
@@ -61,12 +61,20 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;             // 跨域（CDN 字体等）不拦截
   if (url.pathname.includes('/api/')) return;             // API 永不缓存
 
+  /* SUG-01：缓存条目上限——只回填预缓存清单（CORE/OPTIONAL）内的资源。
+     预缓存之外的同源 GET 仍然放行网络，只是不写入缓存，
+     避免长期运行后缓存被任意路径（探测请求、日志页等）撑爆。 */
+  const known = new Set(
+    CORE.concat(OPTIONAL).map(u => new URL(u, location.origin).pathname)
+  );
+  const cacheable = known.has(url.pathname);
+
   // P2-10：stale-while-revalidate——缓存立即响应，同时后台更新
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(req);
     const refresh = fetch(req).then(res => {
-      if (res && res.ok && res.type === 'basic') cache.put(req, res.clone());
+      if (cacheable && res && res.ok && res.type === 'basic') cache.put(req, res.clone());
       return res;
     }).catch(() => null);
     return hit || (await refresh) || Response.error();
