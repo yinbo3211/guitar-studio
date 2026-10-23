@@ -4,6 +4,10 @@
    ============================================================ */
 'use strict';
 
+/* BUG-01 修复：ESM 模块作用域下 PitchDetect 需从 AudioCore 解构引入
+   （与 ui.js / tuner.js 保持一致的写法） */
+const { PitchDetect } = AudioCore;
+
 /* ============================================================
    音频引擎（原生 Web Audio，全部本地处理）
    ============================================================ */
@@ -25,17 +29,28 @@ const AudioEngine = {
   _integrateTone(){
     ToneEngine.ensure().then(Tone=>{
       if(!Tone) return;
-      try{
-        const rawCtx = Tone.getContext().rawContext;
-        if(this.ctx && !this.ctx.__gsShared && rawCtx.state!==undefined){
-          this.ctx = rawCtx; rawCtx.__gsShared = true;
-        }
-        if(this.master && ToneEngine.rawBuses){
-          this.master.disconnect();
-          this.master.connect(ToneEngine.rawBuses.music);
-        }
-      }catch(e){ console.warn('[audio-engine] Tone 总线接入失败，走原生输出：', e&&e.message); }
-    }).catch(()=>{});
+      const rawCtx = Tone.getContext().rawContext;
+      if(this.ctx && !this.ctx.__gsShared && rawCtx.state!==undefined){
+        // BUG-02 修复：替换上下文时必须同步重建 master，
+        // 否则 master 属于旧 AudioContext，跨上下文连接必然失败，
+        // 且失败前 master.disconnect() 会让它成为悬空节点（全站静音）
+        const vol = this.master ? this.master.gain.value : .5;
+        this.ctx = rawCtx; rawCtx.__gsShared = true;
+        try{ if(this.master) this.master.disconnect(); }catch(e){}
+        this.master = rawCtx.createGain();
+        this.master.gain.value = vol;
+        this.master.connect(rawCtx.destination);   // 兜底直连，保证一定有声
+      }
+      const bus = ToneEngine.rawBuses && ToneEngine.rawBuses.music;
+      if(this.master && bus && bus instanceof AudioNode){
+        this.master.disconnect();
+        this.master.connect(bus);
+      }
+    }).catch(e=>{
+      // BUG-02 修复：任何失败都要把 master 接回 destination，绝不留下悬空节点
+      console.warn('[audio-engine] Tone 总线接入失败，走原生输出：', e&&e.message);
+      try{ this.master && this.master.connect(this.ctx.destination); }catch(_){}
+    });
   },
   /* 拨弦合成：三角波基音 + 泛音 + 指数衰减 */
   pluck(freq, when=0, dur=1.6, vol=.32){
@@ -111,7 +126,7 @@ function micGuard(){
   return true;
 }
 const Mic = {
-  stream:null, ctx:null, analyser:null, raf:null, cb:null, frame:0,
+  stream:null, micCtx:null,  // BUG-04 修复：麦克风使用独立上下文字段，绝不覆盖/关闭播放上下文 analyser:null, raf:null, cb:null, frame:0,
   async start(onPitch){
     // P0-02 修复：Mic 为全局单例，复用旧流时必须刷新回调，
     // 否则切换模块后检测结果仍发给旧模块、判定完全失效
@@ -131,9 +146,9 @@ const Mic = {
       return false;
     }
     const AC = window.AudioContext||window.webkitAudioContext;
-    this.ctx = new AC();
-    const src=this.ctx.createMediaStreamSource(this.stream);
-    this.analyser=this.ctx.createAnalyser();
+    this.micCtx = new AC();
+    const src=this.micCtx.createMediaStreamSource(this.stream);
+    this.analyser=this.micCtx.createAnalyser();
     this.analyser.fftSize=2048;
     src.connect(this.analyser);
     this.buf=new Float32Array(this.analyser.fftSize);
@@ -144,7 +159,7 @@ const Mic = {
       this.raf=requestAnimationFrame(loop);
       if(++this.frame%2===0) return;
       this.analyser.getFloatTimeDomainData(this.buf);
-      const r=PitchDetect(this.buf, this.ctx.sampleRate);
+      const r=PitchDetect(this.buf, this.micCtx.sampleRate);
       if(this.cb) this.cb(r); // P0-02：始终调用最新回调
     };
     loop();
@@ -155,7 +170,7 @@ const Mic = {
     if(this.raf) cancelAnimationFrame(this.raf);
     this.raf=null;
     if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
-    if(this.ctx){ this.ctx.close(); this.ctx=null; }
+    if(this.micCtx){ this.micCtx.close(); this.micCtx=null; }
   }
 };
 

@@ -32,10 +32,16 @@ const ToneEngine = {
       this.buses = { music, fx, metro, limiter };
       // 原生总线：与 Tone 同一 rawContext，供 AudioEngine.master 汇入
       const rawCtx = Tone.getContext().rawContext;
-      const rawMusic = rawCtx.createGain();
+      const rawGain = rawCtx.createGain();
+      // BUG-02 修复：standardized-audio-context 环境下 createGain 可能返回
+      // Tone 包装对象而非原生 AudioNode，需取底层原生节点，否则 instanceof 判定失败
+      const rawMusic = rawGain._nativeAudioNode || (rawGain.output && rawGain.output.nativeNode) || rawGain;
       rawMusic.gain.value = 1;
       try { rawMusic.connect(limiter.input); }          // 汇入同一限幅总线
-      catch (e) { rawMusic.connect(rawCtx.destination); }
+      catch (e) {
+        console.warn('[tone-engine] 原生总线汇入限幅器失败，直连 destination：', e && e.message);
+        rawMusic.connect(rawCtx.destination);
+      }
       this.rawBuses = { music: rawMusic, ctx: rawCtx };
       return Tone;
     } catch (e) {

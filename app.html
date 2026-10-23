@@ -34,6 +34,16 @@
   <link rel="stylesheet" href="assets/css/themes/theme-forest.css">
   <link rel="stylesheet" href="assets/css/themes/theme-rose.css">
   <link rel="stylesheet" href="assets/css/themes/theme-mono.css">
+  <!-- BUG-06 修复：file:// 协议下 ESM 被 CORS 拦截会白屏，提前渲染提示层 -->
+  <script>
+    if (location.protocol === 'file:') {
+      document.addEventListener('DOMContentLoaded', function () {
+        document.body.innerHTML = '<div style="padding:40px;font:15px/1.7 sans-serif;color:#ffb454">'
+          + '六弦工坊需要通过 HTTP 打开。<br>请双击「启动吉他工具.bat」，或在项目目录执行 npm start，'
+          + '然后访问 http://localhost:8765</div>';
+      });
+    }
+  </script>
 </head>
 <body>
 <div class="stage-bg"></div>

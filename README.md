@@ -16,7 +16,7 @@
 - **中英日韩四语**：侧栏 🌐 按钮切换，导航/首页/通用操作词条已覆盖；
   各模块深水区文案按 `assets/js/i18n/*.js` 的词条结构持续接入。
 - **目录重构 + ESM**：单一模块入口 `assets/js/main.js`，`package.json` 提供
-  `npm test`（59 项单测）/ `npm start` / `npm run lint`。
+  `npm test`（56 项单测）/ `npm start` / `npm run lint`。
 
 > ⚠️ ESM 限制：V3 起必须通过 HTTP 访问（`npm start` 或 启动吉他工具.bat），
 > 直接双击 html（file://）不再可用。

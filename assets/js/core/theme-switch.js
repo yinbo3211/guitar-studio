@@ -80,7 +80,8 @@ document.addEventListener('gs:lang', (e) => { gsLang = (e.detail && e.detail.lan
 /* 侧栏 / 顶栏入口注入 */
 function injectEntry() {
   const make = (parent) => {
-    if (!parent || document.querySelector('.gs-theme-btn')) return;
+    // BUG-08 修复：去重判断只查父容器内部，允许侧栏与顶栏各自存在入口
+    if (!parent || parent.querySelector('.gs-theme-btn')) return;
     const btn = document.createElement('button');
     btn.className = 'nav-item gs-theme-btn';
     btn.style.cssText = 'border:none;background:none;cursor:pointer;font:inherit;color:inherit;';
