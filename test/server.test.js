@@ -96,11 +96,15 @@ test('bindHost 合法值 200：IPv4/IPv6/localhost', async () => {
     assert.strictEqual(r.status, 200, `bindHost=${h} 应 200`);
   }
 });
-test('ddns.ttl 非法值 400 / 合法值 200', async () => {
+test('ddns.ttl 非法值 400 / 合法值 200（修订：1=自动 或 60-86400）', async () => {
   let r = await reqJSON(PORT, 'PUT', '/api/config', { ddns: { ttl: -5 } }, token);
   assert.strictEqual(r.status, 400);
   r = await reqJSON(PORT, 'PUT', '/api/config', { ddns: { ttl: 59 } }, token);
   assert.strictEqual(r.status, 400);
+  r = await reqJSON(PORT, 'PUT', '/api/config', { ddns: { ttl: 2 } }, token);   // 2 既非 1 也非 ≥60
+  assert.strictEqual(r.status, 400);
+  r = await reqJSON(PORT, 'PUT', '/api/config', { ddns: { ttl: 1 } }, token);   // 1 = 自动，合法
+  assert.strictEqual(r.status, 200);
   r = await reqJSON(PORT, 'PUT', '/api/config', { ddns: { ttl: 600 } }, token);
   assert.strictEqual(r.status, 200);
 });

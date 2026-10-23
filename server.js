@@ -80,8 +80,9 @@ function sanitizeConfig(cfg){
     cfg.bindHost = DEFAULT_CONFIG.bindHost;
   }
   if(cfg.ddns){
-    if(!Number.isInteger(cfg.ddns.ttl) || cfg.ddns.ttl < 60 || cfg.ddns.ttl > 86400){
-      log(`配置 ddns.ttl=${JSON.stringify(cfg.ddns.ttl)} 非法（应为 60-86400 整数），回退默认 120`, 'warn');
+    /* TTL 合法值：1（自动）或 60-86400 秒（Cloudflare 官方范围） */
+    if(!(cfg.ddns.ttl === 1 || (Number.isInteger(cfg.ddns.ttl) && cfg.ddns.ttl >= 60 && cfg.ddns.ttl <= 86400))){
+      log(`配置 ddns.ttl=${JSON.stringify(cfg.ddns.ttl)} 非法（应为 1 或 60-86400 整数），回退默认 120`, 'warn');
       cfg.ddns.ttl = DEFAULT_CONFIG.ddns.ttl;
     }
     if(!Number.isInteger(cfg.ddns.intervalMin) || cfg.ddns.intervalMin < 1){
@@ -753,8 +754,9 @@ const server = http.createServer(async (req, res) => {
           if(d.sub !== undefined) cur.sub = String(d.sub).trim();
           if(d.ttl !== undefined){
             const t = Number(d.ttl);
-            if(!Number.isInteger(t) || t < 60 || t > 86400)
-              return sendJSON(res, 400, { ok:false, msg:'ddns.ttl 非法：应为 60-86400 的整数（秒）' });
+            /* V2-BUG-02（修订）：TTL 合法值=1（自动）或 60-86400 秒（Cloudflare 官方范围） */
+            if(!(t === 1 || (Number.isInteger(t) && t >= 60 && t <= 86400)))
+              return sendJSON(res, 400, { ok:false, msg:'ddns.ttl 非法：应为 1（自动）或 60-86400 的整数' });
             cur.ttl = t;
           }
           if(d.cfProxy !== undefined) cur.cfProxy = !!d.cfProxy;
