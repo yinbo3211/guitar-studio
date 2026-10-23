@@ -806,6 +806,7 @@ onRouteEnter.studio=()=>Studio.init();
    ============================================================ */
 function cleanupModules(){
   if(typeof Metro!=='undefined' && Metro.playing) Metro.stop();
+  if(typeof Rhythm!=='undefined' && Rhythm.phase!=='idle') Rhythm.stop(false);
   if(typeof Tuner!=='undefined' && Tuner.active) Tuner.toggle();
   if(typeof Game!=='undefined' && Game.mic) Game.quit();
   if(typeof Scale!=='undefined' && Scale.mode!=='idle') Scale.stopAll();

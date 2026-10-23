@@ -368,6 +368,9 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
       <button class="nav-item" data-route="metro">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg>节拍器
       </button>
+      <button class="nav-item" data-route="rhythm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M8 4v16M12 7v10M16 4v16M20 7v10"/></svg>节奏型练习
+      </button>
       <button class="nav-item" data-route="game">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/><circle cx="12" cy="14" r="1.6" fill="currentColor"/></svg>和弦闯关
       </button>
@@ -408,7 +411,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
       <section class="view active" id="view-home">
         <div class="hero">
           <h1>把整间吉他练习室<br>装进<em>你的浏览器</em></h1>
-          <p>调音、节拍、和弦闯关、音阶、和弦库、练耳、指板、录音——八大模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
+          <p>调音、节拍、节奏型、和弦闯关、音阶、和弦库、练耳、指板、录音——九大模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
           <div class="hero-tags">
             <span class="tag tag-amber">麦克风实时识别</span>
             <span class="tag tag-mint">零延迟节拍器</span>
@@ -436,6 +439,10 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
           <button type="button" class="tool-card" data-route="metro">
             <div class="tc-icon ic-mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg></div>
             <h3>节拍器</h3><p>40–240 BPM 精准调度，TAP 测速、多种拍号与节拍细分，强弱拍可视化</p>
+          </button>
+          <button type="button" class="tool-card" data-route="rhythm">
+            <div class="tc-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M8 4v16M12 7v10M16 4v16M20 7v10"/></svg></div>
+            <h3>节奏型练习</h3><p>扫弦 D/U 与分解弦序可视化跟练，示范试听＋节拍器＋循环计数，告别「会按不会弹」</p>
           </button>
           <button type="button" class="tool-card" data-route="game">
             <span class="tag tag-mint tc-mic">麦克风</span>
@@ -1019,6 +1026,146 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
           <div class="rec-list" id="recList"></div>
         </div>
       </section>
+      <!-- ===== 视图：节奏型练习 ===== -->
+      <section class="view" id="view-rhythm">
+        <style>
+          .rt-mode-seg{margin-bottom:12px}
+          .rt-chips{display:flex;gap:8px;flex-wrap:wrap}
+          .rt-info{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--card-2);border:1px solid var(--line)}
+          .rt-info h4{margin:0;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+          .rt-info h4 .rt-stars{color:var(--amber);font-size:12px;letter-spacing:1px}
+          .rt-meta{font-size:11.5px;color:var(--txt-3);margin-top:3px}
+          .rt-info p{margin:8px 0 0;font-size:12.5px;color:var(--txt-2);line-height:1.7}
+          .rt-tips{margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--txt-3);line-height:1.8}
+          .rt-dots{display:flex;justify-content:center;gap:8px;margin-bottom:12px}
+          .rt-grid{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+          .rt-beat{display:flex;gap:4px}
+          .rt-cell{width:52px;height:64px;border-radius:12px;background:var(--card-2);border:1.5px solid var(--line);
+                   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+                   transition:transform .12s,box-shadow .12s,opacity .2s,border-color .2s;user-select:none}
+          .rt-cell .lab{font-size:20px;font-weight:700;line-height:1;font-family:var(--font-display)}
+          .rt-cell .cap{font-size:10.5px;color:var(--txt-3)}
+          .rt-cell.down .lab{color:var(--amber)} .rt-cell.up .lab{color:var(--cyan)}
+          .rt-cell.mute .lab{color:var(--red)} .rt-cell.rest{opacity:.45}
+          .rt-cell.pick .lab{color:var(--mint)} .rt-cell.pick .cap{color:var(--txt-3)}
+          .rt-cell.beat-head{border-left:3px solid rgba(255,180,84,.35)}
+          .rt-cell.done{opacity:.32}
+          .rt-cell.next{border-color:rgba(255,180,84,.35);border-style:dashed}
+          .rt-cell.cur{transform:scale(1.1);border-color:var(--amber);
+                       box-shadow:0 0 18px -4px rgba(255,180,84,.75);background:rgba(255,180,84,.1)}
+          .rt-cell.cur .lab{color:#ffd9a0}
+          .rt-status{text-align:center;margin-top:12px;font-size:12.5px;color:var(--txt-2);min-height:20px}
+          .rt-status b{color:var(--amber)}
+          .rt-countin{font-family:var(--font-display);font-size:15px;color:var(--cyan);font-weight:700}
+          .rt-ctl-row{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+          .rt-ctl-row .rt-lab{font-size:12px;color:var(--txt-3);width:64px;flex-shrink:0}
+          .rt-bpm-num{width:64px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;
+                      color:var(--txt);font-family:var(--font-display);font-size:16px;font-weight:700;
+                      text-align:center;padding:7px 2px}
+          .rt-bpm-num:focus{outline:none;border-color:var(--amber)}
+          .rt-step-btn{width:34px;height:34px;border-radius:10px;background:var(--card-2);border:1px solid var(--line);
+                       color:var(--txt-2);font-size:15px;flex-shrink:0}
+          .rt-step-btn:active{transform:scale(.92)}
+          .rt-vol{display:flex;align-items:center;gap:8px;flex:1;min-width:180px}
+          .rt-vol input[type=range]{flex:1}
+          .rt-transport{display:flex;gap:12px;justify-content:center;margin-top:16px}
+          .rt-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-top:4px}
+          .rt-stat{background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center}
+          .rt-stat b{display:block;font-family:var(--font-display);font-size:17px;color:var(--amber)}
+          .rt-stat span{font-size:10.5px;color:var(--txt-3)}
+          .rt-help summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--txt-2);list-style:none}
+          .rt-help summary::before{content:'▶ ';font-size:10px;color:var(--amber)}
+          .rt-help[open] summary::before{content:'▼ '}
+          .rt-help-body{font-size:12.5px;color:var(--txt-2);line-height:1.9;margin-top:8px}
+          .rt-help-body kbd{background:var(--card-2);border:1px solid var(--line);border-radius:6px;padding:1px 7px;
+                            font-family:var(--font-display);color:var(--amber);font-weight:700}
+          @media (max-width:640px){
+            .rt-cell{width:44px;height:58px}
+            .rt-grid{gap:7px}
+            .rt-cell .lab{font-size:17px}
+          }
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M8 4v16M12 7v10M16 4v16M20 7v10"/></svg></span>节奏型练习</div>
+          <div class="view-sub">先听示范、再看网格跟拍、最后脱离示范独立循环。扫弦认 D/U 箭头，分解认弦序数字，节拍器全程护航。</div>
+        </div>
+
+        <details class="card rt-help" id="rtHelp">
+          <summary>第一次练？先看 30 秒说明</summary>
+          <div class="rt-help-body">
+            <b>符号含义：</b>扫弦格 <kbd>↓</kbd>=下扫（D）、<kbd>↑</kbd>=上扫（U）、<kbd>×</kbd>=切音闷音、<kbd>·</kbd>=空拍（占时值但不出声）；分解格的 <kbd>根</kbd>=当前和弦根音、<kbd>B</kbd>=交替低音、数字=弦序（1 最细 · 6 最粗），下方小字为建议指法 T/i/m/a。<br>
+            <b>怎么练：</b>①选节奏型听几遍示范 → ②把示范音量调到 0、只留节拍器看格子高亮默数 → ③跟着示范慢速弹 → ④逐步加 BPM → ⑤开循环（∞）独立连奏。练错了不丢人，降速再来才算会。<br>
+            <b>小知识：</b>BPM 是每分钟拍数，60 BPM 时一秒正好一拍；拍号 4/4 表示每小节 4 拍、以四分音符为一拍。
+          </div>
+        </details>
+
+        <div class="card">
+          <div class="seg rt-mode-seg" id="rtModeSeg">
+            <button data-cat="strum" class="on">扫弦节奏</button>
+            <button data-cat="pick">分解和弦</button>
+          </div>
+          <div class="rt-chips" id="rtChips"></div>
+          <div class="rt-info" id="rtInfo"></div>
+        </div>
+
+        <div class="card">
+          <div class="rt-dots" id="rtDots"></div>
+          <div class="rt-grid" id="rtGrid"></div>
+          <div class="rt-status" id="rtStatus">就绪 · 选择节奏型后按开始</div>
+        </div>
+
+        <div class="card">
+          <div class="rt-ctl-row">
+            <span class="rt-lab">速度 BPM</span>
+            <button class="rt-step-btn" id="rtBpmMinus5" title="减 5">-5</button>
+            <button class="rt-step-btn" id="rtBpmMinus" title="减 1">−</button>
+            <input type="number" class="rt-bpm-num" id="rtBpmNum" min="40" max="180" value="60" inputmode="numeric">
+            <button class="rt-step-btn" id="rtBpmPlus" title="加 1">＋</button>
+            <button class="rt-step-btn" id="rtBpmPlus5" title="加 5">+5</button>
+          </div>
+          <input type="range" id="rtBpmRange" min="40" max="180" value="60" style="--fill:10%">
+          <div class="rt-ctl-row">
+            <span class="rt-lab">循环次数</span>
+            <div class="rt-chips" id="rtLoopChips"></div>
+          </div>
+          <div class="rt-ctl-row" id="rtChordRow" style="display:none">
+            <span class="rt-lab">练习和弦</span>
+            <div class="rt-chips" id="rtChordChips"></div>
+          </div>
+          <div class="rt-ctl-row">
+            <span class="rt-lab">预备拍</span>
+            <div class="rt-chips" id="rtCountInChips">
+              <button class="preset-chip on" data-ci="1">开启（1 小节）</button>
+              <button class="preset-chip" data-ci="0">关闭</button>
+            </div>
+          </div>
+          <div class="rt-ctl-row">
+            <span class="rt-lab">示范音量</span>
+            <div class="rt-vol"><input type="range" id="rtDemoVol" min="0" max="100" value="80"></div>
+          </div>
+          <div class="rt-ctl-row">
+            <span class="rt-lab">节拍器音量</span>
+            <div class="rt-vol"><input type="range" id="rtMetroVol" min="0" max="100" value="90"></div>
+          </div>
+          <div class="rt-transport">
+            <button class="btn-round" id="rtPlay" aria-label="开始/暂停">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
+            </button>
+            <button class="btn" id="rtStop" style="min-width:96px">停止</button>
+            <button class="btn" id="rtRestart" style="min-width:96px">重头开始</button>
+          </div>
+          <p class="hint" style="text-align:center;margin-top:10px" id="rtHint">开始前会先给你数一小节预备拍（可关闭）。切到其他页面会自动暂停。</p>
+        </div>
+
+        <div class="card">
+          <div class="metro-label" style="display:flex;justify-content:space-between;align-items:center">
+            <span>练习统计</span>
+            <button class="preset-chip" id="rtClearStats" style="padding:5px 12px">清除记录</button>
+          </div>
+          <div class="rt-stats" id="rtStats"></div>
+          <div class="rt-status" id="rtLastSession" style="min-height:0"></div>
+        </div>
+      </section>
     </main>
 
     <!-- ============ 移动端底部导航 ============ -->
@@ -1056,9 +1203,11 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 
 <!-- V2 M1：音频核心算法库（纯函数，须先于 app-*.js 加载） -->
 <script src="lib/audio-core.js"></script>
+<script src="lib/rhythm-data.js"></script>
 <script src="app-1.js"></script>
 <script src="app-2.js"></script>
 <script src="app-3.js"></script>
+<script src="app-rhythm.js"></script>
 <script>
 /* V2 M1：Service Worker 注册——离线缓存核心资源；file:// 协议下自动跳过 */
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){

@@ -12,16 +12,18 @@
    版本升级：递增 CACHE 版本号，activate 时清理旧缓存。
    ============================================================ */
 'use strict';
-const CACHE = 'guitar-studio-v1.1.1'; // P2-09：发版必须递增，旧缓存在 activate 时自动清理
+const CACHE = 'guitar-studio-v1.2.0'; // P2-09：发版必须递增，旧缓存在 activate 时自动清理
 /* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试 */
 const CORE = [
   './',
   './guitar-studio.html',
   './index.html',
   './lib/audio-core.js',
+  './lib/rhythm-data.js',
   './app-1.js',
   './app-2.js',
-  './app-3.js'
+  './app-3.js',
+  './app-rhythm.js'
 ];
 /* 次要资源：允许个别失败（如图标），不阻塞安装 */
 const OPTIONAL = [
