@@ -1,0 +1,25 @@
+/* 六弦工坊 V3 · i18n 辞書：日本語 */
+export const DICT = {
+  'nav.home':'ホーム','nav.tuner':'チューナー','nav.metro':'メトロノーム','nav.rhythm':'リズム練習',
+  'nav.game':'コードクエスト','nav.chords':'コードライブラリ','nav.scale':'スケール練習','nav.ear':'音感トレーニング',
+  'nav.fret':'指板','nav.studio':'レコーダー',
+  'sec.practice':'練習ツール','sec.theory':'楽理・素材',
+  'home.hero.title':'ブラウザにギター練習室を','home.hero.sub':'チューナー、メトロノーム、リズムパターン、コードクエスト、スケール、コード、音感、指板、録音――9 モジュールすべてローカル動作。マイクを開けばすぐ練習開始。スマホも PC もインストール不要。',
+  'home.badge.mic':'リアルタイム音程検出','home.badge.metro':'低遅延メトロノーム','home.badge.local':'ローカル完結・プライバシー安全',
+  'home.cta.tune':'チューニングする','home.cta.game':'コードクエストを始める',
+  'tool.tuner':'チューナー','tool.tuner.desc':'自己相関アルゴリズムで実測。6 弦/クロマティック両モード、セント偏差を一目で確認',
+  'tool.metro':'メトロノーム','tool.metro.desc':'30-300 BPM の正確なテンポ、TAP 測定、各種拍子と細分化、強拍の可視化',
+  'tool.rhythm':'リズム練習','tool.rhythm.desc':'ストローク D/U とアルペジオを見ながら練習。お手本再生＋メトロノーム＋ループ回数',
+  'tool.game':'コードクエスト','tool.ear':'音感トレーニング','tool.ear.desc':'音程・単音の聴き分け訓練、オクターブから半音階へ段階的に',
+  'tool.game.desc':'C/G から F へ、ステージクリアで上級コードを解放。正答率と最速切替記録',
+  'tool.scale':'スケール練習','tool.scale.desc':'5 つの音階ポジションをブロック表示でガイド、連続正解カウント',
+  'tool.chords':'コードライブラリ','tool.chords.desc':'よく使うコードの指板図＋試聴、左手の押さえ方ヒント、移調クイック検索',
+  'tool.fret':'指板','tool.fret.desc':'指板全体の音名表示、どのフレットでもタップして音を確認',
+  'tool.studio':'レコーダー','tool.studio.desc':'練習の録音・再生・ダウンロード。録音はローカル保存、アップロードされません',
+  'privacy.note':'すべての音声処理はブラウザ内で完結し、マイク音声は送信されません',
+  'common.start':'開始','common.stop':'停止','common.close':'閉じる','common.on':'オン','common.off':'オフ',
+  'common.reset':'リセット','common.play':'再生','common.listen':'試聴','common.save':'保存',
+  'theme.title':'テーマ','theme.auto':'システムに従う','theme.followup':'OS のダーク/ライト設定に自動追従',
+  'lang.title':'言語 / Language',
+};
+export default DICT;

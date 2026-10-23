@@ -1,0 +1,25 @@
+/* 六弦工坊 V3 · i18n 사전: 한국어 */
+export const DICT = {
+  'nav.home':'홈','nav.tuner':'튜너','nav.metro':'메트로놈','nav.rhythm':'리듬 트레이닝',
+  'nav.game':'코드 퀘스트','nav.chords':'코드 라이브러리','nav.scale':'음계 트레이너','nav.ear':'귀 트레이닝',
+  'nav.fret':'지판','nav.studio':'레코더',
+  'sec.practice':'연습 도구','sec.theory':'이론 · 자료',
+  'home.hero.title':'브라우저 속 기타 연습실','home.hero.sub':'튜너, 메트로놈, 리듬 패턴, 코드 퀘스트, 음계, 코드, 귀 트레이닝, 지판, 녹음 — 9개 모듈 모두 로컬 실행. 마이크만 켜면 바로 연습. 폰과 PC 모두 설치 불필요.',
+  'home.badge.mic':'실시간 음정 인식','home.badge.metro':'저지연 메트로놈','home.badge.local':'로컬 실행 · 프라이버시 안전',
+  'home.cta.tune':'지금 튜닝','home.cta.game':'코드 퀘스트 시작',
+  'tool.tuner':'튜너','tool.tuner.desc':'자기상관 알고리즘 실시간 측정, 6현/크로매틱 모드, 센트 편차 한눈에',
+  'tool.metro':'메트로놈','tool.metro.desc':'30-300 BPM 정밀 조절, TAP 측정, 다양한 박자와 세분화, 강박 시각화',
+  'tool.rhythm':'리듬 트레이닝','tool.rhythm.desc':'스트로크 D/U 와 아르페지오 시각 연습, 시범 청취 + 메트로놈 + 루프 카운트',
+  'tool.game':'코드 퀘스트','tool.ear':'귀 트레이닝','tool.ear.desc':'음정·단음 듣기 훈련, 옥타브부터 반음계까지 단계적으로',
+  'tool.game.desc':'C/G부터 F까지, 스테이지 클리어로 상급 코드 해금. 정확도와 최속 전환 기록',
+  'tool.scale':'음계 트레이너','tool.scale.desc':'5가지 음계 포지션을 블록으로 안내, 연속 정답 카운트',
+  'tool.chords':'코드 라이브러리','tool.chords.desc':'주요 코드 운지법 다이어그램 + 청취, 왼손 힌트, 조옮김 빠른 검색',
+  'tool.fret':'지판','tool.fret.desc':'전체 지판 음명 표시, 아무 프렛이나 탭해서 음 확인',
+  'tool.studio':'레코더','tool.studio.desc':'연습 녹음, 재생, 다운로드. 녹음은 로컬 저장, 업로드되지 않음',
+  'privacy.note':'모든 오디오 처리는 브라우저에서 완료되며 마이크 입력은 전송되지 않습니다',
+  'common.start':'시작','common.stop':'정지','common.close':'닫기','common.on':'켬','common.off':'끔',
+  'common.reset':'리셋','common.play':'재생','common.listen':'듣기','common.save':'저장',
+  'theme.title':'테마','theme.auto':'시스템 따라가기','theme.followup':'OS 다크/라이트 설정 자동 추종',
+  'lang.title':'언어 / Language',
+};
+export default DICT;

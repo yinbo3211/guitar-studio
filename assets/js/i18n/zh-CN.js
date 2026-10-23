@@ -1,0 +1,25 @@
+/* 六弦工坊 V3 · i18n 词条：zh-CN（源语言） */
+export const DICT = {
+  'nav.home':'首页','nav.tuner':'调音器','nav.metro':'节拍器','nav.rhythm':'节奏型练习',
+  'nav.game':'和弦闯关','nav.chords':'和弦库','nav.scale':'音阶跟弹','nav.ear':'练耳',
+  'nav.fret':'指板','nav.studio':'录音棚',
+  'sec.practice':'练习工具','sec.theory':'乐理与素材',
+  'home.hero.title':'把吉他练习室 装进你的浏览器','home.hero.sub':'调音、节拍、节奏型、和弦闯关、音阶、和弦库、练耳、指板、录音——九大模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。',
+  'home.badge.mic':'麦克风实时识别','home.badge.metro':'零延迟节拍器','home.badge.local':'本地运行 · 隐私安全',
+  'home.cta.tune':'立即调音','home.cta.game':'开始和弦闯关',
+  'tool.tuner':'调音器','tool.tuner.desc':'自相关算法实时测频，六弦/半音阶双模式，音分偏差一目了然',
+  'tool.metro':'节拍器','tool.metro.desc':'40-240 BPM 精准调速，TAP 测速、多种拍号与节拍细分，强弱拍可视化',
+  'tool.rhythm':'节奏型练习','tool.rhythm.desc':'扫弦 D/U 与分解和弦可视化跟练，示范试听 + 节拍器 + 循环计数，告别「会按不会弹」',
+  'tool.game':'和弦闯关','tool.game.desc':'从 C/G 到 F 和弦，过关解锁进阶和弦，正确率与最快切换纪录',
+  'tool.scale':'音阶跟弹','tool.scale.desc':'五种常用音阶把位，音块点亮引导，答对连击计数',
+  'tool.ear':'练耳','tool.ear.desc':'音程/单音听辨训练，从纯八度到半音阶渐进',
+  'tool.chords':'和弦库','tool.chords.desc':'常用和弦指法图 + 试听，左手按法提示，更换调和弦速查',
+  'tool.fret':'指板','tool.fret.desc':'全指板音名/唱名双显，点击任意品格听音',
+  'tool.studio':'录音棚','tool.studio.desc':'练习录音、回放与下载，录音本地保存不上传',
+  'privacy.note':'所有音频处理均在本浏览器完成，麦克风声音不会上传到任何服务器',
+  'common.start':'开始','common.stop':'停止','common.close':'关闭','common.on':'开','common.off':'关',
+  'common.reset':'重置','common.play':'播放','common.listen':'试听','common.save':'保存',
+  'theme.title':'主题外观','theme.auto':'跟随系统','theme.followup':'跟随系统时按操作系统深浅色自动切换',
+  'lang.title':'语言 / Language',
+};
+export default DICT;

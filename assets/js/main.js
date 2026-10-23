@@ -9,6 +9,7 @@ import './core/tone-engine.js';
 import './core/transport.js';
 import './core/store.js';
 import './core/theme-switch.js';
+import './core/i18n.js';
 import './core/ui.js';
 import './core/audio-engine.js';
 import './core/router.js';

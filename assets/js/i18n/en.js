@@ -1,0 +1,25 @@
+/* 六弦工坊 V3 · i18n 词条：English */
+export const DICT = {
+  'nav.home':'Home','nav.tuner':'Tuner','nav.metro':'Metronome','nav.rhythm':'Rhythm Trainer',
+  'nav.game':'Chord Quest','nav.chords':'Chord Library','nav.scale':'Scale Trainer','nav.ear':'Ear Training',
+  'nav.fret':'Fretboard','nav.studio':'Recorder',
+  'sec.practice':'Practice Tools','sec.theory':'Theory & Material',
+  'home.hero.title':'Your guitar practice room, in the browser','home.hero.sub':'Tuner, metronome, rhythm patterns, chord quest, scales, chord library, ear training, fretboard and recorder — nine modules running fully locally. Just open the mic and play. Works on phone and desktop, no install needed.',
+  'home.badge.mic':'Live pitch detection','home.badge.metro':'Zero-latency metronome','home.badge.local':'Local & private',
+  'home.cta.tune':'Tune now','home.cta.game':'Start Chord Quest',
+  'tool.tuner':'Tuner','tool.tuner.desc':'Autocorrelation pitch detection, 6-string & chromatic modes, cents deviation at a glance',
+  'tool.metro':'Metronome','tool.metro.desc':'Precise 30-300 BPM, TAP tempo, time signatures and subdivisions with visual accents',
+  'tool.rhythm':'Rhythm Trainer','tool.rhythm.desc':'Visual strumming (D/U) and picking patterns with demo, metronome and loop counting',
+  'tool.game':'Chord Quest','tool.ear':'Ear Training','tool.ear.desc':'Interval and note listening drills, from octaves to chromatics',
+  'tool.game.desc':'From C/G to F, unlock advanced chords by clearing stages; accuracy and fastest-switch records',
+  'tool.scale':'Scale Trainer','tool.scale.desc':'Five common scale positions with lit blocks to guide you and combo counting',
+  'tool.chords':'Chord Library','tool.chords.desc':'Common chord diagrams with audio, left-hand hints and quick transposing lookup',
+  'tool.fret':'Fretboard','tool.fret.desc':'Note/solfège names across the whole neck — tap any fret to hear it',
+  'tool.studio':'Recorder','tool.studio.desc':'Record, replay and download practice takes; stored locally, never uploaded',
+  'privacy.note':'All audio is processed in your browser — mic input never leaves your device',
+  'common.start':'Start','common.stop':'Stop','common.close':'Close','common.on':'On','common.off':'Off',
+  'common.reset':'Reset','common.play':'Play','common.listen':'Listen','common.save':'Save',
+  'theme.title':'Theme','theme.auto':'Follow system','theme.followup':'Follows your OS light/dark preference automatically',
+  'lang.title':'Language / 语言',
+};
+export default DICT;
