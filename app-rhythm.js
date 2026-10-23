@@ -48,9 +48,36 @@ const Rhythm = {
     /* BPM 控制 */
     const range=$('#rtBpmRange'), num=$('#rtBpmNum');
     const setBpm=(v)=>{
-      this.bpm=clamp(Math.round(v),40,180);
+      const nb=clamp(Math.round(v),40,180);
+      if(nb===this.bpm){ range.value=this.bpm; num.value=this.bpm; return; }
+      /* RT-005：播放中调速必须重锚时间轴，否则 RAF 视觉高亮（按 elapsed 推导）
+         与音频调度（按 schedTime 推进）错位。做法：记住当前音乐位置
+         （预备拍到第几拍 / 正式拍已完成多少格），换算到新 BPM 的时间轴上。 */
+      if(this.phase==='playing'||this.phase==='countin'){
+        const wasPhase=this.phase;
+        const oldQuarter=60/this.bpm, oldStep=this.stepDur();
+        const elapsed=Math.max(0,this.ac.currentTime-this.startTime);
+        let anchor;
+        if(wasPhase==='countin'){
+          const ci=Math.floor(elapsed/oldQuarter);          // 预备拍已数到第几拍
+          this.bpm=nb; this._teardown();
+          anchor=ci*(60/nb);
+        }else{
+          const ciDur=this.countIn?this.pattern.beats*oldQuarter:0;
+          const k=Math.max(0,Math.floor((elapsed-ciDur)/oldStep)); // 已完成格数(跨循环)
+          this.bpm=nb; this._teardown();
+          anchor=(this.countIn?this.pattern.beats*(60/nb):0)+k*this.stepDur();
+        }
+        this.phase=wasPhase;
+        this.startTime=this.ac.currentTime+0.08-anchor;     // 新时间轴回拨到同一音乐位置
+        this._beginSchedule();
+        this._loopRaf();
+      }else{
+        this.bpm=nb;
+      }
       range.value=this.bpm; num.value=this.bpm;
       range.style.setProperty('--fill',(this.bpm-40)/140*100+'%');
+      this.renderStats();
     };
     range.addEventListener('input',()=>setBpm(+range.value));
     num.addEventListener('change',()=>setBpm(+num.value||60));
@@ -140,9 +167,13 @@ const Rhythm = {
     const chordLine=this.cat==='pick'
       ? `<div class="rt-meta">当前和弦：<b style="color:var(--mint)">${this.chord}</b>${this.chord==='通用'?'（通用弦序：根=5弦、B=6弦）':`（根音 ${RD.ROOT_MAP[this.chord].s} 弦${RD.ROOT_MAP[this.chord].fret?' '+RD.ROOT_MAP[this.chord].fret+' 品':'空弦'} · 低音 ${RD.ROOT_MAP[this.chord].altS} 弦）`}</div>`
       : '';
+    const subLabel=(p)=>{ // 细分标签按「每拍时值 × 步数」换算，不能只看 subdivision
+      if(p.subdivision===3) return '三连音';
+      return {2:'二分音符',4:'四分音符',8:'八分音符',16:'十六分音符'}[p.beatUnit*Math.pow(2,p.subdivision-1)]||'自定义';
+    };
     $('#rtInfo').innerHTML=
       `<h4>${p.name} <span class="rt-stars">${'★'.repeat(p.difficulty)}${'☆'.repeat(3-p.difficulty)}</span></h4>
-       <div class="rt-meta">拍号 ${RD.timeSigText(p)} · 细分 ${p.subdivision===1?'四分音符':(p.subdivision===2?'八分音符':'三连音')} · 建议 ${p.bpm} BPM 起 · 格数 ${p.actions.length}</div>
+       <div class="rt-meta">拍号 ${RD.timeSigText(p)} · 细分 ${subLabel(p)} · 建议 ${p.bpm} BPM 起 · 格数 ${p.actions.length}</div>
        ${chordLine}
        <p>${p.desc}</p>
        <ul class="rt-tips">${p.tips.map(t=>`<li>${t}</li>`).join('')}</ul>`;
@@ -244,7 +275,35 @@ const Rhythm = {
     else if(this.phase==='paused') this.resume();
   },
   start(){
+    if(this.phase!=='idle') return;   // RT-006：防重复实例（快速连点不叠加调度器）
     try{ this.ensureAudio(); }catch(err){ toast('音频初始化失败：'+err.message,'err'); return; }
+    /* RT-011：resume() 是异步的——ctx.state 可能仍是 suspended。
+       绝不能同步判死卡住，也不该硬要求用户点两次：
+       挂起时先提示，等 statechange 到 running 后自动起播。 */
+    if(this.ac.state!=='running'){
+      toast('正在等待浏览器放行音频…');
+      this._setPlayIcon('pause');
+      this._waitAudioRunning(()=>this._beginPlayback());
+      return;
+    }
+    this._beginPlayback();
+  },
+  /* 等待 AudioContext 真正 running 后执行回调；期间用户可随时停止（令牌失效） */
+  _waitAudioRunning(cb){
+    const token=this._waitToken=(this._waitToken||0)+1;
+    const done=()=>{
+      if(token!==this._waitToken) return;           // 用户已停止/切换，作废
+      if(this.phase!=='idle'&&this.phase!=='paused') return;
+      if(this.ac.state!=='running') return;
+      this.ac.onstatechange=null;
+      cb();
+    };
+    this.ac.onstatechange=done;
+    this.ac.resume().then(()=>setTimeout(done,60)).catch(()=>{ if(token===this._waitToken) toast('音频被浏览器拦截，请点击页面后再试','err'); });
+    /* 兜底：8 秒仍没放行就还原按钮，避免永远转圈 */
+    setTimeout(()=>{ if(token!==this._waitToken) return; if(this.ac.state!=='running'){ this.ac.onstatechange=null; this._setPlayIcon('play'); this._status('音频未获授权 · 请点击页面任意处后再按播放'); } },8000);
+  },
+  _beginPlayback(){
     this.phase=this.countIn?'countin':'playing';
     this.pausedElapsed=0; this.playedSeconds=0; this.loopDone=0;
     this.lastUiStep=-99;
@@ -262,7 +321,18 @@ const Rhythm = {
     this._status(`已暂停 · 第 ${this.loopDone||1} 遍 · 按 ▶ 从原格继续`);
   },
   resume(){
+    if(this.phase!=='paused') return;
     try{ this.ensureAudio(); }catch(err){ toast('音频恢复失败：'+err.message,'err'); return; }
+    if(this.ac.state!=='running'){    // RT-011：同 start()，等待放行后续播
+      toast('正在等待浏览器放行音频…');
+      this._waitAudioRunning(()=>{
+        const el=this.pausedElapsed;
+        this.startTime=this.ac.currentTime+.1-el;
+        this.phase=el<this.countInDur()?'countin':'playing';
+        this._beginSchedule(); this._loopRaf(); this._setPlayIcon('pause');
+      });
+      return;
+    }
     const elapsed=this.pausedElapsed;
     this.startTime=this.ac.currentTime+.1-elapsed;   // 时间轴回拨到暂停点
     this.phase = elapsed<this.countInDur()?'countin':'playing';
@@ -273,6 +343,7 @@ const Rhythm = {
   /* record=true 时计入练习统计并弹会话小结 */
   stop(record){
     const wasPlaying=this.phase==='playing'||this.phase==='countin';
+    this._waitToken=(this._waitToken||0)+1;   // 作废等待放行的异步回调
     this._teardown();
     this._endAt=null;
     this.phase='idle'; this.loopDone=0; this.pausedElapsed=0;
