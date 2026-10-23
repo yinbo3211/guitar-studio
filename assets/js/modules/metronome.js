@@ -38,6 +38,17 @@ const Metro = {
     $('#bpmP5').onclick=()=>setBpm(this.bpm+5);
     $$('.preset-chip[data-bpm]').forEach(c=>c.onclick=()=>setBpm(+c.dataset.bpm));
     setBpm(90);
+    // P2-3 修复：渐快训练在 _trainerTick() 里直接 Transport.setBpm(v) 变速，
+    // 若不回连 Metro，this.bpm/滑块/数字仍停留在起始速度，停止后再开还会被拉回原值。
+    // 监听统一时间轴的 BPM 变化并同步（本地 setBpm 已是目标值，v===this.bpm 时跳过避免回环）。
+    Transport.onBpm((v)=>{
+      if(v===this.bpm) return;
+      this.bpm=v;
+      range.value=v;
+      $('#bpmNum').innerHTML=v+'<small>BPM</small>';
+      range.style.setProperty('--fill',(v-30)/270*100+'%');
+      $$('.preset-chip[data-bpm]').forEach(c=>c.classList.toggle('on',+c.dataset.bpm===v));
+    });
     // TAP
     let taps=[];
     $('#tapBtn').onclick=()=>{
@@ -125,7 +136,7 @@ const Metro = {
     await Transport.start();
     this.playing=true;
     this.beat=0; this.subIdx=0; this.visualPos=0;
-    this._trainer=this.trainerBars?{from:this.bpm,to:0,total:this.trainerBars*4,done:0}:null;
+    this._trainer=this.trainerBars?{from:this.bpm,to:0,total:this.trainerBars*this.beats,done:0}:null;
     if(this._trainer) this._trainer.to=Math.min(300,this.bpm+40);
     $('#metroToggle').innerHTML='<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
     $('#metroToggle').classList.add('recording');
@@ -184,7 +195,9 @@ const Metro = {
       // 细分轻击
       const Tone=ToneEngine.Tone;
       if(this._voices && Tone){
-        this._voices.click.triggerAttackRelease(800,.03,time,{gain:.2});
+      // P2-2 修复：Tone v15 triggerAttackRelease(note,duration,time,velocity)，
+      // 第 4 参数是 velocity(0..1)，原先传 {gain:.2} 不生效，细分音与正拍一样响。
+      this._voices.click.triggerAttackRelease(800,.03,time,0.2);
       }else{
         const ctx=AudioEngine.ctx;
         const o=ctx.createOscillator(),g=ctx.createGain();

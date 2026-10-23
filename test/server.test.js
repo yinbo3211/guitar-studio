@@ -19,8 +19,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import net from 'node:net';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
+// 修复：不能直接取 URL.pathname——非 ASCII 路径（如中文目录）会被百分号编码，
+// 拼出的 server.js 路径不存在导致子进程启动失败。fileURLToPath 会正确解码。
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'gs-test-'));
 const goodCfg = path.join(TMP, 'good.json');
 const badCfg = path.join(TMP, 'bad.json');

@@ -10,7 +10,7 @@ const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNa
    模块 5：练耳训练
    ============================================================ */
 const Ear = {
-  mode:'note', n:0, ok:0, streak:0, bestStreak:0, answer:null, answered:false, opts:[],
+  mode:'note', n:0, ok:0, streak:0, bestStreak:0, answer:null, answered:false, opts:[], _nextTimer:null,
   intervals:[
     {semi:2,label:'大二度',ex:'Do–Re'},
     {semi:3,label:'小三度',ex:'La–Do'},
@@ -39,6 +39,9 @@ const Ear = {
       const b=e.target.closest('button'); if(!b)return;
       $$('#earMode button').forEach(x=>x.classList.toggle('on',x===b));
       this.mode=b.dataset.m;
+      // P2-6 修复：切模式时作废上一题尚未触发的「1.5s 后自动出新题」定时器，
+      // 否则旧定时器会在新题上再跑一次 newQuestion，把题面莫名换掉。
+      if(this._nextTimer){ clearTimeout(this._nextTimer); this._nextTimer=null; }
       this.n=0; this.ok=0; this.streak=0;
       this.updateStats();
       this.newQuestion();
@@ -58,7 +61,7 @@ const Ear = {
       if(right){this.ok++;this.streak++;this.bestStreak=Math.max(this.bestStreak,this.streak);$('#earQ').textContent='回答正确！';}
       else{this.streak=0;$('#earQ').textContent='正确答案已标绿，再听一遍';}
       this.updateStats();
-      setTimeout(()=>this.newQuestion(),1500);
+      this._nextTimer=setTimeout(()=>{ this._nextTimer=null; this.newQuestion(); },1500);
     };
     this.newQuestion();
   },

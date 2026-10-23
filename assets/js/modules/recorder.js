@@ -22,6 +22,9 @@ const Studio = {
   },
   async toggle(){
     if(this.rec&&this.rec.state==='recording'){ this.stop(); return; }
+    // Bug3：开始新录音前，若上一条刚停止、onstop 尚未派发，先把旧硬件资源在此释放，
+    // 避免新旧两条 MediaStream/AudioContext 短暂并存（旧流指示灯常亮）。
+    if(this.rec){ try{ if(this.rec.state!=='inactive') this.rec.stop(); }catch(e){} this._detachHardware(); }
     // P1-08 修复：MediaRecorder 支持性检查必须先于 getUserMedia——
     // V1 先申请麦克风再检查，旧浏览器不支持时直接 return，
     // 已获取的 stream 永远不会释放，麦克风指示灯常亮（泄漏）。
@@ -36,38 +39,63 @@ const Studio = {
     const types=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];
     let mime='';
     for(const t of types){ if(MediaRecorder.isTypeSupported(t)){mime=t;break;} }
-    this.rec=mime?new MediaRecorder(this.stream,{mimeType:mime}):new MediaRecorder(this.stream);
-    this.chunks=[];
-    this.rec.ondataavailable=e=>{ if(e.data.size) this.chunks.push(e.data); };
-    this.rec.onstop=()=>{
-      const blob=new Blob(this.chunks,{type:mime||'audio/webm'});
+    // P1-3 修复：构造 MediaRecorder 可能抛异常（设备占用/类型不支持等）。
+    // 此时 getUserMedia 已拿到 stream，必须 try/catch 并立即释放，否则麦克风灯常亮。
+    try{
+      this.rec=mime?new MediaRecorder(this.stream,{mimeType:mime}):new MediaRecorder(this.stream);
+    }catch(e){
+      toast('录音初始化失败：'+(e&&e.message||e),'err');
+      this._release();
+      return;
+    }
+    // Bug3 修复：每次录音一个递增会话 token。停止后旧 MediaRecorder 的 onstop 是异步的，
+    // 若用户立刻开始新录音，旧 onstop 不得再操作共享字段（this.chunks 已被新一轮清空、
+    // this.stream/ac/rec 已指向新会话），否则会：丢上一条录音 + 停掉新流导致录音中断 + UI 假死。
+    // 模型：硬件资源在 stop()/切页时「同步独立」释放；onstop 只负责保存数据（纯函数式，自包含）。
+    this._session=(this._session||0)+1;
+    const session=this._session;
+    const chunks=[];          // Bug3：chunks 会话局部化，避免新一轮 this.chunks=[] 清空旧录音数据
+    this.chunks=chunks;
+    const rec=this.rec;
+    rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+    rec.onerror=()=>{ if(session===this._session) this._release(); };
+    // onstop 仅保存「本会话」的录音数据，绝不释放任何硬件资源（资源已在 stop 同步释放），
+    // 因此即使停止后立即重录，旧 onstop 也不会影响新会话。
+    rec.onstop=()=>{
+      // P2-12：扩展名以「实际生效」的 mimeType 为准（rec.mimeType 可能含编解码器串）。
+      const usedMime=rec.mimeType||mime||'';
+      const ext=usedMime.includes('mp4')?'mp4':(usedMime.includes('ogg')?'ogg':'webm');
+      if(!chunks.length) return;
+      const blob=new Blob(chunks,{type:usedMime||'audio/webm'});
       const url=URL.createObjectURL(blob);
       this.idx++;
-      const ext=(mime.includes('mp4')?'mp4':'webm');
-      const item={url,ext,dur:this.lastDur,name:'录音 '+this.idx};
-      this.items.unshift(item);
+      this.items.unshift({url,ext,dur:this.lastDur,name:'录音 '+this.idx});
       this.render();
-      this.stream.getTracks().forEach(t=>t.stop());
-      this.ac.close(); this.ac=null;
-      cancelAnimationFrame(this.raf);
     };
     // 电平表
-    this.ac=new (window.AudioContext||window.webkitAudioContext)();
-    const src=this.ac.createMediaStreamSource(this.stream);
-    this.analyser=this.ac.createAnalyser();
-    this.analyser.fftSize=512;
-    src.connect(this.analyser);
-    const buf=new Float32Array(this.analyser.fftSize);
-    const loop=()=>{
-      if(!this.analyser) return;
-      this.analyser.getFloatTimeDomainData(buf);
-      let rms=0; for(let i=0;i<buf.length;i++) rms+=buf[i]*buf[i];
-      rms=Math.sqrt(rms/buf.length);
-      $('#recLevel').style.width=clamp(rms*700,0,100)+'%';
-      this.raf=requestAnimationFrame(loop);
-    };
-    this.rec.start();
-    loop();
+    try{
+      this.ac=new (window.AudioContext||window.webkitAudioContext)();
+      const src=this.ac.createMediaStreamSource(this.stream);
+      this.analyser=this.ac.createAnalyser();
+      this.analyser.fftSize=512;
+      src.connect(this.analyser);
+      const buf=new Float32Array(this.analyser.fftSize);
+      this._levelLoop=()=>{
+        if(!this.analyser) return;
+        this.analyser.getFloatTimeDomainData(buf);
+        let rms=0; for(let i=0;i<buf.length;i++) rms+=buf[i]*buf[i];
+        rms=Math.sqrt(rms/buf.length);
+        $('#recLevel').style.width=clamp(rms*700,0,100)+'%';
+        this.raf=requestAnimationFrame(this._levelLoop);
+      };
+      this.rec.start();
+      this._levelLoop();
+    }catch(e){
+      // P1-3：建音频图/start 失败也要回滚，避免占用麦克风与半成品状态
+      toast('无法开始录音：'+(e&&e.message||e),'err');
+      try{ if(this.rec.state!=='inactive') this.rec.stop(); }catch(_){ this._release(); }
+      return;
+    }
     this.t0=Date.now();
     $('#recBtn').classList.add('recording');
     $('#recBtn').innerHTML='<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
@@ -76,18 +104,43 @@ const Studio = {
       $('#recTime').textContent=this.fmt((Date.now()-this.t0)/1000);
     },200);
   },
+  /* 释放一组具体硬件资源（局部引用），幂等且不依赖 this 当前指向，
+     因而停止旧会话不会误伤正在进行的新会话。 */
+  _detachHardware(rec, stream, ac){
+    if(rec){
+      try{ if(rec.state==='recording'||rec.state==='paused') rec.stop(); }catch(e){}
+    }
+    if(stream){ try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){} }
+    if(ac){
+      // close() 返回 Promise；重复关闭会 reject(InvalidStateError)，吞掉即可
+      try{ const p=ac.close(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+    }
+  },
+  /* P1-3：统一资源释放——停定时器/电平表，并同步释放当前会话硬件，全部幂等。 */
+  _release(){
+    if(this.tickTimer){ clearInterval(this.tickTimer); this.tickTimer=null; }
+    if(this.raf){ cancelAnimationFrame(this.raf); this.raf=null; }
+    this.analyser=null;
+    const { rec, stream, ac } = this;
+    this._detachHardware(rec, stream, ac);
+    this.rec=null; this.stream=null; this.ac=null;
+  },
   stop(){
     this.lastDur=(Date.now()-this.t0)/1000;
-    clearInterval(this.tickTimer);
+    clearInterval(this.tickTimer); this.tickTimer=null;
     $('#recTime').textContent='00:00';
     $('#recLevel').style.width='0';
     $('#recBtn').classList.remove('recording');
     $('#recBtn').innerHTML='<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><circle cx="12" cy="12" r="7"/></svg>';
     $('#recHint').textContent='点击按钮开始录音';
-    if(this.rec&&this.rec.state==='recording') this.rec.stop();
     // Fix-7: 停止录音时立即取消电平表 rAF 循环，避免访问已释放的 analyser 资源
     if(this.raf){ cancelAnimationFrame(this.raf); this.raf=null; }
     this.analyser=null;
+    // Bug3：捕获当前会话资源后立即解绑共享引用，并同步释放硬件（不依赖异步 onstop）。
+    // 之后即便用户立刻重录，新会话有独立的 rec/stream/ac，旧 onstop 只保存数据、互不干扰。
+    const rec=this.rec, stream=this.stream, ac=this.ac;
+    this.rec=null; this.stream=null; this.ac=null;
+    this._detachHardware(rec, stream, ac);
   },
   render(){
     // P1-07 修复：列表为空时也要清空 DOM 并解除旧事件绑定——

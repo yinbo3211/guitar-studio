@@ -347,6 +347,9 @@ const Rhythm = {
   /* record=true 时计入练习统计并弹会话小结 */
   stop(record){
     const wasPlaying=this.phase==='playing'||this.phase==='countin';
+    // Bug2 修复（与自然结束 P2-13 对齐）：清零 loopDone 之前先快照实际完成的循环数，
+    // 否则手动停止时无论设了几遍、已走几遍，统计都恒为 1 遍。
+    const finishedLoops=Math.max(1,this.loopDone||1);
     this._waitToken=(this._waitToken||0)+1;   // 作废等待放行的异步回调
     this._teardown();
     this._endAt=null;
@@ -354,7 +357,7 @@ const Rhythm = {
     this._setPlayIcon('play');
     this._clearCells();
     $$('#rtDots .beat-dot').forEach(d=>d.className='beat-dot');
-    if(wasPlaying&&record) this._finishSession();
+    if(wasPlaying&&record) this._finishSession(finishedLoops);
     else if(wasPlaying) this.playedSeconds=0;
     this._status(record?this._statusText():'就绪 · 选择节奏型后按开始');
   },
@@ -493,10 +496,13 @@ const Rhythm = {
   _finish(){
     this._teardown();
     this._endAt=null;
+    // P2-13 修复：自然结束时实际完成的循环数（_finishSession 内会读 this.loopDone，
+    // 若先归零再统计，无论设了几遍循环都只记 1 遍），归零前取出传入。
+    const finishedLoops=Math.max(1,this.loopDone||1);
     this.phase='idle'; this.loopDone=0; this.pausedElapsed=0;
     this._setPlayIcon('play'); this._clearCells();
     $$('#rtDots .beat-dot').forEach(d=>d.className='beat-dot');
-    this._finishSession();
+    this._finishSession(finishedLoops);
     this._status('本轮完成 · 可调整 BPM 再来，或换个节奏型挑战');
   },
 
@@ -504,9 +510,10 @@ const Rhythm = {
   _loadStats(){
     try{ return JSON.parse(localStorage.getItem('gs_rhythm_v1'))||null; }catch(_){ return null; }
   },
-  _finishSession(){
+  _finishSession(loopsArg){
     const sec=Math.round(this.playedSeconds);
-    const loops=Math.max(1,this.loopDone||1);
+    // P2-13：自然结束由 _finish 传入真实循环数；手动停止则按当前 this.loopDone 兜底
+    const loops=Math.max(1,loopsArg||this.loopDone||1);
     const prev=this._loadStats()||{t:{sec:0,loops:0,count:0},maxBpm:0,last:[]};
     if(sec>=5){
       prev.t.sec+=sec; prev.t.loops+=loops; prev.t.count++;

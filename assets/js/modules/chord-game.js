@@ -178,7 +178,10 @@ const Game = {
       pop.textContent= this.combo>1 ? this.combo+' 连击 +'+gain : '+'+gain;
       pop.classList.remove('go'); void pop.offsetWidth; pop.classList.add('go');
       $('#gameTip').textContent='完成！准备下一个和弦…';
-      setTimeout(()=>{
+      // P2-8 修复：保存完成延迟句柄，退出/停止时一并清除，
+      // 否则已在 intro 页时它仍会 nextChord()，在隐藏 DOM 上重建计时与状态。
+      this.doneTimer=setTimeout(()=>{
+        this.doneTimer=null;
         this.idx++;
         this.running=true;
         this.nextChord();
@@ -202,6 +205,8 @@ const Game = {
     clearInterval(this.timer);
     // P0-03：退出/结算时清掉待触发的跳题定时器，避免界面残留跳转
     if(this.skipTimer){ clearTimeout(this.skipTimer); this.skipTimer=null; }
+    // P2-8：清掉「完成本和弦后 750ms 推进」的定时器
+    if(this.doneTimer){ clearTimeout(this.doneTimer); this.doneTimer=null; }
     if(this.mic){ Mic.stop(); this.mic=false; }
   },
   quit(){

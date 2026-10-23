@@ -34,12 +34,21 @@ const AudioEngine = {
         // BUG-02 修复：替换上下文时必须同步重建 master，
         // 否则 master 属于旧 AudioContext，跨上下文连接必然失败，
         // 且失败前 master.disconnect() 会让它成为悬空节点（全站静音）
+        //
+        // P1-1 修复：Tone 异步接管发生在「首次音频手势之后」的极窄竞态窗口内时，
+        // Rhythm.demoGain/metroGain、ChordLib 等早期消费节点仍挂在旧 master 上。
+        // 若此时 disconnect 旧 master，它既不接 Tone 新总线也不接旧 destination，
+        // 会变成永久悬空的静音节点（节奏/进度伴奏一路失声，必须刷新页面恢复）。
+        // 做法：保留旧 master → 旧 ctx.destination 的输出，让早期声部继续有声；
+        // 仅把「今后」新建的节点切到 Tone 共享上下文/总线。代价仅是接管瞬间
+        // 短暂存在两个上下文（首屏 main.js 已预取 Tone，正常情况下此窗口不会出现）。
         const vol = this.master ? this.master.gain.value : .5;
+        const oldMaster = this.master;
         this.ctx = rawCtx; rawCtx.__gsShared = true;
-        try{ if(this.master) this.master.disconnect(); }catch(e){}
         this.master = rawCtx.createGain();
         this.master.gain.value = vol;
         this.master.connect(rawCtx.destination);   // 兜底直连，保证一定有声
+        void oldMaster;   // 显式保留：旧 master 仍连在旧 ctx.destination 上，不 disconnect
       }
       const bus = ToneEngine.rawBuses && ToneEngine.rawBuses.music;
       if(this.master && bus && bus instanceof AudioNode){
@@ -126,12 +135,22 @@ function micGuard(){
   return true;
 }
 const Mic = {
-  stream:null, micCtx:null,  // BUG-04 修复：麦克风使用独立上下文字段，绝不覆盖/关闭播放上下文 analyser:null, raf:null, cb:null, frame:0,
+  // BUG-04 修复：麦克风使用独立上下文字段，绝不覆盖/关闭播放上下文
+  stream:null, micCtx:null, analyser:null, raf:null, cb:null, frame:0,
   async start(onPitch){
     // P0-02 修复：Mic 为全局单例，复用旧流时必须刷新回调，
     // 否则切换模块后检测结果仍发给旧模块、判定完全失效
     this.cb = onPitch;
     if(this.stream) return true; // 已有流：只换回调，不重复申请
+    // Bug1 修复：getUserMedia 在途（权限弹窗未决/设备初始化慢）时并发再点会拿到
+    // 第二条流，第一次 resolve 的 stream/micCtx/rAF 被覆盖而永不释放（麦灯常亮、CPU 翻倍）。
+    // 复用同一个在途承诺，并发调用共享一次申请与一套音频图。
+    if(this._starting) return this._starting;
+    this._starting = this._startInner(onPitch);
+    try{ return await this._starting; }
+    finally{ this._starting = null; }
+  },
+  async _startInner(onPitch){
     if(!micGuard()) return false; // P0-03：安全上下文/接口存在性前置校验
     try{
       this.stream = await navigator.mediaDevices.getUserMedia({

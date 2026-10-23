@@ -74,7 +74,9 @@ function openPanel() {
   });
 }
 
-let gsLang = 'zh-CN';
+// Bug4 修复：初值必须从持久化语言读取，否则刷新后首开主题面板（尚未触发 gs:lang 事件）
+// 的非中文用户会看到中文主题名。
+let gsLang = (store.read().lang) || 'zh-CN';
 document.addEventListener('gs:lang', (e) => { gsLang = (e.detail && e.detail.lang) || 'zh-CN'; });
 
 /* 侧栏 / 顶栏入口注入 */

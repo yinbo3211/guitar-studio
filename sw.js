@@ -12,14 +12,28 @@
    版本升级：递增 CACHE 版本号，activate 时清理旧缓存。
    ============================================================ */
 'use strict';
-const CACHE = 'guitar-studio-v1.2.1'; // P2-09：发版必须递增，旧缓存在 activate 时自动清理
-/* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试 */
+const CACHE = 'guitar-studio-v1.2.2'; // P2-09：发版必须递增，旧缓存在 activate 时自动清理（P1-5：补全模块图）
+/* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试
+   P1-5 修复：必须与 main.js 的静态 import 图完全一致。原清单缺
+   store / theme-switch / i18n 及 4 个语言包，main.js 静态 import 它们，
+   离线冷启动时模块图直接 reject → 全站白屏；tone-engine/transport/tone-loader
+   同为静态 import，一并从 OPTIONAL 提升到 CORE。 */
 const CORE = [
   './',
   './app.html',
   './index.html',
   './assets/js/main.js',
   './assets/js/core/audio-core.js',
+  './assets/js/core/tone-loader.js',
+  './assets/js/core/tone-engine.js',
+  './assets/js/core/transport.js',
+  './assets/js/core/store.js',
+  './assets/js/core/theme-switch.js',
+  './assets/js/core/i18n.js',
+  './assets/js/i18n/zh-CN.js',
+  './assets/js/i18n/en.js',
+  './assets/js/i18n/ja.js',
+  './assets/js/i18n/ko.js',
   './assets/js/core/ui.js',
   './assets/js/core/router.js',
   './assets/js/core/audio-engine.js',
@@ -42,9 +56,6 @@ const OPTIONAL = [
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/vendor/tone.esm.js',
-  './assets/js/core/tone-loader.js',
-  './assets/js/core/tone-engine.js',
-  './assets/js/core/transport.js',
   './assets/css/tokens.css',
   './assets/css/base.css',
   './assets/css/components.css',

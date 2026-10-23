@@ -96,12 +96,15 @@ const ChordLib = {
     btn.classList.add('playing');
     btn.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
     document.querySelector(`.prog-item[data-i="${i}"]`).classList.add('playing');
-    const ctx=AudioEngine.ctx;
+    // P2-10/P1-1 修复：不要缓存 ctx 快照。AudioEngine 可能在播放窗口内被 Tone
+    // 异步接管而切换到底层 rawContext，缓存旧 ctx 会让 currentTime 基准与起音
+    // 节点上下文不一致（爆音/延迟）。改为每次调度读取当前 ctx，并以该 ctx 为基准。
     /* P2-15 修复：V1 每小节用 setTimeout(±抖动) 重新取 currentTime+0.12 起音，
        节拍随播放逐渐漂移、和弦与高亮错位。改为与节拍器相同的 lookahead 方案：
        时间轴锚定在 AudioContext.currentTime，提前把未来 2 小节排进音频时钟
        （精确采样时刻，永不对称轴漂移）；setTimeout 只负责续排与 UI 高亮。 */
-    let nextBarTime=ctx.currentTime+0.1;
+    let nextBarTime=AudioEngine.ctx.currentTime+0.1;
+    this._progCtx=AudioEngine.ctx;
     let barIdx=0;
     this.progUiTimers=[];
     const highlightBar=(curIdx)=>{
@@ -115,6 +118,12 @@ const ChordLib = {
     };
     const scheduleBar=()=>{
       if(this.progPlaying!==i) return;
+      const ctx=AudioEngine.ctx;   // 始终取当前（可能已被 Tone 接管的）上下文
+      // 若播放期间上下文被切换，旧时间轴失效：以新 ctx 当前时刻重新锚定，避免负值/错位
+      if(ctx!==this._progCtx){
+        this._progCtx=ctx;
+        nextBarTime=ctx.currentTime+0.1;
+      }
       while(nextBarTime < ctx.currentTime + 2*bar){
         const curIdx=barIdx%p.chords.length;
         const c=CHORD_MAP[p.chords[curIdx]];

@@ -213,7 +213,12 @@ const Scale = {
     this.i++;
     this.cooldown=performance.now()+420; // 等余音衰减，避免连判
     if(this.i>=this.seq.length){ this.finishFollow(); return; }
-    setTimeout(()=>{ if(this.mode==='follow' && this.i<this.seq.length) this.showTarget(); }, 320);
+    // P2-9 修复：保存 320ms 句柄，stopAll/换音阶时清除，否则会在新指板上
+    // 对旧 seq[i] 调 showTarget，污染当前音文案与高亮。
+    this.showTimer=setTimeout(()=>{
+      this.showTimer=null;
+      if(this.mode==='follow' && this.i<this.seq.length) this.showTarget();
+    }, 320);
   },
   finishFollow(){
     this.mode='idle';
@@ -233,6 +238,8 @@ const Scale = {
   stopMic(){ if(this.mic){ Mic.stop(); this.mic=false; } },
   stopAll(){
     clearTimeout(this.timer);
+    clearTimeout(this.showTimer);   // P2-9：取消待执行的下一目标高亮
+    this.showTimer=null;
     this.stopMic();
     this.mode='idle';
   },

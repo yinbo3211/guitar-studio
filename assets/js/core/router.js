@@ -16,6 +16,14 @@ function applyRoute(){
   // 旧函数引用，包装永远不会被触发，导致切页不清理麦克风/伴奏/录音。
   if(typeof cleanupModules==='function') cleanupModules();
   const route = (location.hash.replace('#/','')||'home').split('?')[0];
+  // Bug5 修复：未知 hash（手输/外链拼错，如 #/foobar）无任何 .view 命中会导致主体全空白。
+  // 校验是否存在对应视图，不存在则回退首页（replace 避免污染历史、且只在非法时触发）。
+  if(!ROUTE_TITLES[route] || !$('#view-'+route)){
+    if(route!=='home'){
+      location.replace('#/home');
+      return;   // hash 变为 #/home 会再次触发 hashchange → applyRoute，本次不继续
+    }
+  }
   $$('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+route));
   $$('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.route===route));
   $$('.tab').forEach(b=>b.classList.toggle('active', b.dataset.route===route));

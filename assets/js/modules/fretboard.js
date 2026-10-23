@@ -72,7 +72,18 @@ const Fret = {
     // 随机目标音名（在指板 1-12 品范围内出现过的）
     const s=Math.floor(Math.random()*6);
     const f=1+Math.floor(Math.random()*12);
-    this.targetPC=((this.strings[s]+f)%12+12)%12;
+    let pc=((this.strings[s]+f)%12+12)%12;
+    // P1-4 修复：clearMarks 虽会移除 class，但若新题与上一题同音名（约 1/12 概率），
+    // 用户可能在标记真正清除前的同一帧/极短时间内看到答案；且题意上连续同题无训练意义。
+    // 最多重抽若干次，保证相邻两题目标音名不同。
+    let guard=0;
+    while(this.targetPC!==null && pc===this.targetPC && guard<20){
+      const ss=Math.floor(Math.random()*6);
+      const ff=1+Math.floor(Math.random()*12);
+      pc=((this.strings[ss]+ff)%12+12)%12;
+      guard++;
+    }
+    this.targetPC=pc;
     const name=NOTE_NAMES[this.targetPC];
     $('#fbHint').innerHTML=`<span class="fb-ask">请找到：${name}<small>点击指板上所有 ${name} 音的位置都算对</small></span>`;
     $('#fbScore').textContent=`${this.askOk}/${this.askN}`;
