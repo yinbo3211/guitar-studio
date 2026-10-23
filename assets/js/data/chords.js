@@ -4,6 +4,8 @@
    ============================================================ */
 'use strict';
 
+const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
+
 /* ============================================================
    模块 3：和弦库（数据 + 指法图 + 扫弦 + 进行伴奏）
    ============================================================ */

@@ -12,6 +12,8 @@
    ============================================================ */
 'use strict';
 
+const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
+
 const Rhythm = {
   /* ---------- 状态 ---------- */
   cat:'strum',            // 当前分类：'strum' | 'pick'
@@ -75,6 +77,7 @@ const Rhythm = {
       }else{
         this.bpm=nb;
       }
+      Transport.setBpm(this.bpm);   // R-TONE-01：与统一时间轴保持同速
       range.value=this.bpm; num.value=this.bpm;
       range.style.setProperty('--fill',(this.bpm-40)/140*100+'%');
       this.renderStats();
@@ -264,7 +267,8 @@ const Rhythm = {
   },
 
   /* ---------- 时间轴数学 ---------- */
-  stepDur(){ return stepDuration(this.bpm,this.pattern.subdivision); },
+  stepDur(){ /* R-TONE-02：时长来自统一时间轴（Transport.bpm 已与本模块同步） */
+    return Transport.beatDuration()/this.pattern.subdivision; },
   barDur(){ return this.stepDur()*this.pattern.actions.length; },
   countInDur(){ return this.countIn?this.pattern.beats*(60/this.bpm):0; },
 

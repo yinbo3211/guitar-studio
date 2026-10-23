@@ -4,6 +4,8 @@
    ============================================================ */
 'use strict';
 
+const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
+
 const Scale = {
   sel:0, mode:'idle', seq:[], cells:[], fMin:0, fMax:4, rootPc:0,
   i:0, combo:0, ok:0, bestCombo:0,

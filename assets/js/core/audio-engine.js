@@ -15,9 +15,27 @@ const AudioEngine = {
       this.master = this.ctx.createGain();
       this.master.gain.value = .5;
       this.master.connect(this.ctx.destination);
+      this._integrateTone();   // V3 M2：Tone 就绪后切换到统一上下文与总线
     }
     if(this.ctx.state==='suspended') this.ctx.resume();
     return this.ctx;
+  },
+  /* R-BUS-01：AudioEngine 的原生节点汇入 tone-engine 的 music 总线，
+     全应用共享同一个 AudioContext（同一时钟） */
+  _integrateTone(){
+    ToneEngine.ensure().then(Tone=>{
+      if(!Tone) return;
+      try{
+        const rawCtx = Tone.getContext().rawContext;
+        if(this.ctx && !this.ctx.__gsShared && rawCtx.state!==undefined){
+          this.ctx = rawCtx; rawCtx.__gsShared = true;
+        }
+        if(this.master && ToneEngine.rawBuses){
+          this.master.disconnect();
+          this.master.connect(ToneEngine.rawBuses.music);
+        }
+      }catch(e){ console.warn('[audio-engine] Tone 总线接入失败，走原生输出：', e&&e.message); }
+    }).catch(()=>{});
   },
   /* 拨弦合成：三角波基音 + 泛音 + 指数衰减 */
   pluck(freq, when=0, dur=1.6, vol=.32){

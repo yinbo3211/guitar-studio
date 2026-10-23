@@ -276,7 +276,7 @@
               <button class="adj-btn" id="bpmM5">−5</button>
               <button class="adj-btn" id="bpmM1">−</button>
             </div>
-            <input type="range" id="bpmRange" min="40" max="240" value="90" style="flex:1">
+            <input type="range" id="bpmRange" min="30" max="300" value="90" style="flex:1">
             <div class="bpm-adj">
               <button class="adj-btn" id="bpmP1">+</button>
               <button class="adj-btn" id="bpmP5">+5</button>
@@ -306,6 +306,28 @@
             <button data-sub="2">八分</button>
             <button data-sub="3">三连音</button>
             <button data-sub="4">十六分</button>
+          </div>
+          <div class="metro-label">音色</div>
+          <div class="seg" id="metroVoice">
+            <button data-voice="click" class="on">咔嗒</button>
+            <button data-voice="wood">木鱼</button>
+            <button data-voice="rim">边击</button>
+            <button data-voice="beep">哔声</button>
+            <button data-voice="kick">底鼓</button>
+            <button data-voice="clap">拍手</button>
+          </div>
+          <div class="metro-label">渐快训练</div>
+          <div class="seg" id="metroTrainer">
+            <button data-trainer="0" class="on">关</button>
+            <button data-trainer="8">8 小节</button>
+            <button data-trainer="16">16 小节</button>
+            <button data-trainer="32">32 小节</button>
+          </div>
+          <div class="metro-label">Swing 摇摆</div>
+          <div class="seg" id="metroSwing">
+            <button data-swing="0" class="on">直</button>
+            <button data-swing="0.55">轻</button>
+            <button data-swing="0.62">重</button>
           </div>
           <div class="beat-dots" id="beatDots"></div>
           <div class="metro-actions">

@@ -4,6 +4,8 @@
    ============================================================ */
 'use strict';
 
+const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
+
 const ChordLib = {
   cat:'major', sel:null, leftHand:false,
   progTimer:null, progIdx:-1, progPlaying:null,
@@ -87,7 +89,9 @@ const ChordLib = {
     this.progPlaying=i;
     const p=PROGRESSIONS[i];
     const bpm=+$('#progBpm').value;
-    const bar=60/bpm*4;
+    /* R-TONE-02：时长一律来自 Transport，不自算 60/bpm */
+    Transport.setBpm(bpm);
+    const bar=Transport.beatDuration()*4;
     const btn=document.querySelector(`.prog-play[data-i="${i}"]`);
     btn.classList.add('playing');
     btn.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';

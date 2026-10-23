@@ -4,6 +4,8 @@
    ============================================================ */
 'use strict';
 
+const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
+
 const Game = {
   levels:[
     {name:'第 1 关 · 入门开放和弦', pool:['C','G','Am','Em'], time:18},
