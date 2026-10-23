@@ -341,6 +341,16 @@ const Tuner = {
       if(r.rms>0.006){
         $('#tunerStatus').textContent='环境噪音较大，靠近音孔再试';
         $('#tunerStatus').style.color='var(--txt-3)';
+      }else{
+        /* V2-BUG-04 修复（P2）：静音（无信号）时不能残留上一根弦的
+           「准 ✓」绿灯——把音名/指针/高亮弦全部复位到无信号态。 */
+        this.shownCents=0;
+        $('#dialNeedle').style.transform='rotate(0deg)';
+        $('#dialGlow').style.opacity='0';
+        $('#tunerNote').textContent='--';
+        $('#tunerNote').style.color='';
+        $('#tunerStatus').textContent='';
+        $$('.string-btn').forEach(b=>b.classList.remove('heard'));
       }
       return;
     }

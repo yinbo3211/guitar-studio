@@ -638,7 +638,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
           </div>
           <div class="beat-dots" id="beatDots"></div>
           <div class="metro-actions">
-            <button class="btn-round" id="metroToggle" style="width:68px;height:68px">
+            <button class="btn-round" id="metroToggle" style="width:68px;height:68px" aria-label="开始或暂停节拍器">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
             </button>
           </div>
@@ -1210,8 +1210,9 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 <script src="app-rhythm.js"></script>
 <script>
 /* V2 M1：Service Worker 注册——离线缓存核心资源；file:// 协议下自动跳过 */
+/* SUG-02：注册失败不再静默——离线能力没装上时至少留下一条可查的日志 */
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
-  addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('[六弦工坊] 离线缓存注册失败（不影响在线使用）：',err)));
 }
 </script>
 </body>

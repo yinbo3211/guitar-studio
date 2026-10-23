@@ -5,7 +5,7 @@
 const { OPEN_MIDI, tapBpm, beatDuration, stepDuration, isSubAccent } = AudioCore;
 const Metro = {
   bpm:90, beats:2, sub:1, playing:false,
-  beat:0, subIdx:0, nextTime:0, startAudioTime:0,
+  beat:0, subIdx:0, nextTime:0, startAudioTime:0, visualPos:0,
   timer:null, raf:null,
   init(){
     if(this.inited) return; this.inited=true;
@@ -16,6 +16,10 @@ const Metro = {
       $('#bpmNum').innerHTML=this.bpm+'<small>BPM</small>';
       range.style.setProperty('--fill',(this.bpm-40)/200*100+'%');
       $$('.preset-chip[data-bpm]').forEach(c=>c.classList.toggle('on',+c.dataset.bpm===this.bpm));
+      /* V2-BUG-05 修复（P2）：播放中改 BPM，visualLoop 用「新 beatDur ÷ 全程 elapsed」
+         重算相位会瞬间跳拍（如 2.4 拍跳到 4.8 拍），摆锤与 click 声脱节。
+         以当前视觉相位（拍数）为基准重锚 startAudioTime，音频计数器不动。 */
+      if(this.playing) this.rebaseVisual();
     };
     range.addEventListener('input',e=>setBpm(e.target.value));
     $('#bpmM1').onclick=()=>setBpm(this.bpm-1);
@@ -46,6 +50,9 @@ const Metro = {
       // V1 残留 this.beat，如从 4/4 的第 3 拍切到 2/4 会出现越界拍与强拍错位
       this.beat=this.beat%this.beats;
       this.subIdx=this.subIdx%this.sub;
+      /* V2-BUG-05 修复（P2）：拍号变更后音频计数器与视觉相位（按全程 elapsed
+         推导）会分叉——播放中从下一拍起重数（强拍对齐），音频与视觉一起复位 */
+      if(this.playing) this.restartCount();
       this.renderDots();
     };
     // 细分
@@ -75,7 +82,7 @@ const Metro = {
     AudioEngine.ensure();
     if(this.playing){this.stop();return;}
     this.playing=true;
-    this.beat=0; this.subIdx=0;
+    this.beat=0; this.subIdx=0; this.visualPos=0;
     const ctx=AudioEngine.ctx;
     this.nextTime=ctx.currentTime+0.1;
     this.startAudioTime=this.nextTime;
@@ -83,6 +90,19 @@ const Metro = {
     $('#metroToggle').innerHTML='<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
     $('#metroToggle').classList.add('recording');
     this.visualLoop();
+  },
+  /* V2-BUG-05：播放中改 BPM——把时间轴原点重锚到「当前视觉相位」，
+     使 elapsed/beatDur 在新 BPM 下仍等于重锚前的拍数（相位保持连续） */
+  rebaseVisual(){
+    const ctx=AudioEngine.ctx;
+    if(!ctx) return;
+    const pos=this.visualPos||0;
+    this.startAudioTime=ctx.currentTime-pos*beatDuration(this.bpm);
+  },
+  /* V2-BUG-05：播放中改拍号——音频计数器与视觉相位一齐从下一已排拍重数 */
+  restartCount(){
+    this.beat=0; this.subIdx=0; this.visualPos=0;
+    this.startAudioTime=this.nextTime;   // 下一拍=新的第 0 拍（强拍）
   },
   stop(){
     this.playing=false;
@@ -133,7 +153,8 @@ const Metro = {
       const ctx=AudioEngine.ctx;
       const elapsed=ctx.currentTime-this.startAudioTime;
       const beatDur=beatDuration(this.bpm); // V2 M1
-      const pos=elapsed/beatDur;
+      const pos=Math.max(0,elapsed/beatDur); // V2-BUG-05：clamp，重锚瞬间不允许负相位
+      this.visualPos=pos;                    // 持续记录，供 rebaseVisual 使用
       const curBeat=Math.floor(pos)%this.beats;
       // 摆锤：每拍到达端点
       const angle=-Math.cos(pos*Math.PI)*26;

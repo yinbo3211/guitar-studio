@@ -11,6 +11,7 @@
 
 const http = require('http');
 const https = require('https');
+const net = require('net');   // V2-BUG-02：net.isIP 校验 bindHost
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
@@ -19,7 +20,9 @@ const { URL } = require('url');
 
 /* ---------------- 配置 ---------------- */
 const ROOT = __dirname;
-const CONFIG_PATH = path.join(ROOT, 'config.json');
+/* GS_CONFIG 环境变量：仅测试用（test/server.test.js 用临时配置文件，
+   避免读写仓库根目录的真实 config.json）；未设置时行为与原来完全一致 */
+const CONFIG_PATH = process.env.GS_CONFIG || path.join(ROOT, 'config.json');
 
 const DEFAULT_CONFIG = {
   adminPassword: 'admin123',
@@ -62,11 +65,40 @@ function deepMerge(base, over){
   return base;
 }
 let config = clone(DEFAULT_CONFIG);
+/* V2-BUG-02 修复（P0）：配置自愈——config.json 被手改坏（webPort='abc'、
+   ttl=-5、bindHost='javascript:' 等）会让 listen 抛 ERR_SOCKET_BAD_PORT
+   服务直接起不来。启动时逐项校验，非法值回退默认并告警。 */
+function isPort(v){ return Number.isInteger(v) && v >= 1 && v <= 65535; }
+function sanitizeConfig(cfg){
+  if(!isPort(cfg.webPort)){
+    log(`配置 webPort=${JSON.stringify(cfg.webPort)} 非法（应为 1-65535 整数），回退默认 8080`, 'warn');
+    cfg.webPort = DEFAULT_CONFIG.webPort;
+  }
+  const hostOk = cfg.bindHost === 'localhost' || net.isIP(String(cfg.bindHost)) === 4 || net.isIP(String(cfg.bindHost)) === 6;
+  if(!hostOk){
+    log(`配置 bindHost=${JSON.stringify(cfg.bindHost)} 非法（应为 IPv4/IPv6/localhost），回退默认 ::`, 'warn');
+    cfg.bindHost = DEFAULT_CONFIG.bindHost;
+  }
+  if(cfg.ddns){
+    if(!Number.isInteger(cfg.ddns.ttl) || cfg.ddns.ttl < 60 || cfg.ddns.ttl > 86400){
+      log(`配置 ddns.ttl=${JSON.stringify(cfg.ddns.ttl)} 非法（应为 60-86400 整数），回退默认 120`, 'warn');
+      cfg.ddns.ttl = DEFAULT_CONFIG.ddns.ttl;
+    }
+    if(!Number.isInteger(cfg.ddns.intervalMin) || cfg.ddns.intervalMin < 1){
+      cfg.ddns.intervalMin = DEFAULT_CONFIG.ddns.intervalMin;
+    }
+  }
+  if(typeof cfg.adminPassword !== 'string' || !cfg.adminPassword){
+    log('配置 adminPassword 为空，回退默认 admin123（请尽快在后台修改）', 'warn');
+    cfg.adminPassword = DEFAULT_CONFIG.adminPassword;
+  }
+  return cfg;
+}
 function loadConfig(){
   try{
     if(fs.existsSync(CONFIG_PATH)){
       const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-      config = deepMerge(clone(DEFAULT_CONFIG), raw);
+      config = sanitizeConfig(deepMerge(clone(DEFAULT_CONFIG), raw));
     }
   }catch(e){ log('配置文件读取失败，使用默认配置：'+e.message, 'warn'); }
 }
@@ -533,7 +565,12 @@ const DENY_FILES = new Set([
 const DENY_DIRS = ['nginx/', 'test/', 'node_modules/'];
 
 function serveStatic(req, res, pathname){
-  let rel = decodeURIComponent(pathname);
+  /* V2-BUG-03 修复（P2）：URI 解析失败（如 /%）与空字节（%00）归为 400，
+     避免在 path 层抛 ERR_INVALID_PATH / TypeError 被外层 catch 变成 500 */
+  let rel;
+  try{ rel = decodeURIComponent(pathname); }
+  catch(e){ res.writeHead(400, {'Content-Type':'text/plain; charset=utf-8'}); return res.end('400 Bad Request'); }
+  if(rel.indexOf('\0') !== -1){ res.writeHead(400, {'Content-Type':'text/plain; charset=utf-8'}); return res.end('400 Bad Request'); }
   if(rel === '/' || rel === '') rel = '/guitar-studio.html'; // 根路径只返回吉他网页
   if(rel === '/admin' || rel === '/admin/') rel = '/admin.html';
   // 防路径穿越
@@ -572,15 +609,25 @@ function readBody(req){
       data += c;
       if(data.length > 200000){
         settled = true;
-        reject(new Error('请求体超过 200KB 限制'));
-        req.destroy();
+        /* V2-BUG-03 修复（P2）：错误对象携带 status=413；用 resume() 排空
+           代替 destroy()——destroy 会重置连接，客户端拿不到任何状态码 */
+        const err413 = new Error('请求体过大（上限 200KB）');
+        err413.status = 413;
+        reject(err413);
+        req.resume();
       }
     });
     req.on('end', () => {
       if(settled) return;
       settled = true;
       if(!data) return resolve({});
-      try{ resolve(JSON.parse(data)); }catch(e){ reject(new Error('请求体不是合法 JSON')); }
+      try{ resolve(JSON.parse(data)); }
+      catch(e){
+        /* V2-BUG-03：非合法 JSON 归为 400 客户端错误（修复前落进外层 catch 变 500） */
+        const err400 = new Error('请求体不是合法 JSON');
+        err400.status = 400;
+        reject(err400);
+      }
     });
     req.on('error', e => {
       if(settled) return;          // 超限主动断开导致的错误已处理
@@ -677,9 +724,22 @@ const server = http.createServer(async (req, res) => {
 
       if(pathname === '/api/config' && req.method === 'PUT'){
         const body = await readBody(req);
+        /* V2-BUG-02 修复（P0）：非法配置值直接 400 拒绝——
+           原 Number(body.webPort)||默认 会把 'abc'/负数/超大值「假成功」写进
+           配置文件，重启后服务起不来 */
+        if(body.webPort !== undefined){
+          const p = Number(body.webPort);
+          if(!Number.isInteger(p) || p < 1 || p > 65535)
+            return sendJSON(res, 400, { ok:false, msg:'webPort 非法：应为 1-65535 的整数' });
+          config.webPort = p;
+        }
+        if(body.bindHost !== undefined){
+          const h = String(body.bindHost).trim();
+          if(h !== 'localhost' && net.isIP(h) === 0)
+            return sendJSON(res, 400, { ok:false, msg:'bindHost 非法：应为 IPv4/IPv6 地址或 localhost' });
+          config.bindHost = h;
+        }
         if(body.adminPassword !== undefined && body.adminPassword !== '') config.adminPassword = String(body.adminPassword);
-        if(body.webPort !== undefined) config.webPort = Number(body.webPort) || config.webPort;
-        if(body.bindHost !== undefined) config.bindHost = String(body.bindHost);
         if(body.ipv6){
           config.ipv6.mode = body.ipv6.mode === 'manual' ? 'manual' : 'auto';
           config.ipv6.manualAddress = String(body.ipv6.manualAddress || '');
@@ -691,7 +751,12 @@ const server = http.createServer(async (req, res) => {
           if(d.provider) cur.provider = ['dnspod','aliyun','cloudflare'].includes(d.provider) ? d.provider : 'cloudflare';
           if(d.domain !== undefined) cur.domain = String(d.domain).trim();
           if(d.sub !== undefined) cur.sub = String(d.sub).trim();
-          if(d.ttl !== undefined) cur.ttl = Number(d.ttl) || 120;
+          if(d.ttl !== undefined){
+            const t = Number(d.ttl);
+            if(!Number.isInteger(t) || t < 60 || t > 86400)
+              return sendJSON(res, 400, { ok:false, msg:'ddns.ttl 非法：应为 60-86400 的整数（秒）' });
+            cur.ttl = t;
+          }
           if(d.cfProxy !== undefined) cur.cfProxy = !!d.cfProxy;
           if(d.intervalMin !== undefined) cur.intervalMin = Math.max(1, Number(d.intervalMin) || 5);
           // 凭证：脱敏占位符表示不修改
@@ -737,8 +802,11 @@ const server = http.createServer(async (req, res) => {
     if(req.method === 'GET') return serveStatic(req, res, pathname);
     res.writeHead(405); res.end('405 Method Not Allowed');
   }catch(e){
-    log('请求处理异常：' + e.message, 'err');
-    sendJSON(res, 500, { ok:false, msg: e.message });
+    /* V2-BUG-03 修复（P2）：按错误对象携带的 status 分流（4xx 记 warn），
+       并防重复写响应（headersSent 后再 writeHead 会抛 ERR_HTTP_HEADERS_SENT） */
+    const status = Number.isInteger(e.status) ? e.status : 500;
+    log('请求处理异常：' + e.message, status < 500 ? 'warn' : 'err');
+    if(!res.headersSent) sendJSON(res, status, { ok:false, msg: e.message });
   }
 });
 
@@ -747,9 +815,20 @@ let currentPort = config.webPort;
 function parseArgs(){
   process.argv.slice(2).forEach(a => {
     const m = a.match(/^--port=(\d+)$/);
-    if(m) config.webPort = Number(m[1]);
+    if(m){
+      const p = Number(m[1]);
+      /* V2-BUG-02：CLI 端口同样校验，非法直接退出而不是带病启动 */
+      if(!isPort(p)){ log(`参数 ${a} 非法：--port 需为 1-65535 的整数`, 'err'); process.exit(1); }
+      config.webPort = p;
+    }else if(a.startsWith('--port=')){
+      log(`参数 ${a} 非法：--port 需为 1-65535 的整数`, 'err'); process.exit(1);
+    }
     const h = a.match(/^--host=(.+)$/);
-    if(h) config.bindHost = h[1];
+    if(h){
+      const v = h[1].trim();
+      if(v !== 'localhost' && net.isIP(v) === 0){ log(`参数 ${a} 非法：--host 需为 IPv4/IPv6 地址或 localhost`, 'err'); process.exit(1); }
+      config.bindHost = v;
+    }
   });
 }
 /* 附录 3 修复：error 监听只注册一次——V1 在 listen(host) 内注册，

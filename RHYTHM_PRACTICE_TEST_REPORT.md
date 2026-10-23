@@ -3,8 +3,9 @@
 按《六弦工坊·扫弦与分解节奏型练习·新功能需求手册 V1.0》（gpt 版）实施开发，本文档为对应验收报告。
 日期：2026-10-23 ｜ 分支：main ｜ 执行环境：Node v24.21.0（Linux）+ Chromium 无头浏览器（agent-browser）
 
-> **第二轮验收（同日）**：按需求手册第 11 节验收标准与第 12 节 RT-001~RT-012 测试用例逐条复测，
-> 发现并修复 4 个缺陷（见第 7 节），修复后 12/12 用例全部通过，结果见第 6 节。
+> **V2.1 修复轮（同日）**：按《六弦工坊 v2 修改手册》修复 5 个残留缺陷
+> （V2-BUG-01~05）并落实建议 SUG-02，新增 16 条测试，全套 **47/47 通过**。
+> 详见下方「V2.1 修复记录」一节。
 
 ---
 
@@ -15,6 +16,7 @@
 | `lib/rhythm-data.js` | 新增 | 节奏型数据与纯函数引擎（UMD 双端：浏览器全局 `RhythmData` / Node `module.exports`）。14 个预设：扫弦 8 + 分解 6，含根音映射表、网格展开、步进时值、动作解析 |
 | `app-rhythm.js` | 新增 | 模块 UI + 播放引擎：lookahead 调度（与节拍器同源，复用 `AudioEngine` 音频时钟）、预备拍、循环计数、暂停/续播、练习统计（localStorage，try/catch 降级） |
 | `test/rhythm-data.test.js` | 新增 | 数据层单元测试 12 个用例 |
+| `test/pitch-nsdf.test.js` `test/server.test.js` | 新增 | V2.1：NSDF 精度 5 条 + 服务端校验/错误语义 11 条 |
 | `guitar-studio.html` | 修改 | 新增 `view-rhythm` 视图（含独立 scoped 样式）、首页工具卡片、侧边导航项、九大模块文案、脚本引入 |
 | `app-1.js` | 修改 | `ROUTE_TITLES` 与移动端 `MORE_ROUTES` 增加 rhythm 入口 |
 | `app-3.js` | 修改 | `cleanupModules()` 增加离开页面时停止 Rhythm |
@@ -116,3 +118,20 @@
 node --test        # 31 个用例（含本模块 12 个）
 node server.js     # 本地起服后访问 http://localhost:8080/guitar-studio.html#/rhythm
 ```
+
+---
+
+## V2.1 修复记录（按《六弦工坊 v2 修改手册》，基线 main@3b38ec7）
+
+| 编号 | 等级 | 缺陷 | 修复 | 验证 |
+| --- | --- | --- | --- | --- |
+| V2-BUG-01 | P1 | 调音器归一化 s/n 在长 lag 处方差放大，48kHz 下 E2 偏差 −9.9~−16.6¢，永远进不了 ±5¢ 绿区 | `lib/audio-core.js` PitchDetect 改用 NSDF（2·Σxy/(Σx²+Σy²)，平方前缀和 O(1)），MPM/插值/阈值全部不动 | 新增 5 条测试：48k/32k E2 拨弦包络、44.1k 全六弦、五采样率纯音、clarity 量纲；实测 E2@48k 偏差 <5¢ |
+| V2-BUG-02 | P0 | PUT /api/config 对 webPort/bindHost/ttl 用 `Number()\|\|默认` 假成功，坏值落盘后服务起不来 | ①非法值直接 400 拒绝；②启动时 `sanitizeConfig()` 自愈并告警；③CLI `--port/--host` 校验非法即退出 | 新增 6 条测试：非法/合法值×3 项、损坏 config.json 启动自愈 |
+| V2-BUG-03 | P2 | URI 解析失败/空字节→500；超大请求体→连接重置无状态码；非 JSON→500 | ①decode 与空字节归 400；②readBody 413 + `req.resume()` 排空；③外层 catch 按 `e.status` 分流并防重复写响应 | 新增 4 条测试：/% → 400、/server.js → 404、250KB → 413 可达、非 JSON → 400 |
+| V2-BUG-04 | P2 | 调音器静音后残留上一根弦的「准 ✓」绿灯与音名 | `onPitch` 补 else 分支复位音名/指针/高亮弦 | 浏览器实测：喂 A2 显示 A → 静音后显示 `--`、指针归零、heard 清空 |
+| V2-BUG-05 | P2 | 节拍器播放中改 BPM/拍号，视觉相位跳拍（2.4 拍瞬间跳 4.8 拍）与 click 声脱节 | ①`rebaseVisual()`：按当前相位重锚 startAudioTime；②拍号变更 `restartCount()` 从下一拍重数；③pos clamp ≥0 | 页面内时钟断言：改速 105→130 BPM 相位偏差 0.12 拍（容差内）；修复前跳 2.6+ 拍 |
+| SUG-02 | 建议 | SW 注册失败被静默吞掉 | catch 里 console.warn 留下可查日志 | 代码审查 |
+
+**测试总览**：原 31 条（rhythm 12 + audio-core 19）全部保持通过 + 新增 16 条（pitch-nsdf 5 + server 11）= **47/47**。
+**附带改进**：节拍器播放按钮补 `aria-label`（无障碍 + 可测试性）；server.js 支持 `GS_CONFIG` 环境变量指定配置路径（测试隔离用，默认行为不变）。
+**未验证项**：真实 48kHz 声卡 + 真实吉他听感（本环境仅合成信号验证）；手册中 SUG-01（SW 缓存条目上限）经原作者标注「证据不足、不作缺陷结论」，本轮未实施。
