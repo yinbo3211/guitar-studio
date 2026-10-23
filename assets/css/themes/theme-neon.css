@@ -1,0 +1,15 @@
+/* 六弦工坊 V3 · 主题：neon 霓虹暗夜（基线 = V2 默认，跟随系统·深色目标） */
+html[data-theme="neon"], html:not([data-theme]) { }
+html[data-theme="neon"]{
+  --bg:#0a0b14; --bg-2:#0f1120; --card:#151829; --card-2:#1b1f33;
+  --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.16);
+  --txt:#eef0fa; --txt-2:#9aa0bd; --txt-3:#5f6584;
+  --amber:#ffb454; --amber-deep:#f59136; --mint:#2ee6a8; --cyan:#41d9ff;
+  --blue:#4d9fff; --red:#ff5d73; --violet:#8b7cf6;
+  --grad-amber:linear-gradient(135deg,#ffd27a 0%,#ffb454 45%,#f5863f 100%);
+  --grad-mint:linear-gradient(135deg,#5ff5c2 0%,#2ee6a8 50%,#12b986 100%);
+  --shadow-amber:0 6px 24px -6px rgba(255,180,84,.55), 0 0 0 1px rgba(255,180,84,.25) inset;
+  --shadow-mint:0 6px 24px -6px rgba(46,230,168,.5), 0 0 0 1px rgba(46,230,168,.25) inset;
+  --surface-side:linear-gradient(180deg,rgba(21,24,41,.92),rgba(15,17,32,.92));
+  --surface-sheet:linear-gradient(180deg,#181b30,#101223);
+}

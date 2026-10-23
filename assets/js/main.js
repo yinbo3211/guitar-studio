@@ -7,6 +7,8 @@ import './data/rhythm-data.js';
 import './core/tone-loader.js';   // V3 M2：Tone 15 vendor 预取（本地优先）
 import './core/tone-engine.js';
 import './core/transport.js';
+import './core/store.js';
+import './core/theme-switch.js';
 import './core/ui.js';
 import './core/audio-engine.js';
 import './core/router.js';

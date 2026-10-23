@@ -49,6 +49,13 @@ const OPTIONAL = [
   './assets/css/base.css',
   './assets/css/components.css',
   './assets/css/ui-kit.css',
+  './assets/css/themes/theme-neon.css',
+  './assets/css/themes/theme-dawn.css',
+  './assets/css/themes/theme-vintage.css',
+  './assets/css/themes/theme-cyber.css',
+  './assets/css/themes/theme-forest.css',
+  './assets/css/themes/theme-rose.css',
+  './assets/css/themes/theme-mono.css',
   './server/admin.html'
 ];
 

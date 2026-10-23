@@ -1,0 +1,14 @@
+/* 六弦工坊 V3 · 主题：cyber 赛博紫（近黑底 + 紫青霓虹，高饱和） */
+html[data-theme="cyber"]{
+  --bg:#07060f; --bg-2:#0c0a1a; --card:#130f24; --card-2:#1a1433;
+  --line:rgba(180,120,255,.12); --line-strong:rgba(180,120,255,.25);
+  --txt:#f0eaff; --txt-2:#a89bd6; --txt-3:#645a90;
+  --amber:#c17bff; --amber-deep:#a04ef2; --mint:#00e5c7; --cyan:#00d4ff;
+  --blue:#7a5cff; --red:#ff4d9d; --violet:#b44dff;
+  --grad-amber:linear-gradient(135deg,#d9a0ff 0%,#b44dff 45%,#7a2ff0 100%);
+  --grad-mint:linear-gradient(135deg,#4dffe0 0%,#00e5c7 50%,#00a08f 100%);
+  --shadow-amber:0 6px 26px -6px rgba(180,77,255,.6), 0 0 0 1px rgba(180,77,255,.3) inset;
+  --shadow-mint:0 6px 26px -6px rgba(0,229,199,.55), 0 0 0 1px rgba(0,229,199,.28) inset;
+  --surface-side:linear-gradient(180deg,rgba(19,15,36,.94),rgba(7,6,15,.94));
+  --surface-sheet:linear-gradient(180deg,#1a1433,#0c0a1a);
+}

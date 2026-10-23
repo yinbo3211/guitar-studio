@@ -1,0 +1,14 @@
+/* 六弦工坊 V3 · 主题：rose 玫瑰金（深灰粉 + 玫瑰金金属质感） */
+html[data-theme="rose"]{
+  --bg:#16100f; --bg-2:#1c1413; --card:#241a19; --card-2:#2d201e;
+  --line:rgba(255,190,180,.10); --line-strong:rgba(255,190,180,.2);
+  --txt:#f7ebe8; --txt-2:#c9a49c; --txt-3:#8a6a63;
+  --amber:#e8a087; --amber-deep:#d17f63; --mint:#7fc9b0; --cyan:#8fc0c9;
+  --blue:#c98a8f; --red:#e07a8a; --violet:#b087a8;
+  --grad-amber:linear-gradient(135deg,#f2c0ad 0%,#e0967d 48%,#c06f55 100%);
+  --grad-mint:linear-gradient(135deg,#a8dcc9 0%,#7fc9b0 52%,#5aa88f 100%);
+  --shadow-amber:0 6px 24px -8px rgba(224,150,125,.5), 0 0 0 1px rgba(224,150,125,.25) inset;
+  --shadow-mint:0 6px 24px -8px rgba(127,201,176,.45), 0 0 0 1px rgba(127,201,176,.22) inset;
+  --surface-side:linear-gradient(180deg,rgba(36,26,25,.94),rgba(22,16,15,.94));
+  --surface-sheet:linear-gradient(180deg,#2d201e,#1c1413);
+}

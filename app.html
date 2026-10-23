@@ -12,10 +12,28 @@
 <!-- V2 M1：PWA 离线能力（manifest + 主题色，Service Worker 见页尾注册） -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0a0b14">
-<link rel="stylesheet" href="assets/css/tokens.css">
+<script>
+    /* R-THEME 防闪：首帧渲染前按持久化偏好设置 data-theme（auto=跟随系统） */
+    (function () {
+      try {
+        var p = JSON.parse(localStorage.getItem('gs.prefs') || '{}');
+        var th = p.theme || 'auto';
+        if (th === 'auto') th = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'neon' : 'dawn';
+        document.documentElement.setAttribute('data-theme', th);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="assets/css/tokens.css">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/components.css">
   <link rel="stylesheet" href="assets/css/ui-kit.css">
+  <link rel="stylesheet" href="assets/css/themes/theme-neon.css">
+  <link rel="stylesheet" href="assets/css/themes/theme-dawn.css">
+  <link rel="stylesheet" href="assets/css/themes/theme-vintage.css">
+  <link rel="stylesheet" href="assets/css/themes/theme-cyber.css">
+  <link rel="stylesheet" href="assets/css/themes/theme-forest.css">
+  <link rel="stylesheet" href="assets/css/themes/theme-rose.css">
+  <link rel="stylesheet" href="assets/css/themes/theme-mono.css">
 </head>
 <body>
 <div class="stage-bg"></div>
@@ -886,7 +904,7 @@
 
 <!-- 更多菜单 sheet -->
 <div id="sheetMask" style="position:fixed;inset:0;background:rgba(5,6,12,.6);z-index:90;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(2px)"></div>
-<div id="moreSheet" style="position:fixed;left:0;right:0;bottom:0;z-index:91;background:linear-gradient(180deg,#181b30,#101223);border-radius:22px 22px 0 0;border:1px solid var(--line-strong);padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .32s cubic-bezier(.22,1,.36,1)">
+<div id="moreSheet" style="position:fixed;left:0;right:0;bottom:0;z-index:91;background:var(--surface-sheet);border-radius:22px 22px 0 0;border:1px solid var(--line-strong);padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .32s cubic-bezier(.22,1,.36,1)">
   <div style="width:40px;height:4px;border-radius:4px;background:rgba(255,255,255,.18);margin:6px auto 14px"></div>
   <div style="font-family:var(--font-display);font-weight:700;font-size:16px;margin:0 4px 12px">更多工具</div>
   <div id="moreGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>

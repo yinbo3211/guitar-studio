@@ -1,0 +1,14 @@
+/* 六弦工坊 V3 · 主题：dawn 晨曦浅色（跟随系统·浅色目标，白天/户外/投影） */
+html[data-theme="dawn"]{
+  --bg:#f3efe7; --bg-2:#faf8f2; --card:#ffffff; --card-2:#f4efe5;
+  --line:rgba(60,45,25,.12); --line-strong:rgba(60,45,25,.22);
+  --txt:#26200f; --txt-2:#6d6250; --txt-3:#9b9077;
+  --amber:#e07b1f; --amber-deep:#c5660e; --mint:#0f9d6c; --cyan:#0e8fb5;
+  --blue:#2f6fd0; --red:#d64560; --violet:#7a5fe0;
+  --grad-amber:linear-gradient(135deg,#f5b45f 0%,#e07b1f 55%,#c5660e 100%);
+  --grad-mint:linear-gradient(135deg,#2fc493 0%,#0f9d6c 55%,#0b7c55 100%);
+  --shadow-amber:0 6px 22px -8px rgba(224,123,31,.45), 0 0 0 1px rgba(224,123,31,.2) inset;
+  --shadow-mint:0 6px 22px -8px rgba(15,157,108,.4), 0 0 0 1px rgba(15,157,108,.18) inset;
+  --surface-side:linear-gradient(180deg,rgba(255,255,255,.94),rgba(244,239,229,.94));
+  --surface-sheet:linear-gradient(180deg,#ffffff,#f4efe5);
+}

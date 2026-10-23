@@ -1,0 +1,14 @@
+/* 六弦工坊 V3 · 主题：vintage 复古木吉他（深棕木纹 + 做旧琥珀） */
+html[data-theme="vintage"]{
+  --bg:#1c1208; --bg-2:#241809; --card:#2c1d0c; --card-2:#362410;
+  --line:rgba(255,200,130,.10); --line-strong:rgba(255,200,130,.2);
+  --txt:#f3e6cf; --txt-2:#c0a684; --txt-3:#7d6a4e;
+  --amber:#e8a54b; --amber-deep:#c9852f; --mint:#b8cc8a; --cyan:#8fb98f;
+  --blue:#a08a5f; --red:#c96a52; --violet:#a3785a;
+  --grad-amber:linear-gradient(135deg,#f0c179 0%,#d99a45 50%,#b0762b 100%);
+  --grad-mint:linear-gradient(135deg,#c8d69e 0%,#a3b877 55%,#7d9455 100%);
+  --shadow-amber:0 6px 22px -8px rgba(217,154,69,.45), 0 0 0 1px rgba(217,154,69,.22) inset;
+  --shadow-mint:0 6px 22px -8px rgba(163,184,119,.4), 0 0 0 1px rgba(163,184,119,.2) inset;
+  --surface-side:linear-gradient(180deg,rgba(44,29,12,.94),rgba(28,18,8,.94));
+  --surface-sheet:linear-gradient(180deg,#362410,#241809);
+}
