@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>页面未找到 · 六弦工坊</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    /* GitHub Pages 自定义 404 兜底（Q-04）：把任意旧路径带回首页，
+       深链路径信息通过 sessionStorage 传给首页侧提示。 */
+    (function () {
+      try { sessionStorage.setItem('gs.landing', location.pathname + location.search); } catch (e) {}
+      location.replace('/');
+    })();
+  </script>
+</head>
+<body style="font-family:system-ui;background:#0f1120;color:#cfd6e4;display:grid;place-items:center;height:100vh;margin:0">
+  <p>页面不存在，正在返回 <a href="/" style="color:#41d9ff">六弦工坊</a>…</p>
+</body>
+</html>

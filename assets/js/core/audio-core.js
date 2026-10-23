@@ -4,18 +4,10 @@
    按《产品需求文档与升级方案 v2.0》M1 里程碑要求，将 V1 散落在
    app-*.js 中的音频算法（自相关测频、平滑滤波、音名换算、节拍
    调度、闯关判定）抽取为无副作用的纯函数模块：
-     · 浏览器：暴露全局 AudioCore（须在 app-1.js 之前加载）
-     · Node.js：module.exports 导出，供单元测试直接 require
+     · 浏览器：ESM 具名导出 + window.AudioCore 兼容（V3.0 M3）
+     · Node.js：import 直接加载（package.json type=module）
    迁移原则：算法行为与 V1 保持一致（回归测试见 test/）。
    ============================================================ */
-(function (root, factory) {
-  'use strict';
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.AudioCore = api;
-})(typeof self !== 'undefined' ? self : this, function () {
-  'use strict';
-
   /* ---------- 音乐常量 ---------- */
   const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const NOTE_CN = { 'C': '哆', 'C#': '升哆', 'D': '来', 'D#': '升来', 'E': '咪', 'F': '发', 'F#': '升发', 'G': '嗦', 'G#': '升嗦', 'A': '拉', 'A#': '升拉', 'B': '西' };
@@ -195,11 +187,12 @@
   function isSubAccent(beats, beat) { return beats === 6 && beat === 3; }
 
   /* ---------- 导出 ---------- */
-  return {
-    NOTE_NAMES, NOTE_CN, OPEN_MIDI, FREQ_MIN, FREQ_MAX,
-    clamp, midiFromFreq, freqFromMidi, noteName, noteNameNoOct, pitchClass,
-    pcFromName, centsBetween, PitchDetect, makeSmoother,
-    quantizeToOctave, matchFretTarget, isPitchMatch,
-    tapBpm, beatDuration, stepDuration, isSubAccent
-  };
-});
+/* ---------- ESM 导出（R-ESM-02：具名导出） ---------- */
+export { NOTE_NAMES, NOTE_CN, OPEN_MIDI, FREQ_MIN, FREQ_MAX, clamp, midiFromFreq, freqFromMidi, noteName, noteNameNoOct, pitchClass, pcFromName, centsBetween, PitchDetect, makeSmoother, quantizeToOctave, matchFretTarget, isPitchMatch, tapBpm, beatDuration, stepDuration, isSubAccent };
+
+export const AudioCore = { NOTE_NAMES, NOTE_CN, OPEN_MIDI, FREQ_MIN, FREQ_MAX, clamp, midiFromFreq, freqFromMidi, noteName, noteNameNoOct, pitchClass, pcFromName, centsBetween, PitchDetect, makeSmoother, quantizeToOctave, matchFretTarget, isPitchMatch, tapBpm, beatDuration, stepDuration, isSubAccent };
+
+/* V2 兼容：非模块引用（如 admin 调试脚本）仍可走全局 */
+if (typeof window !== 'undefined') window.AudioCore = AudioCore;
+
+export default AudioCore;

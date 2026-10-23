@@ -539,3 +539,6 @@ onRouteEnter.rhythm=()=>Rhythm.init();
    （onRouteEnter.rhythm 当时还未注册），此处补一次初始化。
    init() 内有 inited 守卫，重复调用安全。 */
 if((location.hash.replace('#/','')||'home').split('?')[0]==='rhythm') Rhythm.init();
+
+window.Rhythm = Rhythm;
+export { Rhythm };

@@ -10,9 +10,9 @@
    运行：node --test test/
    ============================================================ */
 'use strict';
-const test = require('node:test');
-const assert = require('node:assert');
-const RD = require('../lib/rhythm-data.js');
+import test from 'node:test';
+import assert from 'node:assert';
+import RD from '../assets/js/data/rhythm-data.js';
 const OPEN_MIDI = [40, 45, 50, 55, 59, 64]; // 6弦→1弦
 
 /* ============ 1. 预设完整性（扫弦 ≥7、分解 ≥6，合计 14） ============ */

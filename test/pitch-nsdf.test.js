@@ -7,9 +7,9 @@
    修复后：NSDF（两段重叠能量归一化），全部音 × 采样率 < 5¢。
    ============================================================ */
 'use strict';
-const test = require('node:test');
-const assert = require('node:assert');
-const AC = require('../lib/audio-core.js');
+import test from 'node:test';
+import assert from 'node:assert';
+import * as AC from '../assets/js/core/audio-core.js';
 
 const cents = (est, ref) => 1200 * Math.log2(est / ref);
 

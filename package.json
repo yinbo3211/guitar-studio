@@ -1,0 +1,14 @@
+{
+  "name": "guitar-studio",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "六弦工坊 · AI 吉他练习室（V3.0：Tone.js 音频内核 / 目录重构 / 多主题 / 中英日韩）",
+  "scripts": {
+    "test": "node --test test/",
+    "start": "node server/server.js",
+    "lint": "node -e \"const{readdirSync,statSync}=require('fs');const{execFileSync}=require('child_process');let bad=0;const walk=d=>{for(const f of readdirSync(d)){const p=d+'/'+f;if(statSync(p).isDirectory())walk(p);else if(f.endsWith('.js')){try{execFileSync(process.execPath,['--check',p])}catch(e){console.error(p,e.message);bad++}}}};['assets/js','server','test'].forEach(walk);process.exit(bad?1:0);console.log('lint ok');\""
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {}
+}

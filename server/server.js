@@ -9,17 +9,19 @@
    ============================================================ */
 'use strict';
 
-const http = require('http');
-const https = require('https');
-const net = require('net');   // V2-BUG-02：net.isIP 校验 bindHost
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { URL } = require('url');
+import http from 'http';
+import https from 'https';
+import net from 'net';
+import os from 'os';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { URL } from 'url';
+import { fileURLToPath } from 'url';
 
 /* ---------------- 配置 ---------------- */
-const ROOT = __dirname;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '..');  // V3 M3：脚本移入 server/，静态根为仓库根
 /* GS_CONFIG 环境变量：仅测试用（test/server.test.js 用临时配置文件，
    避免读写仓库根目录的真实 config.json）；未设置时行为与原来完全一致 */
 const CONFIG_PATH = process.env.GS_CONFIG || path.join(ROOT, 'config.json');
@@ -550,9 +552,12 @@ const MIME = {
 };
 /* 仅允许这些静态文件被外部访问，避免泄露源码/配置/部署脚本 */
 const ALLOWED_FILES = new Set([
-  'guitar-studio.html', 'admin.html', 'index.html',
+  'app.html', 'admin.html', 'index.html',
   'app-1.js', 'app-2.js', 'app-3.js',
-  'audio-core.js', 'sw.js', 'manifest.webmanifest'   // V2 M1：算法库 / Service Worker / PWA 清单
+  'audio-core.js', 'rhythm-data.js', 'main.js', 'ui.js', 'router.js', 'audio-engine.js', 'tone-loader.js', 'tone-engine.js', 'transport.js', 'theme-switch.js', 'i18n.js',
+  'tuner.js', 'metronome.js', 'chord-lib.js', 'chord-game.js', 'ear-training.js', 'fretboard.js', 'scale.js', 'recorder.js', 'rhythm.js',
+  'chords.js', 'scales.js', 'zh-CN.js', 'en.js', 'ja.js', 'ko.js', 'tone.esm.js',
+  'sw.js', 'manifest.webmanifest', '404.html'   // V2 M1：算法库 / Service Worker / PWA 清单
 ]);
 const ALLOWED_EXT = new Set(['.png','.jpg','.jpeg','.gif','.svg','.ico','.webm','.mp4','.wav','.ogg','.woff','.woff2','.css','.js']);
 /* P2-14 修复：按扩展名放行 + 敏感文件黑名单。
@@ -572,8 +577,8 @@ function serveStatic(req, res, pathname){
   try{ rel = decodeURIComponent(pathname); }
   catch(e){ res.writeHead(400, {'Content-Type':'text/plain; charset=utf-8'}); return res.end('400 Bad Request'); }
   if(rel.indexOf('\0') !== -1){ res.writeHead(400, {'Content-Type':'text/plain; charset=utf-8'}); return res.end('400 Bad Request'); }
-  if(rel === '/' || rel === '') rel = '/guitar-studio.html'; // 根路径只返回吉他网页
-  if(rel === '/admin' || rel === '/admin/') rel = '/admin.html';
+  if(rel === '/' || rel === '') rel = '/app.html'; // 根路径只返回吉他网页
+  if(rel === '/admin' || rel === '/admin/') rel = '/server/admin.html';
   // 防路径穿越
   const safe = path.normalize(rel).replace(/^(\.\.[\/\\])+/, '');
   const filePath = path.join(ROOT, safe);
@@ -862,9 +867,9 @@ function listen(host){
         if(ni.family === 'IPv4' && !ni.internal && !v4) v4 = ni.address;
       }
     }
-    log(`本机访问：    http://localhost:${currentPort}/guitar-studio.html`, 'info');
-    if(v4) log(`局域网 IPv4： http://${v4}:${currentPort}/guitar-studio.html`, 'info');
-    if(v6) log(`外网 IPv6：    http://[${v6}]:${currentPort}/guitar-studio.html`, 'info');
+    log(`本机访问：    http://localhost:${currentPort}/app.html`, 'info');
+    if(v4) log(`局域网 IPv4： http://${v4}:${currentPort}/app.html`, 'info');
+    if(v6) log(`外网 IPv6：    http://[${v6}]:${currentPort}/app.html`, 'info');
     log(`后台面板：    /admin  （默认密码 admin123，请尽快修改）`, 'warn');
     log('================================================', 'info');
     probeIPv6(); // 启动后后台异步探测一次公网 IPv6

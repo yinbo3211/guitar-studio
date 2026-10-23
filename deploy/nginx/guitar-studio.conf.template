@@ -25,7 +25,7 @@ server {
     server_name  _;
 
     root         __WEBROOT__;
-    index        guitar-studio.html;
+    index        app.html;
 
     # 基础安全：不显示 nginx 版本、不允许目录列举
     server_tokens off;
@@ -36,12 +36,12 @@ server {
 
     # 根路径只返回吉他网页
     location = / {
-        try_files /guitar-studio.html =404;
+        try_files /app.html =404;
     }
 
     # 后台控制页
     location = /admin {
-        try_files /admin.html =404;
+        try_files /server/admin.html =404;
     }
 
     # 后台 API 反代到本机 Node（IPv6/IPv4 回环均可）
@@ -70,7 +70,7 @@ server {
 
     # 其余前端路由（单页兜底）
     location / {
-        try_files $uri $uri/ /guitar-studio.html;
+        try_files $uri $uri/ /app.html;
     }
 
     # ---- 安全：禁止访问后端源码 / 配置 / 部署脚本 ----
@@ -94,7 +94,7 @@ server {
 #     ssl_certificate     /etc/letsencrypt/live/guitar.example.com/fullchain.pem;
 #     ssl_certificate_key /etc/letsencrypt/live/guitar.example.com/privkey.pem;
 #     root  __WEBROOT__;
-#     index guitar-studio.html;
+#     index app.html;
 #     ...（复制上面的 location 块）...
 # }
 # 并把 80 端口 301 跳转到 https。证书可用 certbot 自动申请，

@@ -6,20 +6,11 @@
      · 扫弦与分解共用时间轴：gridOf() 把任意预设展开为统一
        「拍-步」网格，不同渲染器分别显示 D/U 或弦序数字；
      · 本文件为无副作用纯函数模块：
-       浏览器暴露全局 RhythmData；Node.js 走 module.exports，
-       供 test/rhythm-data.test.js 单元测试直接 require。
+       V3.0 M3：ESM 具名导出 + window.RhythmData 兼容。
    动作记号约定：
      扫弦：'D'=下扫  'U'=上扫  'x'=切音/闷音  '-'=空拍（保持时值）
      分解：'R'=根音（随和弦映射）  'B'=交替低音  '1'~'6'=弦序  '-'=空拍
    ============================================================ */
-(function (root, factory) {
-  'use strict';
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.RhythmData = api;
-})(typeof self !== 'undefined' ? self : this, function () {
-  'use strict';
-
   /* ---------- 和弦根音映射（需求 4.2.6：根音随和弦变化） ----------
      s: 根音所在弦（1=最细 … 6=最粗）  fret: 相对空弦的品位
      altS/altFret: 低音交替型（'B'）使用的第二低音
@@ -220,9 +211,11 @@
   /* ---------- 拍号显示 ---------- */
   function timeSigText(p) { return p.beats + '/' + p.beatUnit; }
 
-  return {
-    ROOT_MAP, FINGER_OF_STRING, FINGER_CN,
-    STRUM_PATTERNS, PICK_PATTERNS, ALL_PATTERNS,
-    validatePattern, gridOf, stepDuration, resolveAction, rootMidi, timeSigText
-  };
-});
+/* ---------- ESM 导出 ---------- */
+export { ROOT_MAP, FINGER_OF_STRING, FINGER_CN, STRUM_PATTERNS, PICK_PATTERNS, ALL_PATTERNS, validatePattern, gridOf, stepDuration, resolveAction, rootMidi, timeSigText };
+
+export const RhythmData = { ROOT_MAP, FINGER_OF_STRING, FINGER_CN, STRUM_PATTERNS, PICK_PATTERNS, ALL_PATTERNS, validatePattern, gridOf, stepDuration, resolveAction, rootMidi, timeSigText };
+
+if (typeof window !== 'undefined') window.RhythmData = RhythmData;
+
+export default RhythmData;

@@ -1,0 +1,31 @@
+/* 六弦工坊 V3 · 设计令牌（M4 主题仅覆盖本文件中的变量） */
+:root{
+  --bg:#0a0b14;
+  --bg-2:#0f1120;
+  --card:#151829;
+  --card-2:#1b1f33;
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.16);
+  --txt:#eef0fa;
+  --txt-2:#9aa0bd;
+  --txt-3:#5f6584;
+  --amber:#ffb454;
+  --amber-deep:#f59136;
+  --mint:#2ee6a8;
+  --cyan:#41d9ff;
+  --blue:#4d9fff;
+  --red:#ff5d73;
+  --violet:#8b7cf6;
+  --grad-amber:linear-gradient(135deg,#ffd27a 0%,#ffb454 45%,#f5863f 100%);
+  --grad-mint:linear-gradient(135deg,#5ff5c2 0%,#2ee6a8 50%,#12b986 100%);
+  --shadow-amber:0 6px 24px -6px rgba(255,180,84,.55), 0 0 0 1px rgba(255,180,84,.25) inset;
+  --shadow-mint:0 6px 24px -6px rgba(46,230,168,.5), 0 0 0 1px rgba(46,230,168,.25) inset;
+  --radius:18px;
+  --radius-sm:12px;
+  /* Fix-8: 本地字体回退栈——CDN 不可用时逐级回退到系统字体，保证排版正常 */
+  --font-display:'Space Grotesk','PingFang SC','Microsoft YaHei',system-ui,-apple-system,'Segoe UI','Noto Sans SC',sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono',ui-monospace,'Cascadia Mono','Consolas','Courier New',monospace;
+  --font-body:'PingFang SC','Microsoft YaHei',system-ui,-apple-system,'Segoe UI','Noto Sans SC',sans-serif;
+  --tabbar-h:64px;
+  --sidebar-w:232px;
+}

@@ -4,8 +4,8 @@
 # ============================================================
 $ErrorActionPreference = 'Stop'
 $Port = 8765
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Entry = 'guitar-studio.html'
+$Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)  # V3: 脚本移入 server/，根目录取上一级
+$Entry = 'app.html'
 
 $Mime = @{
     '.html' = 'text/html; charset=utf-8'

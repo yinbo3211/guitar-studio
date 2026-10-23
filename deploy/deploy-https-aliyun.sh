@@ -102,7 +102,7 @@ fi
 
 # ---------- 6. 提示 DDNS 配置 ----------
 c_g "================ 部署完成 ================"
-echo "  访问地址： https://$DOMAIN/guitar-studio.html"
+echo "  访问地址： https://$DOMAIN/app.html"
 echo "  后台面板： https://$DOMAIN/admin"
 echo ""
 echo "  别忘了 DDNS（域名指向你家的 IPv6）：编辑 $ROOT/config.json："

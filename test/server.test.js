@@ -11,16 +11,16 @@
    不触碰仓库根目录的真实 config.json。
    ============================================================ */
 'use strict';
-const test = require('node:test');
-const assert = require('node:assert');
-const { spawn } = require('node:child_process');
-const http = require('node:http');
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const net = require('node:net');
+import test from 'node:test';
+import assert from 'node:assert';
+import { spawn } from 'node:child_process';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import net from 'node:net';
 
-const ROOT = path.join(__dirname, '..');
+const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'gs-test-'));
 const goodCfg = path.join(TMP, 'good.json');
 const badCfg = path.join(TMP, 'bad.json');
@@ -50,7 +50,7 @@ const reqJSON = (port, method, p, obj, token) =>
   reqRaw(port, method, p, { body: obj ? JSON.stringify(obj) : undefined, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: token } : {}) } });
 
 function startServer(port, cfgFile) {
-  const child = spawn(process.execPath, [path.join(ROOT, 'server.js'), '--port=' + String(port)],
+  const child = spawn(process.execPath, [path.join(ROOT, path.join('server', 'server.js')), '--port=' + String(port)],
     { env: { ...process.env, GS_CONFIG: cfgFile }, stdio: ['ignore', 'pipe', 'pipe'] });
   child.unref();
   return child;
@@ -123,8 +123,8 @@ test('GET /server.js → 404（源码不泄露）', async () => {
   const r = await reqRaw(PORT, 'GET', '/server.js');
   assert.strictEqual(r.status, 404);
 });
-test('GET /guitar-studio.html → 200（正常服务不受影响）', async () => {
-  const r = await reqRaw(PORT, 'GET', '/guitar-studio.html');
+test('GET /app.html → 200（正常服务不受影响）', async () => {
+  const r = await reqRaw(PORT, 'GET', '/app.html');
   assert.strictEqual(r.status, 200);
 });
 test('250KB 请求体 → 413 JSON 响应可达（修复前连接被重置）', async () => {

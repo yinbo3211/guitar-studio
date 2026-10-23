@@ -16,20 +16,36 @@ const CACHE = 'guitar-studio-v1.2.1'; // P2-09：发版必须递增，旧缓存�
 /* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试 */
 const CORE = [
   './',
-  './guitar-studio.html',
+  './app.html',
   './index.html',
-  './lib/audio-core.js',
-  './lib/rhythm-data.js',
-  './app-1.js',
-  './app-2.js',
-  './app-3.js',
-  './app-rhythm.js'
+  './assets/js/main.js',
+  './assets/js/core/audio-core.js',
+  './assets/js/core/ui.js',
+  './assets/js/core/router.js',
+  './assets/js/core/audio-engine.js',
+  './assets/js/data/rhythm-data.js',
+  './assets/js/data/chords.js',
+  './assets/js/data/scales.js',
+  './assets/js/modules/tuner.js',
+  './assets/js/modules/metronome.js',
+  './assets/js/modules/chord-lib.js',
+  './assets/js/modules/chord-game.js',
+  './assets/js/modules/ear-training.js',
+  './assets/js/modules/fretboard.js',
+  './assets/js/modules/scale.js',
+  './assets/js/modules/recorder.js',
+  './assets/js/modules/rhythm.js'
 ];
 /* 次要资源：允许个别失败（如图标），不阻塞安装 */
 const OPTIONAL = [
   './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png',
+  './assets/css/tokens.css',
+  './assets/css/base.css',
+  './assets/css/components.css',
+  './assets/css/ui-kit.css',
+  './server/admin.html'
 ];
 
 self.addEventListener('install', e => {

@@ -142,9 +142,9 @@ V6=$(ip -6 addr show scope global 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-f:]+
 V4=$(hostname -I 2>/dev/null | awk '{print $1}')
 echo
 c_g "================ 部署完成 ================"
-echo "  吉他网页（本机）： http://localhost:${PORT}/guitar-studio.html"
-[ -n "$V4" ] && echo "  局域网 IPv4：     http://${V4}:${PORT}/guitar-studio.html"
-[ -n "$V6" ] && echo "  外网 IPv6：       http://[${V6}]:${PORT}/guitar-studio.html"
+echo "  吉他网页（本机）： http://localhost:${PORT}/app.html"
+[ -n "$V4" ] && echo "  局域网 IPv4：     http://${V4}:${PORT}/app.html"
+[ -n "$V6" ] && echo "  外网 IPv6：       http://[${V6}]:${PORT}/app.html"
 echo "  后台控制面板：     /admin    （默认密码 admin123，请尽快修改）"
 echo
 c_y "  还需在路由器/光猫放行 IPv6 入站端口 ${PORT}（TCP）。"

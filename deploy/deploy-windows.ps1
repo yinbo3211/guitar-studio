@@ -157,7 +157,7 @@ http {
     for($i=0; $i -lt 12; $i++){
         Start-Sleep -Milliseconds 500
         try{
-            $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/guitar-studio.html" -UseBasicParsing -TimeoutSec 3
+            $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/app.html" -UseBasicParsing -TimeoutSec 3
             if($r.StatusCode -eq 200){ $up = $true; break }
         }catch{}
     }
@@ -200,9 +200,9 @@ $v4 = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
     Select-Object -First 1).IPAddress
 Write-Host ""
 Ok "================ 部署完成 ================"
-Write-Host "  本机访问： http://localhost:$Port/guitar-studio.html"
-if($v4){ Write-Host "  局域网：   http://$v4`:$Port/guitar-studio.html" }
-if($v6){ Write-Host "  外网 IPv6：http://[$v6]:$Port/guitar-studio.html" }
+Write-Host "  本机访问： http://localhost:$Port/app.html"
+if($v4){ Write-Host "  局域网：   http://$v4`:$Port/app.html" }
+if($v6){ Write-Host "  外网 IPv6：http://[$v6]:$Port/app.html" }
 Write-Host "  后台面板： http://localhost:$Port/admin"
 Write-Host ""
 Warn "  还需在路由器/光猫放行 IPv6 入站 TCP $Port。"

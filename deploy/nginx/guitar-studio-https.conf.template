@@ -41,18 +41,18 @@ server {
     ssl_session_timeout 1d;
 
     root         __WEBROOT__;
-    index        guitar-studio.html;
+    index        app.html;
 
     server_tokens off;
     autoindex off;
     client_max_body_size 20m;
 
     location = / {
-        try_files /guitar-studio.html =404;
+        try_files /app.html =404;
     }
 
     location = /admin {
-        try_files /admin.html =404;
+        try_files /server/admin.html =404;
     }
 
     location /api/ {
@@ -77,7 +77,7 @@ server {
     }
 
     location / {
-        try_files $uri $uri/ /guitar-studio.html;
+        try_files $uri $uri/ /app.html;
     }
 
     # ---- 安全：禁止访问后端源码 / 配置 / 部署脚本 ----

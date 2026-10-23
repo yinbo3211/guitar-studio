@@ -4,9 +4,9 @@
    按 PRD v2.0 M1 要求：算法迁移必须有回归测试保护。
    ============================================================ */
 'use strict';
-const test = require('node:test');
-const assert = require('node:assert');
-const AC = require('../lib/audio-core.js');
+import test from 'node:test';
+import assert from 'node:assert';
+import * as AC from '../assets/js/core/audio-core.js';
 
 const SR = 44100;
 const near = (actual, expected, tol, msg) =>

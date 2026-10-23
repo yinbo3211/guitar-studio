@@ -1,0 +1,33 @@
+/* 六弦工坊 V3 · 响应式与无障碍交互层 */
+/* ============================================================
+   响应式：手机优先，iPhone 16 Pro 逻辑宽 402px
+   ============================================================ */
+@media (max-width:860px){
+  .sidebar{display:none}
+  .topbar{display:flex}
+  .tabbar{display:block}
+  .view{padding:18px 16px 90px}
+  .view-head{margin-bottom:16px}
+  .view-title{display:none}
+  .view-sub{margin-top:0}
+  .hero{padding:24px 20px}
+  .hero h1{font-size:25px}
+  .hero-deco{opacity:.28;right:-60px}
+  .tool-grid{grid-template-columns:repeat(2,1fr);gap:11px}
+  .tool-card{min-height:138px;padding:16px}
+  .card{padding:18px 16px}
+}
+@media (max-width:380px){
+  .tool-grid{grid-template-columns:1fr}
+}
+@media (min-width:861px){
+  .views{padding-top:0}
+}
+/* 桌面端更宽时的卡片排版 */
+@media (min-width:1000px){
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .two-col > .card{margin-top:0}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
