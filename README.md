@@ -4,6 +4,35 @@
 音频处理在浏览器本地完成，麦克风声音**不会上传、不会保存**。
 
 
+
+## V3.0.1 物理机实测修复（2026-10-24）
+
+- **麦克风**：新增 MicManager——10 秒超时不再挂起、失败显示具体原因
+  （权限被拒/设备占用/系统隐私设置/HTTP 明文），只使用系统默认麦克风。
+- **局域网访问**：启动脚本默认开放局域网（含防火墙规则，UAC 确认一次），
+  启动横幅打印手机可直接打开的地址。
+- **节拍器**：修复 Tone 后端无声（velocity 参数/时值解析/双音频上下文），
+  卡片内新增「🔊 试音诊断」。
+- **闯关指法图**：进回合即显示，圆点标注 1-4 手指标号，图下附文字按法；
+  无麦克风也可照图练习。
+- **练耳**：发声改为与和弦库同源的吉他拨弦/扫弦音色。
+
+> 手机麦克风须知：浏览器规定麦克风必须 HTTPS 或 localhost。
+> 局域网 HTTP 打开时调音/闯关/录音不可用属浏览器安全策略。
+> 手机端请使用 GitHub Pages（HTTPS）或下方「局域网 HTTPS」方案。
+
+### 局域网 HTTPS（手机麦克风可用）
+
+```powershell
+# 1) 生成自签证书（Windows PowerShell，管理员）
+$cert = New-SelfSignedCertificate -DnsName "guitar.local" -CertStoreLocation "Cert:\CurrentUser\My"
+$pwd = ConvertTo-SecureString -String "guitar" -Force -AsPlainText
+Export-PfxCertificate -Cert $cert -FilePath server\cert.pfx -Password $pwd
+# 2) config.json 增加：
+#    "https": { "pfx": "server/cert.pfx", "passphrase": "guitar" }
+# 3) 重启后访问 https://<IP>:8765 → 浏览器警告页点「继续访问」→ 麦克风可用
+```
+
 ## V3.0 新特性（Tone.js 内核 · 目录重构 · 7 套主题 · 四语）
 
 > 按《六弦工坊 V3.0 产品需求手册》交付，目录结构见 `docs/DIRECTORY_MIGRATION.md`。

@@ -732,7 +732,8 @@ function auth(req){
 /* ============================================================
    HTTP 服务
    ============================================================ */
-const server = http.createServer(async (req, res) => {
+/* V3.1 BUG-1：请求处理器抽出（HTTP/HTTPS 共用同一套路由与静态服务） */
+async function requestHandler(req, res) {
   const u = new URL(req.url, 'http://localhost');
   const pathname = u.pathname;
   try{
@@ -916,7 +917,25 @@ const server = http.createServer(async (req, res) => {
     log('请求处理异常：' + e.message, status < 500 ? 'warn' : 'err');
     if(!res.headersSent) sendJSON(res, status, { ok:false, msg: e.message });
   }
-});
+}
+
+const server = http.createServer(requestHandler);
+
+/* V3.1 BUG-1：可选 HTTPS 服务（config.https 存在即启用，手机麦克风可用） */
+if (config.https && config.https.pfx) {
+  try {
+    const httpsOpts = {
+      pfx: fs.readFileSync(path.resolve(ROOT, config.https.pfx)),
+      passphrase: config.https.passphrase || ''
+    };
+    const httpsPort = config.https.port || 8443;
+    https.createServer(httpsOpts, requestHandler).listen(httpsPort, () => {
+      log(`HTTPS 服务：    https://<本机IP>:${httpsPort}/app.html  ← 手机端（首次访问需信任自签证书）`, 'ok');
+    });
+  } catch (e) {
+    log('HTTPS 启动失败（检查 config.https 证书路径/密码）：' + e.message, 'err');
+  }
+}
 
 /* ---------------- 启动（双栈） ---------------- */
 let currentPort = config.webPort;
