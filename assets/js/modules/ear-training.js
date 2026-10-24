@@ -142,19 +142,28 @@ const Ear = {
     this.updateStats();
     this.newQuestion();
   },
-  /* F3：每 10 题汇总上报一次练习数据（F1 统计中心） */
+  /* F3：每 10 题汇总上报一次练习数据（F1 统计中心）
+     BUG-03 修复：上报后必须把本轮计数清零。旧实现只重置 startedAt，
+     n/ok/reactionSum/reactionN 继续在历史值上累加，导致：
+       · 第 2 条会话的题数变成 20（而非当轮 10），正确率变成累计值；
+       · 时长按「累计题数 × 单题时长」虚增（两轮 20 题会算出 30 题的量）；
+       · 「满 10 题上报」与「切页补报」形成重复上报。
+     清零后，切页补报只在「本轮尚未满 10 题」时触发，一次练习仅一条会话。 */
   report(){
     if(typeof PracticeStore!=='undefined' && this.n>0){
+      const questions = this.n;
       PracticeStore.addSession({
         module:'ear',
         startedAt:this.startedAt||Date.now(),
         durationMs:Date.now()-(this.startedAt||Date.now()),
-        accuracy:this.n?this.ok/this.n:null,
-        meta:{ level:this.level, mode:this.mode, questions:this.n,
+        accuracy:questions?this.ok/questions:null,
+        meta:{ level:this.level, mode:this.mode, questions,
                avgReactionMs:this.reactionN?Math.round(this.reactionSum/this.reactionN):null }
       });
-      this.startedAt=Date.now();
     }
+    // 无论是否真的落库（未挂载数据层时）都复位，避免状态残留
+    this.n=0; this.ok=0; this.reactionSum=0; this.reactionN=0;
+    this.startedAt=Date.now();
   },
   newQuestion(){
     this.answered=false;

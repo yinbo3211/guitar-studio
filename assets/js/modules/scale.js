@@ -176,6 +176,7 @@ const Scale = {
     }
     this.mode='follow';
     this.i=0; this.combo=0; this.ok=0; this.bestCombo=0;
+    this.followStartedAt=Date.now();   // BUG-02：记录本轮跟弹起点，用于统计时长
     this.clearAll();
     $('#scxTip').textContent='照指板高亮的位置拨响当前音，逐音上行再下行';
     $('#scxCombo').textContent='0';
@@ -229,6 +230,28 @@ const Scale = {
     $('#scxTip').textContent='最高连击 '+this.bestCombo+'，提高速度或换个音阶继续';
     this.updateButtons();
     toast('音阶练习完成，最高连击 '+this.bestCombo,'ok');
+    /* BUG-02 修复：完整弹完一条音阶后上报练习会话。旧实现只弹 toast，
+       从不写入 PracticeStore，每日计划「音阶练习」任务的进度恒为 0，
+       永远无法完成（计划无法达到 100%）。 */
+    this.reportScale();
+  },
+  /* BUG-02：音阶完成 -> 计入 F1 练习数据层 */
+  reportScale(){
+    if(typeof PracticeStore==='undefined' || !PracticeStore) return;
+    const now=Date.now();
+    const startedAt=this.followStartedAt||now;
+    this.followStartedAt=now;
+    const total=this.seq?this.seq.length:0;
+    PracticeStore.addSession({
+      module:'scale',
+      startedAt,
+      durationMs:Math.max(0, now-startedAt),
+      // 正确率 = 弹对音数 / 序列总音数
+      accuracy: total>0 ? Math.max(0, Math.min(1, this.ok/total)) : null,
+      meta:{ scale:(this.cur()&&(this.cur().root+' '+this.cur().type))||null,
+             pos:(this.cur()&&this.cur().pos)||0,
+             notes:total, hit:this.ok, bestCombo:this.bestCombo, bpm:this.bpm }
+    });
   },
   stopFollow(){
     if(this.mode==='follow'){ this.stopMic(); }

@@ -12,20 +12,26 @@
    版本升级：递增 CACHE 版本号，activate 时清理旧缓存。
    ============================================================ */
 'use strict';
-/* C3 修复：缓存版本不再手工递增——安装时读取 package.json 的 version
+/* C3 修复 + BUG-06 修正：缓存版本不再手工递增——安装时读取版本号
    生成缓存名（如 guitar-studio-v3.1.0），漏改版本号导致旧缓存不清理的问题
-   从流程上消除；读取失败时回退到内置版本号，保证离线安装不中断。 */
+   从流程上消除；读取失败时回退到内置版本号，保证离线安装不中断。
+   BUG-06：原实现 fetch('./package.json')，但服务端静态白名单 DENY_FILES
+   显式拒绝 package.json（线上恒 404），自动派生实际永不生效、偷偷退回
+   硬编码版本。改为优先读取白名单内的 /api/v1/version（公开只读，
+   不受初始化状态机拦截），package.json 仅作本地静态托管的兼容回退。 */
 const FALLBACK_CACHE = 'guitar-studio-v3.1.0';
 let CACHE = FALLBACK_CACHE;
 async function resolveCacheName(){
-  try{
-    const res = await fetch('./package.json', { cache: 'no-store' });
-    if(!res.ok) return FALLBACK_CACHE;
-    const pkg = await res.json();
-    if(pkg && typeof pkg.version === 'string' && pkg.version){
-      return `guitar-studio-v${pkg.version}`;
-    }
-  }catch(e){}
+  const sources = ['./api/v1/version', './package.json'];
+  for(const url of sources){
+    try{
+      const res = await fetch(url, { cache: 'no-store' });
+      if(!res.ok) continue;
+      const data = await res.json();
+      const v = data && typeof data.version === 'string' ? data.version : '';
+      if(v) return `guitar-studio-v${v}`;
+    }catch(e){ /* 换下一个来源 */ }
+  }
   return FALLBACK_CACHE;
 }
 /* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试

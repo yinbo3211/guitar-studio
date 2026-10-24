@@ -85,6 +85,7 @@ const Metro = {
       this.voice=b.dataset.voice;
       try{ localStorage.setItem('gs.metroVoice',this.voice); }catch(err){}
     };
+    this._initCustomSample();
     try{ const v=localStorage.getItem('gs.metroVoice'); if(v && $('#metroVoice [data-voice="'+v+'"]')){ this.voice=v; $$('#metroVoice button').forEach(x=>x.classList.toggle('on',x.dataset.voice===v)); } }catch(err){}
     // 渐快训练（R-BPM-04）
     $('#metroTrainer').onclick=e=>{
@@ -115,6 +116,98 @@ const Metro = {
     });
     $('#metroToggle').onclick=()=>this.toggle();
     this.renderDots();
+  },
+  /* ---------- 自定义音源（物理机实测：使用真实采样音色） ---------- */
+  /* 说明：freesound / zapsplat / creazilla 等站点需登录与鉴权，无法在页面里
+     直接热链播放；推荐做法是「下载音频文件 → 在此导入」，或填写可直链下载
+     且允许跨域的音频 URL。本地文件导入完全离线可用、无鉴权与 CSP 问题。 */
+  _initCustomSample(){
+    const showSampleBtn=(on)=>{ const b=$('#metroVoiceSample'); if(b){ b.hidden=!on; } };
+    const tip=(msg)=>{ const t=$('#metroSampleTip'); if(t) t.textContent=msg; };
+    const setVoice=(v)=>{
+      $$('#metroVoice button').forEach(x=>x.classList.toggle('on',x.dataset.voice===v));
+      this.voice=v;
+      try{ localStorage.setItem('gs.metroVoice',v); }catch(err){}
+    };
+    const applySample=()=>{
+      showSampleBtn(true); setVoice('sample');
+      this._sampleWarned=false;
+    };
+    // 本地文件导入
+    const file=$('#metroSampleFile');
+    if(file) file.addEventListener('change', async ()=>{
+      const f=file.files && file.files[0]; if(!f) return;
+      tip('正在解码音频…');
+      try{
+        const ab=await f.arrayBuffer();
+        await AudioEngine.decodeSample('metro', ab);
+        try{ localStorage.setItem('gs.metroSampleName', f.name); }catch(err){}
+        applySample();
+        tip(`已导入：${f.name || '本地音频'}（点击「试音」可确认）`);
+        toast('自定义音源已导入','ok',2200);
+      }catch(err){
+        console.warn('[Metro] 采样解码失败：',err);
+        tip('解码失败：请换一个 mp3 / wav / ogg 文件');
+        toast('音频解码失败，请更换文件格式','err',2800);
+      }
+    });
+    // 直链加载
+    const urlInput=$('#metroSampleUrl');
+    const applyBtn=$('#metroSampleApply');
+    if(applyBtn) applyBtn.addEventListener('click', async ()=>{
+      const url=(urlInput && urlInput.value || '').trim();
+      if(!url){ tip('请先填写音频直链'); return; }
+      tip('正在下载音频…');
+      try{
+        await AudioEngine.loadSampleUrl('metro', url);
+        try{ localStorage.setItem('gs.metroSampleUrl', url); }catch(err){}
+        applySample();
+        tip('直链音源已就绪（点击「试音」可确认）');
+        toast('自定义音源已就绪','ok',2200);
+      }catch(err){
+        console.warn('[Metro] 直链加载失败：',err);
+        tip('加载失败：该链接可能不允许跨域下载，建议下载后从本地文件导入');
+        toast('直链加载失败，建议下载后本地导入','err',3000);
+      }
+    });
+    // 记住上次的直链并自动恢复
+    try{
+      const saved=localStorage.getItem('gs.metroSampleUrl');
+      if(saved){
+        AudioEngine.loadSampleUrl('metro', saved).then(()=>{ showSampleBtn(true); }).catch(()=>{});
+      }
+    }catch(err){}
+    // 试音 + 诊断
+    const test=$('#metroTest');
+    if(test) test.addEventListener('click', ()=>{
+      AudioEngine.ensure();
+      const ok=this._testSound();
+      const backend=(window.Transport&&Transport.backend)||'none';
+      const voices=!!this._voices;
+      const buses=!!(window.ToneEngine&&ToneEngine.buses);
+      const sample=AudioEngine.hasSample('metro');
+      const state=(AudioEngine.ctx&&AudioEngine.ctx.state)||'none';
+      tip(`诊断：backend=${backend} · voices=${voices?'yes':'no'} · buses=${buses?'yes':'no'} · sample=${sample?'yes':'no'} · ctx=${state}`);
+      toast(ok?'试音已播放（若仍听不到，请检查系统音量与输出设备）':'试音失败：请查看下方诊断信息', ok?'ok':'err', 3600);
+    });
+  },
+  /* 试音：依次播放强拍/弱拍/细分，覆盖 Tone 与原生两条链路 */
+  _testSound(){
+    try{
+      AudioEngine.ensure();
+      if(this.voice==='sample' && AudioEngine.hasSample('metro')){
+        AudioEngine.playSample('metro',0,1);
+        return true;
+      }
+      this._ensureVoices();
+      const now=AudioEngine.ctx.currentTime;
+      this._hit(now+0.02);                  // 强拍
+      setTimeout(()=>{ try{ this._hit(AudioEngine.ctx.currentTime+0.01); }catch(e){} },260);
+      return true;
+    }catch(err){
+      console.warn('[Metro] 试音失败：',err);
+      return false;
+    }
   },
   renderDots(){
     let html='';
@@ -170,6 +263,16 @@ const Metro = {
     this._ensureVoices();
     const strong=this.beat===0;
     const subAcc=isSubAccent(this.beats,this.beat);
+    /* 自定义采样音色：优先走采样，未就绪时回落到合成音色，保证一定有声音 */
+    if(this.voice==='sample'){
+      const ctx=AudioEngine.ctx;
+      const off=Math.max(0,(time||0)-ctx.currentTime);
+      const played=AudioEngine.playSample('metro',off,strong?1:0.72);
+      if(played){ if(subAcc) AudioEngine.playSample('metro',off+0.012,0.45); return; }
+      if(!this._sampleWarned){ this._sampleWarned=true;
+        toast('自定义音源未就绪，暂时使用「咔嗒」音色','warn',2600); }
+      this.voice='click';
+    }
     const v=this._voices && this._voices[this.voice];
     if(v){
       const T=ToneEngine.Tone;
@@ -187,9 +290,15 @@ const Metro = {
         }
       }
     }else{
-      // 原生回退：AudioEngine.click（与 V2 行为一致）
-      AudioEngine.click(strong, time-AudioEngine.ctx.currentTime);
-      if(subAcc) AudioEngine.click(false, time-AudioEngine.ctx.currentTime+0.012);
+      /* 原生回退：AudioEngine.click（与 V2 行为一致）
+         物理机实测修复：time 来自 Transport 的调度时钟，若与 AudioEngine 的
+         发声时钟存在基准差（旧版两个 AudioContext 并存），
+         `time - ctx.currentTime` 会是负数 → oscillator 的 start/stop 都落在
+         过去 → 声音立即结束 → 听感上「节拍器完全没声音」。
+         这里把相对偏移钳制到 >= 0，宁可略微提前也绝不静音。 */
+      const off = Math.max(0, time - AudioEngine.ctx.currentTime);
+      AudioEngine.click(strong, off);
+      if(subAcc) AudioEngine.click(false, off+0.012);
     }
     if(this.subIdx>0){
       // 细分轻击
@@ -200,12 +309,14 @@ const Metro = {
       this._voices.click.triggerAttackRelease(800,.03,time,0.2);
       }else{
         const ctx=AudioEngine.ctx;
+        // 同上：把绝对调度时间钳制到不早于「现在」，避免落在过去而静音
+        const t0=Math.max(ctx.currentTime, time||ctx.currentTime);
         const o=ctx.createOscillator(),g=ctx.createGain();
         o.type='square'; o.frequency.value=800;
-        g.gain.setValueAtTime(.07,time);
-        g.gain.exponentialRampToValueAtTime(.0001,time+.035);
+        g.gain.setValueAtTime(.07,t0);
+        g.gain.exponentialRampToValueAtTime(.0001,t0+.035);
         o.connect(g); g.connect(AudioEngine.master);
-        o.start(time); o.stop(time+.045);
+        o.start(t0); o.stop(t0+.045);
       }
     }
   },

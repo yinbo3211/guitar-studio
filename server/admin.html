@@ -307,7 +307,8 @@ select option{background:var(--card)}
 
   function api(path, opt){
     opt = opt || {};
-    opt.headers = Object.assign({'Content-Type':'application/json','Authorization':token}, opt.headers||{});
+    // BUG-09：统一按 RFC 6750 发送 `Bearer <token>`（服务端同时兼容裸 token）
+    opt.headers = Object.assign({'Content-Type':'application/json','Authorization':'Bearer '+token}, opt.headers||{});
     return fetch(path, opt).then(function(r){
       if(r.status === 401){ doLogout(); throw new Error('登录已失效'); }
       return r.json();
@@ -331,9 +332,12 @@ select option{background:var(--card)}
     }).catch(function(){ hideInit(); });
   }
   function doInit(){
-    var p1=$('initPwd').value, p2=$('initPwd2').value;
-    if(!p1) return toast('请输入新口令','err');
-    if(p1.length<8) return toast('口令至少 8 位','err');
+    /* BUG-01：与服务端 validatePassword 同口径——trim 后校验并拒绝纯空白，
+       否则前端放行、后端拒绝（或旧版后端放行后自锁），提示与结果不一致 */
+    var p1=$('initPwd').value.trim(), p2=$('initPwd2').value.trim();
+    if(!p1) return toast('请输入新口令（不能为纯空格）','err');
+    if(p1.length<8) return toast('口令至少 8 位（且不能为纯空格）','err');
+    if(!/[^0-9]/.test(p1) || !/[^A-Za-z]/.test(p1)) return toast('口令需同时包含字母与数字','err');
     if(p1!==p2) return toast('两次输入的口令不一致','err');
     fetch('/api/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p1})})
       .then(function(r){return r.json().then(function(j){return {r:r,j:j}})})

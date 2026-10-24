@@ -13,6 +13,40 @@ const { PitchDetect } = AudioCore;
    ============================================================ */
 const AudioEngine = {
   ctx:null, master:null,
+  /* 自定义采样音源（物理机实测需求）：支持用户导入真实音频采样
+     （如 freesound / zapsplat / creazilla 下载的节拍器音色）。
+     _samples: { key -> AudioBuffer }，key 为 'sample' 或自定义槽位名。 */
+  _samples: Object.create(null),
+  /** 解码 ArrayBuffer → AudioBuffer 并缓存 */
+  async decodeSample(key, arrayBuffer){
+    const ctx = this.ensure();
+    const buf = await ctx.decodeAudioData(arrayBuffer);
+    this._samples[key] = buf;
+    return buf;
+  },
+  /** 从 URL 加载并解码（跨域需目标站点允许 CORS） */
+  async loadSampleUrl(key, url){
+    const res = await fetch(url, { mode: 'cors' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return this.decodeSample(key, await res.arrayBuffer());
+  },
+  hasSample(key){ return !!this._samples[key]; },
+  /** 播放已缓存的采样；when 为相对当前时间的秒偏移 */
+  playSample(key, when=0, vol=1, rate=1){
+    const buf = this._samples[key];
+    if(!buf) return false;
+    const ctx = this.ensure();
+    const t0 = Math.max(ctx.currentTime, ctx.currentTime + (when||0));
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    if(rate && rate !== 1) src.playbackRate.value = rate;
+    const g = ctx.createGain();
+    g.gain.value = typeof vol === 'number' ? vol : 1;
+    src.connect(g); g.connect(this.master);
+    src.start(t0);
+    return true;
+  },
+  dropSample(key){ delete this._samples[key]; },
   ensure(){
     if(!this.ctx){
       this.ctx = new (window.AudioContext||window.webkitAudioContext)();
@@ -134,9 +168,45 @@ function micGuard(){
   }
   return true;
 }
+/* 麦克风失败诊断：把「为什么拿不到麦克风」讲清楚（物理机实测需求）。
+   手机通过局域网 http://192.168.x.x 访问时 isSecureContext=false，
+   浏览器直接禁用麦克风——这是安全策略而非 bug，必须给出可用路径。 */
+function diagInfo(err){
+  const host = (location && location.hostname) || '';
+  const insecure = !window.isSecureContext;
+  return {
+    protocol: (location && location.protocol) || '',
+    hostname: host,
+    isSecureContext: window.isSecureContext,
+    hasMediaDevices: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+    errName: (err && err.name) || 'UnknownError',
+    errMessage: (err && err.message) || '',
+    ua: (navigator && navigator.userAgent) || '',
+    /* 非安全上下文 + 非本机 = 手机局域网明文访问 */
+    lanInsecure: !!insecure && host !== 'localhost' && host !== '127.0.0.1' && host !== ''
+  };
+}
+function micHint(err){
+  const d = diagInfo(err);
+  const name = d.errName;
+  if(!d.hasMediaDevices || (d.lanInsecure && !d.isSecureContext)){
+    return '手机用局域网 http 访问时浏览器禁用麦克风。请改用 HTTPS 地址（GitHub Pages 或自签证书），详见 README「局域网 HTTPS」';
+  }
+  if(name === 'NotAllowedError' || name === 'SecurityError')
+    return '麦克风权限被拒：点击地址栏左侧 🔒 图标 → 允许麦克风，然后重试';
+  if(name === 'NotFoundError' || name === 'OverconstrainedError')
+    return '没有检测到可用的麦克风设备，请检查设备连接';
+  if(name === 'NotReadableError')
+    return '麦克风被其他程序占用：请关闭微信/腾讯会议/系统录音机等后重试';
+  if(name === 'TimeoutError' || name === 'AbortError')
+    return '10 秒内未获得系统授权：检查 Windows 设置 → 隐私 → 麦克风 → 允许桌面应用访问麦克风';
+  return '无法访问麦克风：' + (d.errMessage || name) + '（建议使用 localhost 或 HTTPS 访问）';
+}
 const Mic = {
   // BUG-04 修复：麦克风使用独立上下文字段，绝不覆盖/关闭播放上下文
   stream:null, micCtx:null, deviceId:null, analyser:null, raf:null, cb:null, frame:0,
+  // 生命周期状态与失败诊断（UI 可读，便于排查「点了没反应」）
+  state:'idle', lastDiagnostics:null,
   async start(onPitch, deviceId){
     // P0-02 修复：Mic 为全局单例，复用旧流时必须刷新回调，
     // 否则切换模块后检测结果仍发给旧模块、判定完全失效
@@ -151,29 +221,49 @@ const Mic = {
     // 第二条流，第一次 resolve 的 stream/micCtx/rAF 被覆盖而永不释放（麦灯常亮、CPU 翻倍）。
     // 复用同一个在途承诺，并发调用共享一次申请与一套音频图。
     if(this._starting) return this._starting;
-    this._starting = this._startInner(onPitch);
+    /* 物理机实测 BUG：_startInner 内部引用了 deviceId，但旧签名未接收该参数，
+       严格模式下读取未声明变量直接抛 ReferenceError: deviceId is not defined
+       → Mic.start 永远失败 → 调音器卡在「正在请求麦克风…」、
+         和弦闯关无法识别弹奏声音（用户实测症状）。此处显式透传。 */
+    this._starting = this._startInner(onPitch, deviceId);
     try{ return await this._starting; }
     finally{ this._starting = null; }
   },
-  async _startInner(onPitch){
-    if(!micGuard()) return false; // P0-03：安全上下文/接口存在性前置校验
-    const audioConstraint = {echoCancellation:false, noiseSuppression:false, autoGainControl:false};
+  async _startInner(onPitch, deviceId){
+    this.state='requesting';
+    if(!micGuard()){ this.state='idle'; return false; } // P0-03：安全上下文/接口存在性前置校验
+    /* 与录音棚（recorder.js）保持一致的采集参数：不强制关闭自动增益。
+       强制 autoGainControl:false 会让吉他/人声输入电平过低，
+       PitchDetect 的 RMS 与自相关都取不到有效值 → 拨弦后无任何反应。 */
+    const audioConstraint = { echoCancellation:false, noiseSuppression:false };
     if(deviceId) audioConstraint.deviceId = { exact: deviceId };
     try{
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
+      /* 物理机实测：权限弹窗被系统隐私策略吞掉时，getUserMedia 的 promise
+         会永久 pending（调音器卡死）。这里加 10 秒超时竞速后走失败分支。 */
+      this.stream = await Promise.race([
+        navigator.mediaDevices.getUserMedia({ audio: audioConstraint }),
+        new Promise((_, rej) => setTimeout(() => rej(Object.assign(
+          new Error('getUserMedia timeout'), { name: 'TimeoutError' })), 10000))
+      ]);
       this.deviceId = deviceId || (this.stream.getAudioTracks()[0] &&
         this.stream.getAudioTracks()[0].getSettings &&
         this.stream.getAudioTracks()[0].getSettings().deviceId) || null;
     }catch(err){
-      console.warn(err);
-      if(err && (err.name==='NotAllowedError'||err.name==='SecurityError'))
-        toast('麦克风权限被拒绝，请在浏览器地址栏允许麦克风','err',3200);
-      else
-        toast('无法访问麦克风，请检查设备或使用 localhost/HTTPS 访问','err',3200);
+      console.warn('[Mic] getUserMedia 失败：', err);
+      this.lastDiagnostics = diagInfo(err);
+      this.state='idle';
+      const hint = micHint(err);
+      toast(hint, 'err', 5200);
       return false;
     }
     const AC = window.AudioContext||window.webkitAudioContext;
     this.micCtx = new AC();
+    /* 物理机实测：新建的 AudioContext 可能处于 suspended（无用户手势或
+       系统策略），此时 getFloatTimeDomainData 恒为全零 → 拨弦完全无反应。
+       必须显式 resume 后再启动检测循环。 */
+    if(this.micCtx.state === 'suspended'){
+      try{ await this.micCtx.resume(); }catch(e){ /* 忽略：后续会有兜底提示 */ }
+    }
     const src=this.micCtx.createMediaStreamSource(this.stream);
     this.analyser=this.micCtx.createAnalyser();
     this.analyser.fftSize=2048;
@@ -190,14 +280,17 @@ const Mic = {
       if(this.cb) this.cb(r); // P0-02：始终调用最新回调
     };
     loop();
+    this.state='running';
     return true;
   },
   stop(){
     this.cb=null; // P0-02：停止后不再向任何模块回调
+    this.state='idle';
     if(this.raf) cancelAnimationFrame(this.raf);
     this.raf=null;
     if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
     if(this.micCtx){ this.micCtx.close(); this.micCtx=null; }
+    this.analyser=null; this.deviceId=null;
   }
 };
 
@@ -205,5 +298,5 @@ const Mic = {
    与 makeSmoother（中位数平滑）已迁移至 lib/audio-core.js，由顶部解构引入，
    算法回归测试见 test/audio-core.test.js。 */
 
-Object.assign(window, { AudioEngine, Mic, micGuard });
-export { AudioEngine, Mic, micGuard };
+Object.assign(window, { AudioEngine, Mic, micGuard, micHint, diagInfo });
+export { AudioEngine, Mic, micGuard, micHint, diagInfo };

@@ -298,6 +298,14 @@
           .preset-chip:active{transform:scale(.94)}
           .preset-chip.on{color:var(--amber);border-color:rgba(255,180,84,.4)}
           .metro-label{font-size:12px;color:var(--txt-3);letter-spacing:1px;margin:4px 0 9px}
+          /* 自定义音源 */
+          .metro-sample{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+          .metro-sample-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+          .metro-sample-row input[type=url]{flex:1;min-width:180px;padding:8px 10px;border-radius:9px;background:var(--card-2);border:1px solid var(--line);color:var(--txt-1);font-size:12.5px}
+          .metro-sample-row input[type=file]{flex:1;min-width:180px;font-size:12px;color:var(--txt-2)}
+          .metro-sample-tip{font-size:11.5px;line-height:1.6;color:var(--txt-3);margin-top:4px}
+          .btn-mini{padding:7px 12px;border-radius:9px;background:var(--card-2);border:1px solid var(--line);color:var(--txt-2);font-size:12px;white-space:nowrap;cursor:pointer}
+          .btn-mini:active{transform:scale(.94)}
         </style>
         <div class="view-head">
           <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg></span>节拍器</div>
@@ -357,6 +365,7 @@
             <button data-voice="beep">哔声</button>
             <button data-voice="kick">底鼓</button>
             <button data-voice="clap">拍手</button>
+            <button data-voice="sample" id="metroVoiceSample" hidden data-i18n="metro.sampleVoice">自定义</button>
           </div>
           <div class="metro-label">渐快训练</div>
           <div class="seg" id="metroTrainer">
@@ -372,6 +381,23 @@
             <button data-swing="0.62">重</button>
           </div>
           <div class="beat-dots" id="beatDots"></div>
+          <!-- 自定义音源：从 freesound / zapsplat / creazilla 等站点下载音频后导入，
+               或填写可直接下载的音频直链（物理机实测：用户希望使用真实采样音色） -->
+          <div class="metro-sample">
+            <div class="metro-label" data-i18n="metro.sample">自定义音源</div>
+            <div class="metro-sample-row">
+              <input type="file" id="metroSampleFile" accept="audio/*" aria-label="选择本地音频文件">
+              <button class="btn-mini" id="metroTest" type="button" data-i18n="metro.test">🔊 试音</button>
+            </div>
+            <div class="metro-sample-row">
+              <input type="url" id="metroSampleUrl" placeholder="音频直链 https://…（可选）" data-i18n-ph="metro.sampleUrlPh" aria-label="音频直链">
+              <button class="btn-mini" id="metroSampleApply" type="button" data-i18n="metro.apply">使用</button>
+            </div>
+            <div class="metro-sample-tip" id="metroSampleTip" data-i18n="metro.sampleTip">
+              提示：可从 freesound.org / zapsplat.com / creazilla.com 下载音频后导入；
+              也可填写可直接下载的音频直链。导入后音色菜单会切换到「自定义」。
+            </div>
+          </div>
           <div class="metro-actions">
             <button class="btn-round" id="metroToggle" style="width:68px;height:68px" aria-label="开始或暂停节拍器">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
@@ -951,6 +977,9 @@
         <div class="card">
           <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:4px">选择要练习的和弦（至少 2 个）</div>
           <div id="flowSeq" class="flow-chips"></div>
+          <div style="text-align:right;margin-top:6px">
+            <button class="btn-mini" id="flowClear" type="button" data-i18n="flow.clear">清空已选</button>
+          </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:8px">
             <span style="font-size:12.5px;color:var(--txt-2)">每个和弦停留</span>
             <div class="seg" id="flowBars" style="display:flex">

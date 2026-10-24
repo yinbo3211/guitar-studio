@@ -43,9 +43,42 @@ const Flow = {
         b.classList.toggle('on', this.seq.includes(name));
       };
     }
+    /* 物理机实测：用户希望能一键清空已选和弦 */
+    const clear = $('#flowClear');
+    if(clear) clear.onclick = ()=>{
+      if(this.running) this.stop(false);
+      this.seq = [];
+      $$('#flowSeq .flow-chip').forEach(x=>x.classList.remove('on'));
+      this.idx = 0; this.switches = 0;
+      this.render();
+      toast('已清空已选和弦，请重新选择至少两个','ok',2200);
+    };
     const start = $('#flowStart');
     if(start) start.onclick = ()=> this.running ? this.stop(true) : this.start();
     this.render();
+  },
+  /* 少于两个和弦时的显式提示：轻量模态 + toast 双通道，确保被看见 */
+  _alertNotEnough(){
+    const n = this.seq.length;
+    const msg = n === 0
+      ? '请先在上方选择至少两个和弦，再开始转换练习'
+      : `当前只选了 ${n} 个和弦，至少需要两个才能开始转换练习`;
+    toast(msg, 'warn', 3200);
+    try{
+      const box = document.createElement('div');
+      box.className = 'gs-modal-mask';
+      box.innerHTML =
+        `<div class="gs-modal" role="alertdialog" aria-modal="true">
+           <div class="gs-modal-title">无法开始练习</div>
+           <div class="gs-modal-body">${msg}</div>
+           <div class="gs-modal-actions"><button class="gs-modal-btn" data-close>我知道了</button></div>
+         </div>`;
+      document.body.appendChild(box);
+      const close = ()=>{ box.remove(); };
+      box.addEventListener('click', e=>{ if(e.target.dataset.close !== undefined || e.target === box) close(); });
+      const btn = box.querySelector('.gs-modal-btn');
+      if(btn) btn.focus();
+    }catch(e){ /* 模态失败时 toast 已提示，不影响功能 */ }
   },
   chordOf(name){ return CHORD_MAP[name] || null; },
   render(){
@@ -60,7 +93,12 @@ const Flow = {
     const sw = $('#flowSwitches'); if(sw) sw.textContent = this.switches;
   },
   start(){
-    if(this.seq.length < 2){ toast('请先选择至少两个和弦','warn'); return; }
+    /* 物理机实测需求：少于两个和弦时明确弹出提示并且绝不开始练习。
+       旧实现只有一句 toast 一闪而过，用户不确定到底有没有开始。 */
+    if(this.seq.length < 2){
+      this._alertNotEnough();
+      return;
+    }
     AudioEngine.ensure();
     this.running = true; this.idx = 0; this.switches = 0; this.beat = 0;
     this.startedAt = Date.now();

@@ -1,5 +1,10 @@
 /* 六弦工坊 V3 · 设计令牌（M4 主题仅覆盖本文件中的变量） */
 :root{
+  /* 指法图配色默认值（主题未覆盖时兜底，避免 SVG 变量解析失败导致图形消失） */
+  --diag-line:rgba(255,255,255,.42); --diag-line-muted:rgba(255,255,255,.16);
+  --diag-string:rgba(255,255,255,.55); --diag-nut:rgba(255,255,255,.72);
+  --diag-num:#eef0fa; --diag-num-bg:rgba(255,255,255,.14);
+  --dot-bg:#ffb454; --dot-ring:rgba(0,0,0,.35); --dot-fg:#1a1206;
   --bg:#0a0b14;
   --bg-2:#0f1120;
   --card:#151829;

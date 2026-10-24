@@ -100,18 +100,27 @@ const Plan = {
     const sum = {};
     sessions.forEach(s=>{
       const m = s.module;
-      sum[m] = sum[m] || { count:0, durationMs:0, acc:[] };
+      sum[m] = sum[m] || { count:0, durationMs:0, acc:[], switches:0, questions:0 };
       sum[m].count++;
       sum[m].durationMs += s.durationMs||0;
       if(Number.isFinite(s.accuracy)) sum[m].acc.push(s.accuracy);
+      // BUG-04：累计会话内的真实练习量，供「组 / 题」口径的任务判定使用
+      const meta = s.meta && typeof s.meta === 'object' ? s.meta : {};
+      if(Number.isFinite(meta.switches)) sum[m].switches += meta.switches;
+      if(Number.isFinite(meta.questions)) sum[m].questions += meta.questions;
     });
-    // 时长换算：节奏型「小节」按 4 秒/小节折算，练耳按题数
+    /* BUG-04 修复：任务文案写的是「完成 4 组和弦转换」「完成 10 题练耳」，
+       而旧实现 flow / ear 都按「会话条数」计数——
+         · 和弦：一整轮 4 组转换只上报 1 条会话 → 进度永远是 1/4，要练 4 轮；
+         · 练耳：1 条会话（可能只有 2 题）就算完成 → 判定过松。
+       改为与文案同口径：flow 取 meta.switches（组）、ear 取 meta.questions（题）。
+       节奏型仍按 4 秒/小节折算时长；调音/音阶按会话次数。 */
     const unitOf = {
       tuner:  s=>s.count,
-      flow:   s=>s.count,
+      flow:   s=>s.switches>0 ? s.switches : s.count,
       rhythm: s=>Math.floor(s.durationMs/4000),
       scale:  s=>s.count,
-      ear:    s=>s.count
+      ear:    s=>s.questions>0 ? s.questions : s.count
     };
     this.plan.tasks.forEach(task=>{
       const s = sum[task.module];

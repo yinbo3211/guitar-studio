@@ -149,7 +149,10 @@ function qualityOf(symbol) {
   if (/^7$|^dom7/.test(s)) return 'dom7';
   if (/^m$|^min$|^-/.test(s)) return 'min';
   if (/^dim$|^o/.test(s)) return 'dim';
-  if (/^aug$|^ \+/.test(s)) return 'aug';
+  /* BUG-10 修复：原正则写为 /^aug$|^ \+/ —— ^ 与 \+ 之间多了一个字面空格，
+     意为「行首是空格再跟 +」，永远无法匹配标准的增三记号 '+'，
+     导致 qualityOf('+') 掉到默认分支被错判为大三和弦。 */
+  if (/^aug$|^\+/.test(s)) return 'aug';
   if (/^sus2/.test(s)) return 'sus2';
   if (/^sus4|sus$/.test(s)) return 'sus4';
   return 'maj';

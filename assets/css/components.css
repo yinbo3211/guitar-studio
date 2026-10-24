@@ -149,3 +149,19 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .quick-row{display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap}
 /* 占位视图 */
 .view-placeholder{display:none}
+
+/* ============================================================
+   通用小按钮 + 轻量模态（物理机实测新增）
+   ============================================================ */
+.btn-mini{padding:7px 12px;border-radius:9px;background:var(--card-2);border:1px solid var(--line);color:var(--txt-2);font-size:12px;white-space:nowrap;cursor:pointer;transition:all .15s}
+.btn-mini:hover{color:var(--txt);border-color:var(--line-strong)}
+.btn-mini:active{transform:scale(.94)}
+
+.gs-modal-mask{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);animation:gs-fade .16s ease}
+.gs-modal{width:min(88vw,360px);background:var(--surface-sheet,var(--card));border:1px solid var(--line-strong);border-radius:16px;padding:20px 20px 16px;box-shadow:0 24px 60px -18px rgba(0,0,0,.6)}
+.gs-modal-title{font-size:16px;font-weight:700;font-family:var(--font-display);margin-bottom:10px}
+.gs-modal-body{font-size:13.5px;line-height:1.7;color:var(--txt-2);margin-bottom:18px}
+.gs-modal-actions{display:flex;justify-content:flex-end}
+.gs-modal-btn{padding:9px 18px;border-radius:10px;background:var(--grad-amber);color:#1a1206;font-weight:600;font-size:13px;border:none;cursor:pointer}
+.gs-modal-btn:active{transform:scale(.96)}
+@keyframes gs-fade{from{opacity:0}to{opacity:1}}

@@ -18,8 +18,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
+/* BUG-07 修复：旧写法 new URL(import.meta.url).pathname 拿到的是百分号编码
+   形式（如 /Coze/Drive/%E6%89%A3%E5%AD%90/...），仓库位于含中文/非 ASCII
+   字符的目录时，拼出的 server.js 路径不存在 → spawn ENOENT → before 钩子等
+   不到健康检查，9 个安全用例全部 hookFailed，形成「测试通过」的错误信心。
+   fileURLToPath 会正确解码，Windows 盘符路径同样适用。 */
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'gs-sec-'));
 const unsetCfg = path.join(TMP, 'unset.json');      // 无口令 → 需要初始化
 const weakCfg = path.join(TMP, 'weak.json');        // 弱口令 → 仍需要初始化

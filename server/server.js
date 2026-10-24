@@ -25,6 +25,14 @@ const ROOT = path.resolve(__dirname, '..');  // V3 M3：脚本移入 server/，�
 /* GS_CONFIG 环境变量：仅测试用（test/server.test.js 用临时配置文件，
    避免读写仓库根目录的真实 config.json）；未设置时行为与原来完全一致 */
 const CONFIG_PATH = process.env.GS_CONFIG || path.join(ROOT, 'config.json');
+/* BUG-06：版本号统一从 package.json 读取（服务端不受静态白名单限制），
+   供 /api/v1/version 与 /api/v1/health 使用，避免多处硬编码版本漂移。 */
+const APP_VERSION = (() => {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    return String(pkg.version || '3.1.0');
+  } catch (e) { return '3.1.0'; }
+})();
 
 const DEFAULT_CONFIG = {
   adminPassword: 'admin123',
@@ -156,36 +164,72 @@ function newSession(ip){
 
 /* ---------------- 登录防爆破（P2-11 + S0.3 复核增强） ---------------- */
 /* S0.3：失败计数按「IP + 账号」双维度统计，锁定时间随失败轮次递增
-   （10min → 30min → 2h → 24h）；日志固定记录来源 IP，便于审计。 */
-const LOGIN_MAX_FAILS = 5;
+   （10min → 30min → 2h → 24h）；日志固定记录来源 IP，便于审计。
+   BUG-08 修复：仅有 ip|account 组合键时，攻击者可从同一 IP 对大量账号
+   各尝试若干次（撞库 / 口令喷洒）而互不影响。故在账号维度之外增加
+   「按 IP 聚合」的全局阈值：单 IP 累计失败达到 IP_MAX_FAILS 即整体锁定，
+   与单账号锁定取「先触发者生效」。 */
+const LOGIN_MAX_FAILS = 5;                 // 单账号连续失败阈值
+const IP_MAX_FAILS = 15;                   // 单 IP 跨账号累计失败阈值（约 3 个账号额度）
 const LOGIN_LOCK_MS = 10*60*1000;
 const LOGIN_LOCK_STEPS = [10*60*1000, 30*60*1000, 2*60*60*1000, 24*60*60*1000];
-const loginFails = new Map();   // "ip|account" -> { count, lockUntil, rounds }
-function failKey(ip, account){ return `${String(ip||'')}|${String(account||'')}`; }
-function loginAllowed(ip, account){
-  const f = loginFails.get(failKey(ip, account));
-  return !(f && f.lockUntil > Date.now());
-}
+const IP_LOCK_STEPS = [15*60*1000, 60*60*1000, 6*60*60*1000, 24*60*60*1000];
+const loginFails = new Map();   // "acct:ip|account" / "ip:<ip>" -> { count, lockUntil, rounds }
+const ACCT_PREFIX = 'acct:';
+const IP_PREFIX = 'ip:';
+function failKey(ip, account){ return ACCT_PREFIX + `${String(ip||'')}|${String(account||'')}`; }
+function ipKey(ip){ return IP_PREFIX + String(ip || 'unknown'); }
 function lockMinutes(ms){ return Math.round(ms/60000); }
-function loginFail(ip, account){
-  const key = failKey(ip, account);
+function lockedUntil(key){
+  const f = loginFails.get(key);
+  return (f && f.lockUntil > Date.now()) ? f.lockUntil : 0;
+}
+/** 账号维度与 IP 维度任一处于锁定期即拒绝；返回剩余锁定毫秒（0 表示放行） */
+function loginAllowed(ip, account){
+  const a = lockedUntil(failKey(ip, account));
+  const b = lockedUntil(ipKey(ip));
+  return Math.max(a, b);
+}
+function bump(key, maxFails, steps, onLock){
   const f = loginFails.get(key) || { count:0, lockUntil:0, rounds:0 };
   f.count++;
-  if(f.count >= LOGIN_MAX_FAILS){
-    const step = LOGIN_LOCK_STEPS[Math.min(f.rounds, LOGIN_LOCK_STEPS.length-1)];
+  if(f.count >= maxFails){
+    const step = steps[Math.min(f.rounds, steps.length-1)];
     f.lockUntil = Date.now() + step; f.count = 0; f.rounds++;
-    log(`账号 ${account} 登录连续失败，来源 IP ${ip || 'unknown'} 锁定 ${lockMinutes(step)} 分钟（第 ${f.rounds} 轮）`, 'warn');
+    onLock(step, f.rounds);
   }
   loginFails.set(key, f);
+}
+function loginFail(ip, account){
+  // 1) 账号维度：与旧行为一致，保留递增锁定
+  bump(failKey(ip, account), LOGIN_MAX_FAILS, LOGIN_LOCK_STEPS, (step, round)=>{
+    log(`账号 ${account} 登录连续失败，来源 IP ${ip || 'unknown'} 锁定 ${lockMinutes(step)} 分钟（第 ${round} 轮）`, 'warn');
+  });
+  // 2) IP 维度：跨账号累计，堵住口令喷洒
+  bump(ipKey(ip), IP_MAX_FAILS, IP_LOCK_STEPS, (step, round)=>{
+    log(`来源 IP ${ip || 'unknown'} 跨账号登录失败累计超限，整体锁定 ${lockMinutes(step)} 分钟（第 ${round} 轮）`, 'warn');
+  });
   if(loginFails.size > 256){ // 防内存膨胀：清理已解锁且无计数的条目
     const now = Date.now();
     for(const [k,v] of loginFails){ if(v.lockUntil <= now && !v.count) loginFails.delete(k); }
   }
 }
-function loginOk(ip, account){ loginFails.delete(failKey(ip, account)); }
+function loginOk(ip, account){
+  loginFails.delete(failKey(ip, account));
+  // 登录成功说明不是撞库，释放该 IP 的累计计数
+  const k = ipKey(ip), f = loginFails.get(k);
+  if(f && f.lockUntil <= Date.now()) loginFails.delete(k);
+}
 
 /* ---------------- S0.2 安全响应头 ---------------- */
 /* 管理后台与静态资源统一注入；HTTPS 部署模板另配 HSTS（见 deploy 脚本） */
+/* V3.2：节拍器自定义音色允许引用的外部音效源白名单（仅站点域名，不含 API 域名）。
+   用户可从 freesound / zapsplat / creazilla 等站点取音频直链，需目标站点允许 CORS。 */
+const SAMPLE_CDN = [
+  'https://cdn.freesound.org', 'https://freesound.org',
+  'https://cdn.zapsplat.com', 'https://www.zapsplat.com',
+  'https://cdn.creazilla.com', 'https://creazilla.com'
+];
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'SAMEORIGIN',
@@ -200,8 +244,8 @@ const SECURITY_HEADERS = {
     "style-src 'self' 'unsafe-inline'; " +
     "img-src 'self' data: blob:; " +
     "font-src 'self' data:; " +
-    "media-src 'self' blob: mediastream:; " +
-    "connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com; " +
+    "media-src 'self' blob: mediastream: " + SAMPLE_CDN.join(' ') + "; " +
+    "connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com " + SAMPLE_CDN.join(' ') + "; " +
     // Tone.js 会用 blob: Worker 在页面隐藏时维持时钟，需放行（否则音频节拍漂移）
     "worker-src 'self' blob:; " +
     "frame-ancestors 'self'; " +
@@ -221,6 +265,21 @@ export function isDefaultPassword(pw){
 }
 export function needsInit(cfg){
   return !cfg || isDefaultPassword(cfg.adminPassword);
+}
+/* BUG-01 修复：初始化校验与「默认口令判定」必须同一口径。
+   旧实现 /api/init 只用 pw.length < 8 判弱口令，而 isDefaultPassword()
+   用 pw.trim().length < 8 —— 纯空白口令（如 8 个空格）长度达标可通过
+   初始化并拿到 token，落盘后却仍被判为未初始化，导致所有 /api/* 恒 409、
+   已签发的 token 全不可用，系统自锁。此处统一走 trim 后校验。 */
+export function validatePassword(pw){
+  if(typeof pw !== 'string') return { ok:false, msg:'口令必须为字符串' };
+  const trimmed = pw.trim();
+  if(trimmed.length < 8) return { ok:false, msg:'口令至少 8 位（且不能为纯空白字符）' };
+  if(pw === DEFAULT_CONFIG.adminPassword) return { ok:false, msg:'不能使用默认口令' };
+  if(!/[^0-9]/.test(trimmed) || !/[^A-Za-z]/.test(trimmed)){
+    return { ok:false, msg:'口令需同时包含字母与数字' };
+  }
+  return { ok:true, password: trimmed };
 }
 
 /* ============================================================
@@ -688,11 +747,20 @@ function readBody(req){
     });
   });
 }
+/* 规范化 Authorization 头：兼容 RFC 6750 的 `Bearer <token>` 与历史裸 token。
+   BUG-09 修复：旧实现把整个头值直接当 key 查表，导致标准 Bearer 客户端
+   全部 401，与源码注释宣称的「标准 Bearer」不符。裸 token 仅作短期向后兼容。 */
+function normalizeToken(raw){
+  let t = String(raw || '').trim();
+  if(!t) return '';
+  if(/^bearer\s+/i.test(t)) t = t.replace(/^bearer\s+/i, '').trim();
+  return t;
+}
 function auth(req){
   // P2-12 修复：令牌只从 Authorization 请求头读取——V1 还接受 URL
   // 查询参数 ?token=，会被访问日志/代理日志/Referer 泄露；
   // admin.html 前端本就只用请求头方式，此分支可安全移除
-  const t = req.headers['authorization'] || '';
+  const t = normalizeToken(req.headers['authorization']);
   if(!t) return false;
   const s = sessions.get(t);
   if(!s) return false;
@@ -719,10 +787,21 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, 200, {
           ok: true,
           service: 'guitar-studio',
-          version: '3.1.0',
+          version: APP_VERSION,
           needInit: needsInit(config),
           uptimeSec: Math.round(process.uptime()),
           ts: Date.now()
+        });
+      }
+      /* BUG-06 修复：Service Worker 需要读取版本号来派生缓存名，但
+         package.json 在静态白名单 DENY_FILES 中被显式拒绝（恒 404），
+         导致「缓存随版本自动派生」在真实部署下永远走硬编码回退。
+         此处提供一个位于白名单内、公开只读的版本接口，仅暴露版本号。 */
+      if(pathname === '/api/v1/version' && req.method === 'GET'){
+        return sendJSON(res, 200, {
+          ok: true,
+          service: 'guitar-studio',
+          version: APP_VERSION
         });
       }
       if(pathname === '/api/init-status' && req.method === 'GET'){
@@ -731,10 +810,11 @@ const server = http.createServer(async (req, res) => {
       if(pathname === '/api/init' && req.method === 'POST'){
         if(!needsInit(config)) return sendJSON(res, 400, { ok:false, msg:'已完成初始化' });
         const body = await readBody(req);
-        const pw = typeof body.password === 'string' ? body.password : '';
-        if(pw.length < 8) return sendJSON(res, 400, { ok:false, msg:'口令至少 8 位' });
-        if(pw === DEFAULT_CONFIG.adminPassword) return sendJSON(res, 400, { ok:false, msg:'不能使用默认口令' });
-        config.adminPassword = pw;
+        // BUG-01：统一走 validatePassword（trim 后校验 + 复杂度），与
+        // isDefaultPassword 同一口径，杜绝纯空白口令自锁
+        const chk = validatePassword(body && body.password);
+        if(!chk.ok) return sendJSON(res, 400, { ok:false, msg:chk.msg });
+        config.adminPassword = chk.password;
         if(!saveConfig()) return sendJSON(res, 500, { ok:false, msg:'配置写入失败，请检查目录权限' });
         log('后台口令已初始化（首次启动强制设置完成）', 'ok');
         const token = newSession(req.socket && req.socket.remoteAddress);
@@ -749,10 +829,12 @@ const server = http.createServer(async (req, res) => {
       const ip = (req.socket && req.socket.remoteAddress) || '';
       const body = await readBody(req);
       const account = (body && typeof body.account === 'string' && body.account) || 'admin';
-      // S0.3：按 IP+账号双维度判定锁定
-      if(!loginAllowed(ip, account)){
+      // S0.3 + BUG-08：账号维度与 IP 维度任一锁定即拒绝，并回传剩余分钟
+      const lockUntil = loginAllowed(ip, account);
+      if(lockUntil > Date.now()){
+        const mins = Math.max(1, Math.ceil((lockUntil - Date.now())/60000));
         log(`登录尝试被拒绝：来源 IP ${ip || 'unknown'} 账号 ${account} 锁定中`, 'warn');
-        return sendJSON(res, 429, { ok:false, msg:'失败次数过多，请稍后再试' });
+        return sendJSON(res, 429, { ok:false, msg:`失败次数过多，请 ${mins} 分钟后再试`, retryAfterSec: Math.ceil((lockUntil - Date.now())/1000) });
       }
       if(body.password && body.password === config.adminPassword){
         loginOk(ip, account);

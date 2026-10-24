@@ -11,4 +11,9 @@ html[data-theme="rose"]{
   --shadow-mint:0 6px 24px -8px rgba(127,201,176,.45), 0 0 0 1px rgba(127,201,176,.22) inset;
   --surface-side:linear-gradient(180deg,rgba(36,26,25,.94),rgba(22,16,15,.94));
   --surface-sheet:linear-gradient(180deg,#2d201e,#1c1413);
+  /* 指法图配色（物理机实测：保证任何主题下弦线/品位数字都清晰） */
+  --diag-line:rgba(255,255,255,.42); --diag-line-muted:rgba(255,255,255,.16);
+  --diag-string:rgba(255,255,255,.55); --diag-nut:rgba(255,255,255,.72);
+  --diag-num:#eef0fa; --diag-num-bg:rgba(255,255,255,.14);
+  --dot-bg:#ffb454; --dot-ring:rgba(0,0,0,.35); --dot-fg:#1a1206;
 }

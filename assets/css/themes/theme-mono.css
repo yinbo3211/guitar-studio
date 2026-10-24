@@ -11,4 +11,9 @@ html[data-theme="mono"]{
   --shadow-mint:0 6px 20px -8px rgba(255,255,255,.18), 0 0 0 1px rgba(255,255,255,.25) inset;
   --surface-side:linear-gradient(180deg,rgba(29,30,32,.94),rgba(16,17,18,.94));
   --surface-sheet:linear-gradient(180deg,#252628,#161718);
+  /* 指法图配色（极简灰：中性高对比） */
+  --diag-line:rgba(255,255,255,.5); --diag-line-muted:rgba(255,255,255,.2);
+  --diag-string:rgba(255,255,255,.62); --diag-nut:rgba(255,255,255,.78);
+  --diag-num:#f2f3f5; --diag-num-bg:rgba(255,255,255,.16);
+  --dot-bg:#e8eaed; --dot-ring:rgba(0,0,0,.4); --dot-fg:#1c1d1f;
 }

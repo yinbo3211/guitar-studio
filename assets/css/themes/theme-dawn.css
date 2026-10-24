@@ -11,4 +11,10 @@ html[data-theme="dawn"]{
   --shadow-mint:0 6px 22px -8px rgba(15,157,108,.4), 0 0 0 1px rgba(15,157,108,.18) inset;
   --surface-side:linear-gradient(180deg,rgba(255,255,255,.94),rgba(244,239,229,.94));
   --surface-sheet:linear-gradient(180deg,#ffffff,#f4efe5);
+  /* 指法图配色（浅色主题专用：深底白字，避免橙点白字糊成一片） */
+  --diag-line:rgba(60,45,25,.5); --diag-line-muted:rgba(60,45,25,.2);
+  --diag-string:rgba(60,45,25,.62); --diag-nut:rgba(60,45,25,.8);
+  --diag-num:#ffffff; --diag-num-bg:rgba(60,45,25,.72);
+  /* 浅色主题：圆点底色压深，保证白色数字对比度 ≥4.5（WCAG AA） */
+  --dot-bg:#8a4b09; --dot-ring:rgba(255,255,255,.85); --dot-fg:#ffffff;
 }

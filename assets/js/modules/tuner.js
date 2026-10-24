@@ -81,6 +81,19 @@ const Tuner = {
     // 开关
     $('#tunerToggle').addEventListener('click',()=>this.toggle());
   },
+  /* BUG-02：调音完成 -> 计入 F1 练习数据层（每日计划「调音检查」依赖此上报） */
+  reportTuned(){
+    if(typeof PracticeStore==='undefined' || !PracticeStore) return;
+    const now=Date.now();
+    const startedAt=this.tuneStartedAt||now;
+    this.tuneStartedAt=now;
+    PracticeStore.addSession({
+      module:'tuner',
+      startedAt,
+      durationMs:Math.max(0, now-startedAt),
+      meta:{ mode:this.mode, a4:this.a4, strings:6 }
+    });
+  },
   freq(m){ return this.a4*Math.pow(2,(m-69)/12); },
   async toggle(){
     AudioEngine.ensure();
@@ -96,6 +109,7 @@ const Tuner = {
     const ok=await Mic.start(r=>this.onPitch(r));
     if(ok){
       this.active=true;
+      this.tuneStartedAt=Date.now();   // BUG-02：记录本轮调音起点，用于统计时长
       $('#tunerToggleTxt').textContent='停止调音';
       $('#tunerToggle').classList.remove('btn-primary');
       $('#tunerToggle').classList.add('btn-danger');
@@ -195,7 +209,14 @@ const Tuner = {
         if(btn) btn.classList.add('tuned');
         if(this.inTuneCount>8){
           this.tunedSet.add(this.heardString);
-          if(this.tunedSet.size===6){ toast('六根弦全部调准，开始练习吧！','ok'); this.tunedSet.clear(); }
+          /* BUG-02 修复：六弦全部调准后上报一次练习会话。旧实现只弹 toast，
+             从不写入 PracticeStore，导致每日计划里「调音检查」任务的
+             refreshProgress 永远取到 0，该任务永远无法完成。 */
+          if(this.tunedSet.size===6){
+            toast('六根弦全部调准，开始练习吧！','ok');
+            this.tunedSet.clear();
+            this.reportTuned();
+          }
         }
       }
     }else{

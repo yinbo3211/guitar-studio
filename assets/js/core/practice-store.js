@@ -37,6 +37,9 @@ const storage = (() => {
 })();
 
 const nowId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+/* 容量上限：addSession 与 importData 共用同一常量（BUG-05 前两者口径不一致，
+   导入分支完全没有容量保护） */
+const MAX_SESSIONS = 5000;
 
 function emptyData() {
   return { version: 1, sessions: [], plans: {}, migrated: false };
@@ -84,8 +87,8 @@ function addSession(rec) {
     meta: rec.meta && typeof rec.meta === 'object' ? rec.meta : {}
   };
   data.sessions.push(session);
-  // 容量保护：最多保留 5000 条
-  if (data.sessions.length > 5000) data.sessions = data.sessions.slice(-5000);
+  // 容量保护：最多保留 MAX_SESSIONS 条
+  if (data.sessions.length > MAX_SESSIONS) data.sessions = data.sessions.slice(-MAX_SESSIONS);
   write(data);
   return session;
 }
@@ -252,23 +255,38 @@ function exportCSV() {
   }).join(',')).join('\n');
 }
 
+/* 导入上限：单次最多接受 IMPORT_MAX 条，防止超大文件写满 localStorage
+   （写满后后续写入会静默失败，反而造成数据丢失） */
+const IMPORT_MAX = 5000;
 function importData(text) {
   let obj;
   try { obj = JSON.parse(text); } catch (e) { return { ok: false, msg: '不是合法 JSON' }; }
   if (!obj || !Array.isArray(obj.sessions)) return { ok: false, msg: '缺少 sessions 字段' };
   const data = read();
   const seen = new Set(data.sessions.map(s => s.id));
-  let added = 0;
+  let added = 0, skipped = 0;
   for (const s of obj.sessions) {
-    if (!s || typeof s !== 'object') continue;
+    if (!s || typeof s !== 'object') { skipped++; continue; }
+    if (added >= IMPORT_MAX) { skipped++; continue; }     // BUG-05：导入条数上限
     if (s.id && seen.has(s.id)) continue;                 // 幂等：同 id 不重复导入
+    /* BUG-05 修复：旧实现在此独立 push 外部对象，绕过了 addSession 的
+       归一化与容量保护——accuracy 不钳制（可 >1，统计出现「正确率 500%」）、
+       时间戳/时长不做有限性校验、总数不裁剪（可远超 5000 条撑爆存储）。
+       这里显式复用同一套归一化和钳制规则，保证「导入的数据」与
+       「本地记录的数据」口径完全一致。 */
+    const endedAt = Number.isFinite(s.endedAt) ? s.endedAt : (Number.isFinite(s.startedAt) ? s.startedAt : Date.now());
+    const startedAt = Number.isFinite(s.startedAt) ? s.startedAt : endedAt;
+    const dur = Number.isFinite(s.durationMs) && s.durationMs > 0
+      ? Math.round(s.durationMs)
+      : Math.max(0, endedAt - startedAt);
     data.sessions.push({
       id: s.id || nowId(),
       module: String(s.module || 'unknown'),
-      startedAt: Number(s.startedAt) || Date.now(),
-      endedAt: Number(s.endedAt) || Date.now(),
-      durationMs: Number(s.durationMs) || 0,
-      accuracy: Number.isFinite(s.accuracy) ? s.accuracy : null,
+      startedAt,
+      endedAt,
+      durationMs: dur,
+      // 正确率钳制到 0–1，非法值（NaN/负数/>1）一律归 null
+      accuracy: Number.isFinite(s.accuracy) ? Math.max(0, Math.min(1, s.accuracy)) : null,
       targetBpm: Number.isFinite(s.targetBpm) ? s.targetBpm : null,
       detectedBpm: Number.isFinite(s.detectedBpm) ? s.detectedBpm : null,
       meta: s.meta && typeof s.meta === 'object' ? s.meta : {}
@@ -276,9 +294,11 @@ function importData(text) {
     if (s.id) seen.add(s.id);
     added++;
   }
+  // 容量保护：与 addSession 一致，只保留最近 MAX_SESSIONS 条
+  if (data.sessions.length > MAX_SESSIONS) data.sessions = data.sessions.slice(-MAX_SESSIONS);
   if (obj.plans && typeof obj.plans === 'object') data.plans = { ...(data.plans || {}), ...obj.plans };
   write(data);
-  return { ok: true, added };
+  return { ok: true, added, skipped };
 }
 
 function clearAll() { write(emptyData()); return true; }

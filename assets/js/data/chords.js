@@ -61,23 +61,27 @@ function renderDiagram(chord, opts={}){
   const X=i=>(24+(lh?5-i:i)*14)*s;
   const nutY=27*s, fretH=23*s;
   const fAt=i=>chord.frets[lh?5-i:i];
+  /* 物理机实测修复：指法图原先全部写死 rgba(255,255,255,…) 白线，
+     切到浅色主题（dawn/mono）后弦线、品位数字与背景融为一体完全看不清。
+     改为引用主题变量（--diag-line / --diag-nut / --diag-num / --dot-bg / --dot-fg），
+     每个主题各自定义，深色与浅色都能保证对比度。 */
   let out=`<svg viewBox="0 0 ${W} ${H}" class="diagram-svg" xmlns="http://www.w3.org/2000/svg">`;
   for(let f=0;f<=4;f++){
-    out+=`<line x1="${X(0)}" y1="${nutY+f*fretH}" x2="${X(5)}" y2="${nutY+f*fretH}" stroke="rgba(255,255,255,.28)" stroke-width="${s}"/>`;
+    out+=`<line x1="${X(0)}" y1="${nutY+f*fretH}" x2="${X(5)}" y2="${nutY+f*fretH}" stroke="var(--diag-line)" stroke-width="${s}"/>`;
   }
   for(let i=0;i<6;i++){
     const muted=fAt(i)===-1;
-    out+=`<line x1="${X(i)}" y1="${nutY}" x2="${X(i)}" y2="${nutY+4*fretH}" stroke="${muted?'rgba(255,255,255,.12)':'rgba(255,255,255,.4)'}" stroke-width="${s}"/>`;
+    out+=`<line x1="${X(i)}" y1="${nutY}" x2="${X(i)}" y2="${nutY+4*fretH}" stroke="${muted?'var(--diag-line-muted)':'var(--diag-string)'}" stroke-width="${s}"/>`;
   }
   const nutX=Math.min(X(0),X(5))-4*s, nutW=Math.abs(X(5)-X(0))+8*s;
-  out+=`<rect x="${nutX}" y="${nutY-5*s}" width="${nutW}" height="${5*s}" rx="${2*s}" fill="rgba(255,255,255,.55)"/>`;
+  out+=`<rect x="${nutX}" y="${nutY-5*s}" width="${nutW}" height="${5*s}" rx="${2*s}" fill="var(--diag-nut)"/>`;
   for(let i=0;i<6;i++){
     const f=fAt(i);
     if(f===-1){
       const cx=X(i),cy=13*s;
       out+=`<g stroke="#ff5d73" stroke-width="${1.6*s}" stroke-linecap="round"><line x1="${cx-4*s}" y1="${cy-4*s}" x2="${cx+4*s}" y2="${cy+4*s}"/><line x1="${cx-4*s}" y1="${cy+4*s}" x2="${cx+4*s}" y2="${cy-4*s}"/></g>`;
     }else if(f===0){
-      out+=`<circle cx="${X(i)}" cy="${13*s}" r="${4*s}" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="${1.4*s}"/>`;
+      out+=`<circle cx="${X(i)}" cy="${13*s}" r="${4*s}" fill="none" stroke="var(--diag-num)" stroke-width="${1.4*s}"/>`;
     }
   }
   if(chord.barre){
@@ -85,22 +89,31 @@ function renderDiagram(chord, opts={}){
     const iFrom=6-b.from, iTo=6-b.to;
     const x1=X(iFrom),x2=X(iTo);
     const y=nutY+(b.fret-1)*fretH+fretH/2;
-    out+=`<rect x="${Math.min(x1,x2)-7*s}" y="${y-6*s}" width="${Math.abs(x2-x1)+14*s}" height="${12*s}" rx="${6*s}" fill="url(#dotGrad${s})"/>`;
+    out+=`<rect x="${Math.min(x1,x2)-7*s}" y="${y-6*s}" width="${Math.abs(x2-x1)+14*s}" height="${12*s}" rx="${6*s}" fill="var(--dot-bg)" stroke="var(--dot-ring)" stroke-width="${1.2*s}"/>`;
+    // 横按条上标出品位数字（大图时），与圆点保持同一对比配色
+    if(s>1){
+      out+=`<text x="${(x1+x2)/2}" y="${y+3.6*s}" font-size="${7.5*s}" fill="var(--dot-fg)" font-family="JetBrains Mono,monospace" font-weight="700" text-anchor="middle">${b.fret}</text>`;
+    }
   }
   for(let i=0;i<6;i++){
     const f=fAt(i);
     if(f>0 && !(chord.barre && chord.barre.fret===f)){
       const cx=X(i), cy=nutY+(f-1)*fretH+fretH/2;
-      out+=`<circle cx="${cx}" cy="${cy}" r="${7*s}" fill="url(#dotGrad${s})"/>`;
+      /* 物理机实测需求：原先只有一个橙色圆点，看不出具体按第几品。
+         现在圆点内直接写品位数字，并给数字加描边保证任何主题下都清晰。 */
+      out+=`<circle cx="${cx}" cy="${cy}" r="${7*s}" fill="var(--dot-bg)" stroke="var(--dot-ring)" stroke-width="${1.2*s}"/>`;
+      if(s>1){
+        out+=`<text x="${cx}" y="${cy+3.4*s}" font-size="${8*s}" fill="var(--dot-fg)" font-family="JetBrains Mono,monospace" font-weight="700" text-anchor="middle">${f}</text>`;
+      }
     }
   }
-  out+=`<defs><linearGradient id="dotGrad${s}" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#f59136"/></linearGradient></defs>`;
   for(let f=1;f<=4;f++){
     // P2-14 修复：左手镜像模式下品位数字应放在视觉上最后一根弦的外侧
-    // （V1 恒用 X(5)+12*s，左手模式时数字叠进弦区）
     const numX=Math.max(X(0),X(5))+12*s;
-    out+=`<text x="${numX}" y="${nutY+fretH*(f-0.5)+3*s}" font-size="${9*s}" fill="rgba(255,255,255,.35)" font-family="JetBrains Mono,monospace">${f}</text>`;
+    const numY=nutY+fretH*(f-0.5)+3*s;
+    // 侧边品位数字加圆形背景，提升浅色主题下的可读性
+    out+=`<circle cx="${numX}" cy="${nutY+fretH*(f-0.5)}" r="${7*s}" fill="var(--diag-num-bg)" stroke="var(--diag-line)" stroke-width="${0.8*s}"/>`;
+    out+=`<text x="${numX}" y="${numY}" font-size="${8.5*s}" fill="var(--diag-num)" font-family="JetBrains Mono,monospace" text-anchor="middle">${f}</text>`;
   }
   return out+'</svg>';
 }

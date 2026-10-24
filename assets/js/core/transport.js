@@ -31,9 +31,25 @@ const Transport = {
   _cbs: [],
   _bpmListeners: [],
 
+  /* 时间轴所属上下文（物理机实测修复）：
+     旧实现用 ToneEngine.ensureContext()，Tone 不可用时它会**新建一个独立的
+     AudioContext**，而发声端 AudioEngine 用的是另一个 AudioContext。
+     两个上下文创建时机不同 → currentTime 基准不同 → 调度时间差可能为负，
+     o.start(t0)/o.stop(t0+.07) 落在过去 → 振荡器立即结束 → 节拍器完全无声。
+     这里统一到 AudioEngine 的唯一上下文，保证「调度时钟」与「发声时钟」一致。 */
+  _resolveCtx() {
+    // Node/测试环境没有 window，必须先做存在性判断，否则会抛 ReferenceError
+    if (typeof window !== 'undefined' && window.AudioEngine &&
+        typeof window.AudioEngine.ensure === 'function') {
+      try { return window.AudioEngine.ensure(); } catch (e) { return this._ctx; }
+    }
+    return this._ctx;
+  },
   async init() {
     if (this.backend !== 'none') return this.backend;
-    if (!this._ctx) this._ctx = await ToneEngine.ensureContext();
+    const shared = this._resolveCtx();
+    if (shared) this._ctx = shared;
+    else if (!this._ctx) this._ctx = await ToneEngine.ensureContext();
     const Tone = await ToneEngine.ensure();
     if (Tone) {
       this.backend = 'tone';
@@ -59,6 +75,19 @@ const Transport = {
     return Math.max(0, (this._ctx.currentTime - this._startAudioTime) / this.beatDuration());
   },
 
+  /* 每次使用前同步：AudioEngine 的上下文被 Tone 接管后引用会变，
+     不同步会让调度时间与发声时间再次落在两个时钟上（无声根因复发） */
+  _syncCtx() {
+    const shared = this._resolveCtx();
+    if (shared && shared !== this._ctx) {
+      this._ctx = shared;
+      // 时钟被替换：重锚调度原点，避免用旧基准算出「过去的时刻」
+      this._nextTime = shared.currentTime + 0.05;
+      if (this.playing) this._startAudioTime = shared.currentTime - this._visualPos * this.beatDuration();
+    }
+    return this._ctx;
+  },
+
   /* ---------- BPM（R-BPM-04：支持线性渐变） ---------- */
   setBpm(v, ramp = 0.06) {
     v = Math.round(v);
@@ -79,6 +108,7 @@ const Transport = {
   /* ---------- 走带控制 ---------- */
   async start() {
     if (!this._ctx) await this.init();
+    this._syncCtx();          // Tone 异步接管后 AudioEngine.ctx 会被替换，需同步
     if (this.playing) return;
     if (this.backend === 'tone') {
       ToneEngine.Tone.getTransport().start('+0.08');
@@ -119,8 +149,13 @@ const Transport = {
     });
   },
   _scheduleNative() {
+    const ctx = this._syncCtx();
     const lookahead = 0.12;
-    while (this._nextTime < this._ctx.currentTime + lookahead) {
+    /* 防御：系统休眠/后台节流/上下文替换会让 _nextTime 远远落后于当前时间，
+       此时一次性 while 补发成百上千个 tick 会造成爆音甚至卡死。
+       落后超过 0.5 秒就直接重锚，只保证「继续走」而不补历史。 */
+    if (this._nextTime < ctx.currentTime - 0.5) this._nextTime = ctx.currentTime + 0.03;
+    while (this._nextTime < ctx.currentTime + lookahead) {
       this._fire(this._nextTime, this.tick++);
       this._nextTime += this.tickDuration();
     }
