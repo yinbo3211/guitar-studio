@@ -40,10 +40,18 @@ const Game = {
   async startRound(){
     AudioEngine.ensure();
     if(!this.mic){
+      // V3.1 BUG-4：记录原始按钮，失败后完整还原（不再丢按钮样式）
+      if(!this._startBtnHtml) this._startBtnHtml=$('#gameStart').innerHTML;
       $('#gameStart').innerHTML='<span class="dots"><i></i><i></i><i></i></span>';
       const ok=await Mic.start(r=>this.onPitch(r));
       this.mic=ok;
-      if(!ok){ $('#gameStart').innerHTML='开启麦克风失败，请重试'; return; }
+      if(!ok){
+        $('#gameStart').innerHTML=this._startBtnHtml;
+        const hint=Mic.lastDiagnostics?('失败原因: '+Mic.lastDiagnostics.hint):'开启麦克风失败，请重试';
+        $('#gameResult').style.display='block';
+        $('#gameResult').innerHTML='<div style="color:var(--red);line-height:1.7">'+hint+'<br>无麦克风也可照指法图练习按法。</div>';
+        return;
+      }
     }
     const lv=this.levels[this.level];
     this.queue=[];

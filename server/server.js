@@ -969,14 +969,14 @@ function listen(host){
       }
     }
     log(`本机访问：    http://localhost:${currentPort}/app.html`, 'info');
-    if(v4) log(`局域网 IPv4： http://${v4}:${currentPort}/app.html`, 'info');
-    if(v6) log(`外网 IPv6：    http://[${v6}]:${currentPort}/app.html`, 'info');
+    if(v4) log(`局域网 IPv4： http://${v4}:${currentPort}/app.html  ← 手机浏览器直接打开`, 'info');
+    if(v6) log(`外网 IPv6：    http://[${v6}]:${currentPort}/app.html  ← 手机/外网可直开`, 'info');
     if(needsInit(config)){
       log('后台尚未初始化：请先访问 /admin 设置管理员口令（至少 8 位，不可使用默认口令），在此之前所有 /api 接口均返回 409', 'warn');
     }else{
       log('后台面板：    /admin  （口令已初始化）', 'info');
     }
-    log('================================================', 'info');
+    log(`提示：局域网 HTTP 下手机麦克风被浏览器禁用；调音/录音请用 HTTPS（GitHub Pages 或 README「局域网 HTTPS」）`, 'warn');    log('================================================', 'info');
     probeIPv6(); // 启动后后台异步探测一次公网 IPv6
     if(config.ddns.enabled) startTimer();
   });

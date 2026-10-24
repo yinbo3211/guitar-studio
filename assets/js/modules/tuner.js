@@ -92,8 +92,11 @@ const Tuner = {
       $('#tunerToggle').classList.add('btn-primary');
       return;
     }
-    $('#tunerToggleTxt').textContent='正在请求麦克风…';
+    $('#tunerToggleTxt').textContent='正在请求麦克风(最多等10秒)…';
     const ok=await Mic.start(r=>this.onPitch(r));
+    if(!ok && Mic.lastDiagnostics){
+      $('#tunerSub').textContent='失败原因: '+Mic.lastDiagnostics.hint;
+    }
     if(ok){
       this.active=true;
       // BUG-02：开麦成功即作为本轮调音起点，供六弦全准时统计练习时长
