@@ -1,168 +1,149 @@
-/* 六弦工坊 Service Worker V3.1 · BUG-06：用 version.json 派生缓存名 */
-// Cache names & core assets
-let CACHE = 'guitar-studio-v3.1.0';
+/* ============================================================
+   六弦工坊 · Service Worker（V2 M1：PWA 离线缓存）
+   ------------------------------------------------------------
+   策略（PRD 5.2 离线能力）：
+     · 预缓存核心静态资源；关键资源安装失败即中止（附录 4），
+       避免出现「看起来装好了、离线打开缺文件」的半残缓存；
+     · 同源 GET：stale-while-revalidate——立即返回缓存保证体验，
+       同时后台拉取最新版回填缓存（P2-10 修复：V1 纯缓存优先，
+       发版后用户要再刷两次才能拿到新代码）；
+     · /api/* 永不缓存，始终走网络（后台数据必须实时）；
+     · 跨域请求直接放行（字体 CDN 等，失败由本地字体回退兜底）。
+   版本升级：递增 CACHE 版本号，activate 时清理旧缓存。
+   ============================================================ */
+'use strict';
+/* C3 修复：缓存版本不再手工递增——安装时读取静态版本文件 version.json
+   的 version 生成缓存名（如 guitar-studio-v3.1.0），漏改版本号导致旧缓存不
+   清理的问题从流程上消除；读取失败时回退到内置版本号，保证离线安装不中断。
+   BUG-06 修复：package.json 被服务端静态黑名单拦截（含依赖/脚本信息，不应
+   公网暴露），SW 拉取恒为 404，导致缓存名永远停在 FALLBACK、发版不失效。
+   version.json 是只含版本号的白名单静态文件，专门承担版本派生职责。 */
 const FALLBACK_CACHE = 'guitar-studio-v3.1.0';
-
+let CACHE = FALLBACK_CACHE;
 async function resolveCacheName(){
   try{
-    const r = await fetch('./version.json',{cache:'no-store'});
-    if(r.ok){ const info = await r.json(); if(info && info.version) return `guitar-studio-v${info.version}`; }
-  }catch(e){/* ignore */}
+    const res = await fetch('./version.json', { cache: 'no-store' });
+    if(!res.ok) return FALLBACK_CACHE;
+    const info = await res.json();
+    if(info && typeof info.version === 'string' && info.version){
+      return `guitar-studio-v${info.version}`;
+    }
+  }catch(e){}
   return FALLBACK_CACHE;
 }
-
+/* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试
+   P1-5 修复：必须与 main.js 的静态 import 图完全一致。原清单缺
+   store / theme-switch / i18n 及 4 个语言包，main.js 静态 import 它们，
+   离线冷启动时模块图直接 reject → 全站白屏；tone-engine/transport/tone-loader
+   同为静态 import，一并从 OPTIONAL 提升到 CORE。
+   V3.1：随 F1/F2/F4/F8/F10 新增模块同步补入，否则离线冷启动同样白屏。 */
 const CORE = [
   './',
-  './index.html',
   './app.html',
-  './manifest.webmanifest',
-  './version.json',
-  './assets/css/style.css',
-  './assets/css/responsive.css',
+  './index.html',
+  './version.json',   // BUG-06：缓存版本派生源，离线也需可读，缺失会回退 FALLBACK 版本名
   './assets/js/main.js',
-  './assets/js/router.js',
+  './assets/js/core/audio-core.js',
+  './assets/js/core/tone-loader.js',
+  './assets/js/core/tone-engine.js',
+  './assets/js/core/transport.js',
+  './assets/js/core/store.js',
+  './assets/js/core/theme-switch.js',
+  './assets/js/core/i18n.js',
+  './assets/js/i18n/zh-CN.js',
+  './assets/js/i18n/en.js',
+  './assets/js/i18n/ja.js',
+  './assets/js/i18n/ko.js',
+  './assets/js/core/ui.js',
+  './assets/js/core/router.js',
+  './assets/js/core/audio-engine.js',
+  './assets/js/data/rhythm-data.js',
+  './assets/js/data/chords.js',
+  './assets/js/data/scales.js',
+  './assets/js/modules/tuner.js',
+  './assets/js/modules/metronome.js',
+  './assets/js/modules/chord-lib.js',
+  './assets/js/modules/chord-game.js',
+  './assets/js/modules/ear-training.js',
+  './assets/js/modules/fretboard.js',
+  './assets/js/modules/scale.js',
+  './assets/js/modules/recorder.js',
+  './assets/js/modules/rhythm.js',
+  // V3.1 新增（F1 数据层 / F2 计划 / F4 和弦转换 / F8 乐理拼写 / F10 设备）
   './assets/js/core/practice-store.js',
   './assets/js/core/music-spelling.js',
   './assets/js/core/audio-devices.js',
-  './assets/js/core/chord-flow.js',
-  './assets/js/core/stats.js',
-  './assets/js/modules/tuner.js',
-  './assets/js/modules/ear-training.js',
-  './assets/js/modules/scale.js',
-  './assets/js/modules/metronome.js',
   './assets/js/modules/plan.js',
-  './assets/js/modules/progression.js',
-  './assets/audio/metro-1.wav',
-  './assets/audio/metro-2.wav',
-  './assets/audio/metro-3.wav',
-  './assets/audio/metro-4.wav',
-  './assets/icons/icon-192.svg',
-  './assets/icons/icon-512.svg'
+  './assets/js/modules/stats.js',
+  './assets/js/modules/chord-flow.js'
 ];
-
+/* 次要资源：允许个别失败（如图标），不阻塞安装 */
 const OPTIONAL = [
-  './server/admin.html',
-  './server/pwa.html',
-  './server/manifest.webmanifest',
-  './server/sw.js',
-  './server/version.json',
-  './server/assets/css/style.css',
-  './server/assets/js/admin.js',
-  './server/assets/js/pwa.js'
+  './manifest.webmanifest',
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png',
+  './assets/icons/icon-maskable-512.png',
+  './assets/vendor/tone.esm.js',
+  './assets/css/tokens.css',
+  './assets/css/base.css',
+  './assets/css/components.css',
+  './assets/css/ui-kit.css',
+  './assets/css/themes/theme-neon.css',
+  './assets/css/themes/theme-dawn.css',
+  './assets/css/themes/theme-vintage.css',
+  './assets/css/themes/theme-cyber.css',
+  './assets/css/themes/theme-forest.css',
+  './assets/css/themes/theme-rose.css',
+  './assets/css/themes/theme-mono.css',
+  './server/admin.html'
 ];
 
-// Install
-self.addEventListener('install', (e) => {
+self.addEventListener('install', e => {
   e.waitUntil((async () => {
-    CACHE = await resolveCacheName();
+    CACHE = await resolveCacheName();      // C3：版本名随 version.json 自动更新
     const cache = await caches.open(CACHE);
-    // BUG-06：用缓存优先策略安装 CORE；version.json 变化时旧缓存自动淘汰
-    await cache.addAll(CORE.filter(url => url !== './version.json'));
-    // 先单独缓存 version.json（fetch 失败不影响安装）
-    try{ await cache.add('./version.json'); }catch(err){/* ignore */}
+    await Promise.all(CORE.map(u => cache.add(u)));   // 关键项：任一失败则 install 失败
+    await Promise.allSettled(OPTIONAL.map(u => cache.add(u))); // 次要项：尽力而为
+    await self.skipWaiting();
   })());
-  self.skipWaiting();
 });
 
-// Activate - clean old caches
-self.addEventListener('activate', (e) => {
+self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    CACHE = await resolveCacheName();
     const keys = await caches.keys();
-    await Promise.all(
-      keys.filter(k => k.startsWith('guitar-studio-v') && k !== CACHE).map(k => caches.delete(k))
-    );
-  })());
-  self.clients.claim();
-});
-
-// Fetch handler - stale-while-revalidate for cached assets
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Only handle GET requests to same origin
-  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-
-  event.respondWith((async () => {
-    CACHE = await resolveCacheName();
-    const cache = await caches.open(CACHE);
-
-    // Check cache first (stale-while-revalidate for known assets)
-    const cached = await cache.match(request);
-
-    // Network fetch in background
-    const fetchPromise = fetch(request)
-      .then((response) => {
-        // Cache successful responses for CORE assets only
-        if (response.status === 200 && CORE.includes(url.pathname)) {
-          cache.put(request, response.clone());
-        }
-        return response;
-      })
-      .catch(() => null);
-
-    // Return cache if available (even if stale)
-    if (cached) return cached;
-
-    // Otherwise wait for network
-    if (fetchPromise) {
-      const resp = await fetchPromise;
-      if (resp) return resp;
-    }
-
-    // Fallback for HTML navigation to app.html
-    if (request.headers.get('Accept')?.includes('text/html')) {
-      const fallback = await cache.match('./app.html');
-      if (fallback) return fallback;
-    }
-
-    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
   })());
 });
 
-// Background sync (where supported)
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-practice-data') {
-    event.waitUntil(
-      clients.matchAll({ type: 'window' }).then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: 'SYNC_REQUEST' });
-        });
-      })
-    );
-  }
+/* P2-09：允许页面发送 {type:'SKIP_WAITING'} 让新 SW 立即接管 */
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// Push notifications
-self.addEventListener('push', (event) => {
-  if (event.data) {
-    const data = event.data.json();
-    event.waitUntil(
-      self.registration.showNotification(data.title || '六弦工坊', {
-        body: data.body || '该练习啦！',
-        icon: '/assets/icons/icon-192.svg',
-        badge: '/assets/icons/icon-192.svg',
-        tag: 'practice-reminder',
-        vibrate: [200, 100, 200]
-      })
-    );
-  }
-});
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;                       // 非 GET 直接放行
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;             // 跨域（CDN 字体等）不拦截
+  if (url.pathname.includes('/api/')) return;             // API 永不缓存
 
-// Notification click
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url.includes('/app.html') && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow('/app.html');
-      }
-    })
+  /* SUG-01：缓存条目上限——只回填预缓存清单（CORE/OPTIONAL）内的资源。
+     预缓存之外的同源 GET 仍然放行网络，只是不写入缓存，
+     避免长期运行后缓存被任意路径（探测请求、日志页等）撑爆。 */
+  const known = new Set(
+    CORE.concat(OPTIONAL).map(u => new URL(u, location.origin).pathname)
   );
+  const cacheable = known.has(url.pathname);
+
+  // P2-10：stale-while-revalidate——缓存立即响应，同时后台更新
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    const hit = await cache.match(req);
+    const refresh = fetch(req).then(res => {
+      if (cacheable && res && res.ok && res.type === 'basic') cache.put(req, res.clone());
+      return res;
+    }).catch(() => null);
+    return hit || (await refresh) || Response.error();
+  })());
 });
