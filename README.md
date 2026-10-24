@@ -1,115 +1,242 @@
-# 六弦工坊 · Guitar Studio V3.1
+# 六弦工坊 · AI 吉他练习室
 
-> 零依赖、纯原生 HTML/CSS/JS 的吉他练习室，含调音、练耳、音阶、节拍器、和弦进行与练习计划。
+一个吉他练习网页工具：**调音器、节拍器、节奏型练习、和弦闯关、音阶练习、和弦库、练耳、指板、录音棚**。
+音频处理在浏览器本地完成，麦克风声音**不会上传、不会保存**。
 
-## ✨ 功能
 
-| 模块 | 说明 |
-|------|------|
-| 🎸 调音器 | 实时麦克风拾音 + 频谱可视化，6 弦自动识别 |
-| 👂 练耳 | 单音 / 音程 / 和弦 / 旋律四级难度 |
-| 🎼 音阶 | 跟弹练习，多种调式可选 |
-| 🥁 节拍器 | 可调 BPM + 音色，支持变拍子 |
-| 🎵 和弦进行 | I–IV–V–vi 等常见进行可视化练习 |
-| 📅 练习计划 | L1–L4 分级任务，进度追踪 |
-| 📊 统计 | 练习时长、正确率、连击数、反应时 |
-| 📴 PWA | 离线可用，Service Worker 缓存 |
-| 🔐 管理后台 | IPv6 DDNS 管理，口令强制初始化（BUG-01） |
+## V3.0 新特性（Tone.js 内核 · 目录重构 · 7 套主题 · 四语）
 
-## 🛠 技术栈
+> 按《六弦工坊 V3.0 产品需求手册》交付，目录结构见 `docs/DIRECTORY_MIGRATION.md`。
 
-- **前端**：HTML5 + CSS3 + ES Modules（零框架、零构建）
-- **音频**：Web Audio API + AudioWorklet
-- **存储**：localStorage（练习记录）
-- **后端**：Node.js 原生 ESM，零依赖（http/fs/path/child_process/crypto）
-- **PWA**：Service Worker（version.json 派生缓存名，BUG-06）
+- **Tone.js 音频内核**：节拍器 / 进度伴奏 / 节奏型三处共用同一条 Transport 时间轴；
+  本地 vendor（`assets/vendor/tone.esm.js`）优先，CDN 双回退，加载失败自动降级原生 Web Audio。
+- **节拍器升级**：BPM 30–300、6 种音色（Tone 合成器）、渐快训练（N 小节线性 ramp）、Swing 摇摆。
+- **7 套主题**：霓虹暗夜（默认）/ 晨曦浅色 / 复古木吉他 / 赛博紫 / 森野绿 / 玫瑰金 / 极简灰，
+  侧栏 ✦ 按钮切换，支持**跟随系统**（深色→霓虹、浅色→晨曦，实时监听），首屏防闪。
+- **中英日韩四语**：侧栏 🌐 按钮切换，导航/首页/通用操作词条已覆盖；
+  各模块深水区文案按 `assets/js/i18n/*.js` 的词条结构持续接入。
+- **目录重构 + ESM**：单一模块入口 `assets/js/main.js`，`package.json` 提供
+  `npm test`（117 项单测）/ `npm start` / `npm run lint`。
 
-## 📦 目录结构
+> ⚠️ ESM 限制：V3 起必须通过 HTTP 访问（`npm start` 或 启动吉他工具.bat），
+> 直接双击 html（file://）不再可用。
+
+支持三种用法：
+
+1. **本地/局域网**：Windows 双击即用，无需安装任何东西。
+2. **手机 HTTPS**：直接用 GitHub Pages 地址，手机浏览器开麦克风。
+3. **外网 IPv6 部署**（本项目自带）：用 **Nginx + 一个零依赖 Node 服务**把网页发布到公网，并带一个**后台控制面板**，像 ddns-go 一样把你的**动态 IPv6 自动更新到域名（AAAA 记录）**。Windows、CentOS 都能一键部署，端口可自由调配。
+
+## V3.1 新特性（安全加固 · 练习统计与计划 · 乐理拼写 · 和弦转换）
+
+> 按《六弦工坊 V3.1 产品需求文档（PRD）》交付，编号与 PRD 一致。
+
+- **S0 部署后台安全加固（P0）**
+  - S0.1 首次启动强制初始化：口令仍为默认值/为空时，除 `/api/init-status`、`/api/init` 外所有 `/api/*` 返回 409；默认口令不再作为代码兜底
+  - S0.2 安全响应头：`X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy` / CSP 全站注入
+  - S0.3 登录限流：按 **IP + 账号** 双维度计数，锁定时间递增（10min → 30min → 2h → 24h），日志固定记录来源
+  - S0.4 XSS 边界规范：新增 `esc()` 转义工具，`scripts/lint.mjs` 自动抽查插值面
+- **F1 练习统计中心（P0）**：统一 `PracticeSession` 数据模型（模块/时长/正确率/**目标速度与实测速度分字段**），
+  今日·本周·累计卡片、7/30/90 天进步曲线、模块正确率对比、月度打卡日历、JSON/CSV 导出与再导入、旧数据自动迁移
+- **F2 每日练习计划（P1）**：3 步生成（阶段 → 时长 → 关注点），任务完成度与各模块可测指标联动，一键跳转练习
+- **F3 练耳升级（P1）**：随机八度音高池、入门/进阶/大师三级难度、**旋律模仿模式**（2–4 音短句 + 回听 + 音名复现）、反应时间统计
+- **F4 和弦转换训练（P1）**：节拍引导版，当前/下一个和弦指法同屏，记录目标速度与切换次数并计入 F1
+- **F8 乐理拼写引擎（P1）**：`assets/js/core/music-spelling.js` 纯函数模块——12 调大小调拼写、调号、和弦构成音、移调与罗马数字级数、指板音名查询、6/8 拍分组
+- **F10 音频设备切换与恢复引导（P2）**：输入设备选择器（热插拔自动刷新）、AudioContext suspended 恢复横幅、后台返回行为可预期
+- **F9 四语补齐**：新增界面词条已补齐 zh-CN/en/ja/ko 四语，lint 增加硬编码中文扫描（告警）
+- **C3 缓存版本自动化**：Service Worker 缓存名由静态白名单文件 `version.json` 的版本号自动派生（package.json 被静态黑名单拦截不可公网读取），不再手工递增
+- **F11 框架演进预研**：见 `docs/V3.1_FRAMEWORK_EVALUATION.md`（仅文档，不引入任何运行时依赖）
+
+测试：`npm test`（117 项单测）/ `npm run lint`（语法 + S0.4 插值面 + F9 中文扫描 + C7 文档路径一致性）。
+
+> 说明：`npm test` 在 Node 18+ 使用 `node --test test/*.test.js`；如使用旧版 shell 通配，请确保展开到具体测试文件。
+>
+> V3.1 全量验证结果：单测 117/117、lint 0 告警、前端 E2E 36/36、V3.0 回归 E2E 19/19、后台安全 E2E 11/11。
+> 其中后台 E2E 覆盖 S0.1 强制初始化状态机（弱口令/默认口令/两次不一致均被拒）与 S0.3 限流锁定，
+> 需另起服务后用 Playwright 访问 `/admin` 复现。
+
+## 功能一览
+
+| 模块 | 说明 | 是否需要麦克风 |
+| --- | --- | --- |
+| 调音器 | 自相关（autocorrelation）基频检测，吉他六弦 / 半音阶双模式，±50 音分表盘，A4 基准 432–446 Hz 可调 | 是 |
+| 节拍器 | 音频硬件时钟调度，不跑拍；30–300 BPM、TAP 测速、2/4·3/4·4/4·6/8 拍号、四分/八分/三连音/十六分细分、6 种音色、渐快训练与 Swing，统一 Transport 时间轴驱动 | 否 |
+| 节奏型练习 | 扫弦 8 种 + 分解 6 种预设节奏型可视化跟练：D/U 箭头与弦序数字网格、当前格高亮、示范试听＋节拍器双音量、预备拍、1–∞ 循环计数、根音随和弦映射、暂停续播与练习统计 | 否 |
+| 和弦闯关 | 随机出和弦，对着麦克风逐弦拨弦，实时听音判定；4 个难度、10 题一轮、倒计时、连击加分 | 是 |
+| 音阶练习 | 大/小调、五声、布鲁斯、多利亚等 12 种常用音阶与把位，指板高亮根音与音阶音，跟听示范自动播放，开麦克风逐音跟弹、连击计分 | 是（跟弹时） |
+| 和弦库 | 22 个常用开放/横按/七/挂留和弦，SVG 指法图，合成扫弦/分解试听，左手琴镜像，6 条经典和弦进行循环伴奏 | 否 |
+| 练耳训练 | 单音、音程、三和弦、七和弦四级听辨，选择题作答、正确率统计 | 否 |
+| 指板训练 | 0–12 品指板音名图，点击发声；“找音游戏”训练指板记忆 | 否 |
+| 录音棚 | 麦克风录音、回听、下载 WebM/MP4 音频 | 是 |
+| 后台面板 `/admin` | 公网 IPv6 状态、DDNS 配置、端口配置、运行日志 | 否 |
+
+---
+
+## 方式一：本地 / 局域网（Windows 双击）
+
+1. 把整个文件夹放到任意位置（如 `D:\guitar-studio`）。
+2. **双击 `启动吉他工具.bat`**，会用 Win10 自带 PowerShell 启动本地服务（`http://localhost:8765`）并打开 Edge。
+3. 需要同一 WiFi 手机访问时，按提示输入 `Y` 并在 UAC 弹窗点“是”。
+4. 关闭黑色命令行窗口即停止。
+
+> 浏览器安全策略要求麦克风只能在 `https://` 或 `localhost` 下使用，所以不能直接双击 HTML。
+
+## 方式二：手机用 GitHub Pages（HTTPS）
+
+1. 仓库 **Settings → Pages**，Source 选 `main` 分支、根目录 `(root)`，保存。
+2. 访问 `https://<用户名>.github.io/<仓库名>/`（根地址会自动跳转到 `app.html`）。
+3. iPhone 用 Safari 打开，首次允许麦克风；**无声请关闭机身左侧静音键**。可“添加到主屏幕”获得接近 App 的全屏体验。
+
+---
+
+## 方式三：外网 IPv6 部署（Nginx + DDNS 后台）
+
+### 架构
 
 ```
-guitar-studio/
-├── index.html              # 入口
-├── app.html                # 主应用
-├── manifest.webmanifest    # PWA 清单
-├── sw.js                   # Service Worker V3.1
-├── version.json            # BUG-06 静态白名单
-├── assets/
-│   ├── css/                # 样式
-│   ├── js/
-│   │   ├── core/           # 核心库
-│   │   │   ├── practice-store.js   # 练习存储（BUG-05 归一化）
-│   │   │   ├── music-spelling.js   # 音名理论（BUG-10 aug/+）
-│   │   │   ├── audio-devices.js
-│   │   │   ├── chord-flow.js
-│   │   │   └── stats.js
-│   │   └── modules/        # 功能模块
-│   │       ├── tuner.js    # 调音器（BUG-02 上报）
-│   │       ├── ear-training.js  # 练耳（BUG-03 复位）
-│   │       ├── scale.js    # 音阶（BUG-02 上报）
-│   │       ├── metronome.js
-│   │       ├── progression.js
-│   │       └── plan.js     # 计划（BUG-04 计数）
-│   └── audio/              # 节拍器音频
-├── server/
-│   ├── server.js           # Node 后端（BUG-01/06/08/09）
-│   └── admin.html          # 管理后台
-└── test/                   # 单测（117 项）
-    ├── server-security.test.js   # BUG-01/06/08/09
-    ├── practice-store.test.js    # BUG-05
-    ├── music-spelling.test.js    # BUG-10
-    └── regression-fixes.test.js  # BUG-02/03/04
+公网手机/电脑
+   │  http(s)://[你的动态IPv6]:端口
+   ▼
+ Nginx（IPv4 + IPv6 双栈，托管静态网页）
+   ├── /              → 吉他网页（根路径只返回这个页面）
+   ├── /admin         → 后台控制面板（密码登录）
+   └── /api/*         → 反代到本机 Node 服务
+                         └─ 探测公网 IPv6 → 定时更新域名 AAAA（Cloudflare / DNSPod / 阿里云）
 ```
 
-## 🚀 快速开始
+- 网页静态文件由 Nginx 直接托管（**外网只暴露这个吉他站点，后端源码/配置/脚本全部禁止访问**）。
+- 一个零依赖 Node 服务（仅用 Node 内置模块，不用 npm install）提供后台 API 与 DDNS。
+- 没有 Nginx 也能跑：Node 自身可直接双栈对外（功能一致，适合 Windows 快速体验）。
+
+### 你需要准备的东西
+
+1. **一条公网 IPv6**：宽带已分配 IPv6（本项目会自动探测；可在后台看到网卡候选地址）。
+2. **一个域名**，并把域名的 DNS 托管在 Cloudflare、腾讯云 DNSPod 或阿里云（三选一）。
+3. **路由器/光猫放行 IPv6 入站端口**（IPv6 没有 NAT，是放行防火墙，不是端口映射）。
+4. 外网用手机麦克风**必须 HTTPS**：推荐把域名接入 Cloudflare 橙云（自动 HTTPS），或用 certbot 给 Nginx 申请证书。
+
+### 第 1 步：申请 DNS API 凭证
+
+**Cloudflare（推荐，免费且自带 HTTPS）**
+1. 域名 NS 改为 Cloudflare 分配的 NS（在 CF 添加站点后按提示操作）。
+2. 右上头像 → **My Profile → API Tokens → Create Token**，选模板 **Edit zone DNS**，Zone 选你的域名。
+3. 复制生成的 Token，后台“Cloudflare API Token”粘贴即可（**Zone ID 无需手填，程序自动查询**）。
+
+**腾讯云 DNSPod（dnspod.cn）**
+1. 域名在 DNSPod 解析。
+2. 控制台 → **账号中心 → API 密钥 / DNSPod Token**，创建得到 **ID** 和 **Token**。
+3. 后台分别填入“DNSPod Token ID / Token”。
+
+**阿里云（万网域名 · 云解析 DNS）**
+1. 域名已在阿里云控制台「云解析 DNS」里正常解析（确认主域名出现在解析列表）。
+2. 强烈建议创建 **RAM 子账号专用 AccessKey**（不要用主账号 AK）：控制台 → **访问控制 RAM → 用户 → 创建用户**，勾选“OpenAPI 调用访问”，创建后保存 **AccessKey ID / Secret**。
+3. 给该 RAM 用户授权系统策略 **AliyunDNSFullAccess**（仅授予改 DNS 所需权限）。
+4. 后台服务商选“阿里云”，分别填入 **AccessKey ID / Secret**。
+
+> 注意：阿里云 DNS 本身不提供 HTTPS，外网手机麦克风仍需给 Nginx 配证书（certbot），或在前面套一层 Cloudflare。
+
+### 第 2 步：Windows 10/11 部署
+
+1. 安装 Node.js LTS（若没有，脚本会尝试用 winget 自动装；也可手动到 https://nodejs.org 安装）。
+2. **右键 `start-hosting.bat` → 以管理员身份运行**（首次会自动申请管理员权限）。
+   - 默认对外端口 **8080**，内部 Node 端口 3000。
+   - 脚本会自动下载便携版 Nginx 到 `nginx-bin\`（若下载失败则自动改为 Node 直连，功能不受影响）。
+   - 自动放行 Windows 防火墙入站端口。
+3. **需要 HTTPS（外网手机麦克风必须）且有阿里云域名**：见 `docs/阿里云域名HTTPS部署指南.md`，CentOS 用 `deploy-https-aliyun.sh`、Windows 用 `enable-https-aliyun.ps1` 一条命令完成证书签发与 443 托管（含自动续期）。
+4. 也可在管理员 PowerShell 里自定义端口：
+   ```powershell
+   .\deploy-windows.ps1 -Port 9000
+   .\deploy-windows.ps1 -NoNginx        # 不使用 Nginx，Node 直接双栈对外
+   ```
+
+### 第 2 步：CentOS 7 / Stream 8 / 9 部署
 
 ```bash
-# 克隆仓库
-git clone https://github.com/yinbo3211/guitar-studio.git
-cd guitar-studio
+# 克隆/上传整个项目后，在项目目录执行（默认对外 8080）
+sudo bash deploy-centos.sh
 
-# 启动服务（默认 8080）
-node server/server.js
-
-# 自定义端口
-node server/server.js --port=3000
-
-# 指定配置
-GS_CONFIG=./config.json node server/server.js
+# 自定义对外端口（第二个参数是本机 Node 端口，一般不用改）
+sudo bash deploy-centos.sh 9000 3000
 ```
 
-访问 http://localhost:8080/app.html 进入练习室，/server/admin.html 进入管理后台。
+脚本会自动：安装 Node 18+ 与 Nginx、生成 Nginx 配置、注册 **systemd 开机自启**、处理 SELinux、放行 firewalld 端口。
 
-## 🧪 测试
+常用运维命令：
 
 ```bash
-npm test
+systemctl status guitar-studio     # 后端状态
+systemctl restart guitar-studio    # 重启后端
+systemctl restart nginx            # 重启 Nginx
+journalctl -u guitar-studio -f     # 实时日志
 ```
 
-**117 项单测全部通过**，覆盖：
-- S0.1 初始化状态机
-- BUG-01 空白口令 / 默认口令拦截
-- BUG-05 导入归一化 / 幂等 / 5000 上限
-- BUG-06 version.json 白名单 / package.json 拦截
-- BUG-07 中文路径 fileURLToPath
-- BUG-08 IP+账号双维度限流
-- BUG-09 Bearer / 裸 token 兼容
-- BUG-10 aug / + / +7 后缀
+### 第 3 步：在后台配置 DDNS
 
-## 📋 更新日志 V3.1
+1. 打开 `http://[你的IPv6]:8080/admin`（或 Nginx 域名 `/admin`），默认密码 **`admin123`**。
+2. 顶部确认“当前公网 IPv6”已正确识别（多地址时可在“IPv6 来源”里手动指定）。
+3. 在“DDNS 动态域名”选择服务商，填主域名（如 `example.com`）与主机记录（如 `guitar`，根域名填 `@`），粘贴 API 凭证，设置检测间隔。
+4. 打开“自动 DDNS”开关会立即同步一次并进入定时更新；也可点“立即同步域名”。
+5. 在“服务与端口”里**修改管理员密码**并保存。
+6. 域名同步成功后，用 `http://你的域名:8080/` 即可从外网访问吉他网页。
 
-| BUG | 描述 | 修复 |
-|-----|------|------|
-| BUG-01 | 纯空白口令绕过校验 | `/api/init` 先 trim 再校验长度，禁止默认口令 |
-| BUG-02 | 调音器/音阶完成时不上报练习数据 | tuner/scale 完成时调用 `PracticeStore.addSession` |
-| BUG-03 | 练耳每轮上报后不复位 | `report()` 复位 n/ok/反应时，保留跨轮 streak |
-| BUG-04 | 计划完成度计数错误 | flow 按 `meta.switches`、ear 按 `meta.questions` |
-| BUG-05 | 导入数据未逐条归一化 | 逐条 normalizeSession、幂等、5000 上限保护 |
-| BUG-06 | SW 缓存名硬编码 | 新增 `version.json` 静态白名单供 SW 派生缓存名 |
-| BUG-07 | 中文路径测试失败 | 子进程启动改 `fileURLToPath` |
-| BUG-08 | 跨账号撞库 | IP+账号双维度限流 |
-| BUG-09 | 鉴权不兼容裸 token | 兼容标准 `Bearer` 头与历史裸 token |
-| BUG-10 | 增三和弦后缀识别错误 | 正则修复 `^aug$\|^\+` |
+### 端口与 HTTPS
 
-## 📜 License
+- 改端口：Windows 用 `deploy-windows.ps1 -Port xxxx`；CentOS 用 `sudo bash deploy-centos.sh xxxx`；或在后台改“Web 服务端口”后重启服务。
+- 80/443 端口在 Linux 上 Nginx 可直接使用（systemd 以 root 运行）；Windows 建议用 8080 等高位端口。
+- **HTTPS（外网手机麦克风必须）**：
+  - 最简单：域名接入 Cloudflare 并在后台打开“Cloudflare 橙云代理”，自动获得 HTTPS。
+  - 自建：用 certbot 申请证书，Nginx 增加 443 server（`nginx/guitar-studio.conf.template` 末尾有示例）。
 
-MIT
+---
+
+## 文件结构
+
+前端（必须放在同一文件夹，缺一不可）：
+
+- `app.html`：页面结构与样式，应用唯一入口
+- `assets/js/`：原生 ES Module 源码（`core/` 通用核心、`modules/` 功能模块、`data/` 数据、`i18n/` 语言包）
+- `assets/js/main.js`：统一模块入口，静态 import 全部核心与功能模块（调音器 / 节拍器 / 和弦库 / 和弦闯关 / 音阶 / 练耳 / 指板 / 录音 / 节奏，V3.1 起新增练习计划、练习统计、和弦转换）
+- `index.html`：GitHub Pages 根地址自动跳转到 `app.html`
+
+本地/局域网：
+
+- `server.ps1`、`启动吉他工具.bat`：Windows 本地服务（8765 端口）
+
+外网托管 / DDNS：
+
+- `server/server.js`：零依赖 Node 后端（静态托管 + 后台 API + IPv6 探测 + DDNS）
+- `server/admin.html`：后台控制面板（登录后配置 DDNS / 端口 / 查看日志；V3.1 起首次进入强制初始化管理员口令）
+- `server/config.example.json`：配置模板（运行后生成的 `config.json` 含密码与凭证，**不会入库**）
+- `nginx/guitar-studio.conf.template`：Nginx 站点配置模板（IPv4+IPv6、安全拦截）
+- `deploy-centos.sh`：CentOS 一键部署（含 systemd / firewalld / SELinux）
+- `deploy-windows.ps1`、`start-hosting.bat`：Windows 一键部署（含便携 Nginx / 防火墙）
+
+> 转发时请把**整个文件夹**一起复制；`config.json`、`node_modules`、`nginx-bin` 已在 `.gitignore` 忽略。
+
+## 常见问题
+
+- **外网打不开网页**：依次检查 ① 后台顶部是否识别到公网 IPv6；② 路由器/光猫 IPv6 防火墙是否放行入站 TCP 端口；③ Windows/CentOS 防火墙是否放行（部署脚本已自动处理）；④ 服务是否在运行（`systemctl status guitar-studio` / 任务管理器）。
+- **域名访问不到**：确认 DNS 已托管到对应服务商、API 凭证权限正确、后台“运行日志”显示“已更新/已新建 AAAA”；域名生效需要一点时间。
+- **电脑能开网页但手机麦克风没反应**：手机端要求 HTTPS，纯 IPv6 + HTTP 下 Safari/Edge 会禁用麦克风，请接 Cloudflare 橙云或配置证书。
+- **后台识别不到 IPv6**：点“重新检测 IPv6”；确认宽带有 IPv6（`ip -6 addr` 或网卡详情里有 2xxx 开头地址）；多网卡可在“IPv6 来源”里手动填地址。
+- **本地端口 8765 被占用**：改 `server.ps1` 顶部 `$Port`；外网端口被占用则按上面的方式自定义端口。
+- **iPhone 没有声音**：关闭机身左侧静音键。
+
+## 技术说明
+
+- 前端：纯原生 HTML / CSS / JavaScript，无构建、无前端框架；`app.html` 通过 `<script type="module">` 加载 `assets/js/main.js`，各功能以 ES Module 组织。
+- 音频：Web Audio API（OscillatorNode 合成、AnalyserNode 时域采样）；音高检测为自相关算法；录音为 MediaRecorder API。
+- 后端：仅用 Node.js 内置模块（`http/https/os/fs/crypto`），Node 10+ 即可运行，无需 npm install。
+- IPv6 探测：网卡枚举全局单播地址（2000::/3）+ 多个外部回显服务（`6.ipw.cn`、`api-ipv6.ip.sb`、`v6.ident.me`、`api6.ipify.org`），后台异步探测、状态接口秒回。
+- DDNS：Cloudflare（自动查 Zone、AAAA 记录不存在则新建）、DNSPod（dnsapi.cn Record.List/Create/Modify）、阿里云（alidns RPC + HMAC-SHA1 签名，DescribeDomainRecords/Add/UpdateDomainRecord）。
+- 界面：深色霓虹风格，移动端（iPhone 16 Pro 逻辑宽度）与桌面端（Edge）响应式适配。
+
+## V2.0 升级 · M1 工程化改造（已交付）
+
+按《产品需求文档与升级方案 v2.0》以**渐进式迁移**推进，V1 的两条产品底线（本地隐私、零依赖部署）保持不变：
+
+- **音频算法库化**：自相关测频（含 MPM 抗低八度误锁）、中位数平滑、音名换算、节拍调度、闯关/跟弹判定统一抽取到 `assets/js/core/audio-core.js` 纯函数模块（浏览器全局 `AudioCore`，Node 直接 `require`）。
+- **单元测试**：`test/audio-core.test.js` 与 `test/rhythm-data.test.js` 基于 Node 内置 test runner，**零依赖**，运行 `node --test` 即可（31 个用例，覆盖六弦标准音全范围识别、抗泛音、八度量化、TAP 测速，以及节奏型预设校验、根音映射、步进时值等）。
+- **PWA 离线**：新增 `manifest.webmanifest` + `sw.js` + 品牌图标，核心静态资源缓存优先、`/api/*` 永不缓存；HTTPS 环境可安装到桌面，离线也能练习。
+- **健康检查**：`GET /api/v1/health`（无需登录），供监控探针与负载均衡使用，返回服务名、版本、运行时长。
+- **Bug 修复**：修复纯音下自相关算法低八度误锁（220Hz 判为 110Hz）；修复 C7 和弦 `Bb` 音名解析错误导致弹对音被误判；修复闯关匹配 `!hit` 将弦索引 0 误判为空的隐患。
