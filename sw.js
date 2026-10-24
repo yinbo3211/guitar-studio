@@ -57,6 +57,7 @@ const CORE = [
   './assets/js/core/ui.js',
   './assets/js/core/router.js',
   './assets/js/core/audio-engine.js',
+  './assets/js/core/mic-manager.js',   // V3.0.1：audio-engine 静态依赖
   './assets/js/data/rhythm-data.js',
   './assets/js/data/chords.js',
   './assets/js/data/scales.js',
