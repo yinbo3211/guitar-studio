@@ -455,6 +455,7 @@
             <div class="game-progress" id="levelLabel">第 1 关</div>
             <div class="game-chord-name" id="gameChord">C</div>
             <div class="game-diagram" id="gameDiagram"></div>
+            <div id="gameFingering" style="font-size:12.5px;color:var(--txt-2);line-height:1.8;margin-top:8px;text-align:center"></div>
             <div class="string-check" id="stringCheck"></div>
             <div class="game-tip" id="gameTip">从最粗的 6 弦开始，依次拨响</div>
             <div class="game-actions">
@@ -1110,7 +1111,7 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <!-- V2 M1：音频核心算法库（纯函数，须先于 app-*.js 加载） -->
-<script type="module" src="assets/js/main.js"></script>
+<script type="module" src="assets/js/main.js?v=3.0.1"></script>
 <script>
 /* V2 M1：Service Worker 注册——离线缓存核心资源；file:// 协议下自动跳过 */
 /* SUG-02：注册失败不再静默——离线能力没装上时至少留下一条可查的日志 */

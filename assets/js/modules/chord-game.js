@@ -39,6 +39,8 @@ const Game = {
   },
   async startRound(){
     AudioEngine.ensure();
+    /* V3.1 BUG-7：进回合先渲染指法图与文字按法（麦克风之前，失败也可见） */
+    this._renderFingering();
     if(!this.mic){
       // V3.1 BUG-4：记录原始按钮，失败后完整还原（不再丢按钮样式）
       if(!this._startBtnHtml) this._startBtnHtml=$('#gameStart').innerHTML;
@@ -67,6 +69,15 @@ const Game = {
     $('#gamePlay').style.display='block';
     this.running=true;
     this.nextChord();
+  },
+  /* V3.1 BUG-7：指法图 + 文字按法（麦克风无关，随时可见） */
+  _renderFingering(){
+    // V3.1 BUG-7：无 cur（首回合未抽题）时预览该难度池的第一个和弦
+    const ch = this.cur || (this.levels[this.level] && CHORD_MAP[this.levels[this.level].pool[0]]);
+    const d=$('#gameDiagram');
+    if(d && ch) d.innerHTML=renderDiagram(ch,{big:true});
+    const holder=$('#gameFingering');
+    if(holder && ch) holder.textContent=window.formatFingering?formatFingering(ch):'';
   },
   nextChord(){
     // P0-03：清掉尚未触发的超时跳转，防止超时等待期间点"跳过"造成双重推进
