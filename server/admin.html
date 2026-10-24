@@ -307,7 +307,9 @@ select option{background:var(--card)}
 
   function api(path, opt){
     opt = opt || {};
-    opt.headers = Object.assign({'Content-Type':'application/json','Authorization':token}, opt.headers||{});
+    /* BUG-09：按 RFC 6750 发送 Bearer 令牌；token 缺失时发空头，
+       让未登录请求落到服务端 401 而不是携带 "undefined" 字符串 */
+    opt.headers = Object.assign({'Content-Type':'application/json','Authorization':token?('Bearer '+token):''}, opt.headers||{});
     return fetch(path, opt).then(function(r){
       if(r.status === 401){ doLogout(); throw new Error('登录已失效'); }
       return r.json();
@@ -331,9 +333,10 @@ select option{background:var(--card)}
     }).catch(function(){ hideInit(); });
   }
   function doInit(){
-    var p1=$('initPwd').value, p2=$('initPwd2').value;
+    var p1=$('initPwd').value.trim(), p2=$('initPwd2').value.trim();
+    // BUG-01：与服务端同一口径——纯空白、trim 后不足 8 位直接拦截
     if(!p1) return toast('请输入新口令','err');
-    if(p1.length<8) return toast('口令至少 8 位','err');
+    if(p1.length<8) return toast('口令至少 8 位，且不能是纯空白','err');
     if(p1!==p2) return toast('两次输入的口令不一致','err');
     fetch('/api/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p1})})
       .then(function(r){return r.json().then(function(j){return {r:r,j:j}})})
