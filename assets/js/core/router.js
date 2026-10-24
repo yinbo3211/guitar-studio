@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- 路由 ---------- */
-const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚'};
+const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚',flow:'和弦转换训练',plan:'每日练习计划',stats:'练习统计中心'};
 const onRouteEnter = {};
 function go(route){
   location.hash = '#/'+route;

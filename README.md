@@ -16,7 +16,7 @@
 - **中英日韩四语**：侧栏 🌐 按钮切换，导航/首页/通用操作词条已覆盖；
   各模块深水区文案按 `assets/js/i18n/*.js` 的词条结构持续接入。
 - **目录重构 + ESM**：单一模块入口 `assets/js/main.js`，`package.json` 提供
-  `npm test`（56 项单测）/ `npm start` / `npm run lint`。
+  `npm test`（88 项单测）/ `npm start` / `npm run lint`。
 
 > ⚠️ ESM 限制：V3 起必须通过 HTTP 访问（`npm start` 或 启动吉他工具.bat），
 > 直接双击 html（file://）不再可用。
@@ -26,6 +26,34 @@
 1. **本地/局域网**：Windows 双击即用，无需安装任何东西。
 2. **手机 HTTPS**：直接用 GitHub Pages 地址，手机浏览器开麦克风。
 3. **外网 IPv6 部署**（本项目自带）：用 **Nginx + 一个零依赖 Node 服务**把网页发布到公网，并带一个**后台控制面板**，像 ddns-go 一样把你的**动态 IPv6 自动更新到域名（AAAA 记录）**。Windows、CentOS 都能一键部署，端口可自由调配。
+
+## V3.1 新特性（安全加固 · 练习统计与计划 · 乐理拼写 · 和弦转换）
+
+> 按《六弦工坊 V3.1 产品需求文档（PRD）》交付，编号与 PRD 一致。
+
+- **S0 部署后台安全加固（P0）**
+  - S0.1 首次启动强制初始化：口令仍为默认值/为空时，除 `/api/init-status`、`/api/init` 外所有 `/api/*` 返回 409；默认口令不再作为代码兜底
+  - S0.2 安全响应头：`X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy` / CSP 全站注入
+  - S0.3 登录限流：按 **IP + 账号** 双维度计数，锁定时间递增（10min → 30min → 2h → 24h），日志固定记录来源
+  - S0.4 XSS 边界规范：新增 `esc()` 转义工具，`scripts/lint.mjs` 自动抽查插值面
+- **F1 练习统计中心（P0）**：统一 `PracticeSession` 数据模型（模块/时长/正确率/**目标速度与实测速度分字段**），
+  今日·本周·累计卡片、7/30/90 天进步曲线、模块正确率对比、月度打卡日历、JSON/CSV 导出与再导入、旧数据自动迁移
+- **F2 每日练习计划（P1）**：3 步生成（阶段 → 时长 → 关注点），任务完成度与各模块可测指标联动，一键跳转练习
+- **F3 练耳升级（P1）**：随机八度音高池、入门/进阶/大师三级难度、**旋律模仿模式**（2–4 音短句 + 回听 + 音名复现）、反应时间统计
+- **F4 和弦转换训练（P1）**：节拍引导版，当前/下一个和弦指法同屏，记录目标速度与切换次数并计入 F1
+- **F8 乐理拼写引擎（P1）**：`assets/js/core/music-spelling.js` 纯函数模块——12 调大小调拼写、调号、和弦构成音、移调与罗马数字级数、指板音名查询、6/8 拍分组
+- **F10 音频设备切换与恢复引导（P2）**：输入设备选择器（热插拔自动刷新）、AudioContext suspended 恢复横幅、后台返回行为可预期
+- **F9 四语补齐**：新增界面词条已补齐 zh-CN/en/ja/ko 四语，lint 增加硬编码中文扫描（告警）
+- **C3 缓存版本自动化**：Service Worker 缓存名由 `package.json` 版本号自动派生，不再手工递增
+- **F11 框架演进预研**：见 `docs/V3.1_FRAMEWORK_EVALUATION.md`（仅文档，不引入任何运行时依赖）
+
+测试：`npm test`（88 项单测）/ `npm run lint`（语法 + S0.4 插值面 + F9 中文扫描 + C7 文档路径一致性）。
+
+> 说明：`npm test` 在 Node 18+ 使用 `node --test test/*.test.js`；如使用旧版 shell 通配，请确保展开到具体测试文件。
+>
+> V3.1 全量验证结果：单测 88/88、lint 0 告警、前端 E2E 36/36、V3.0 回归 E2E 19/19、后台安全 E2E 11/11。
+> 其中后台 E2E 覆盖 S0.1 强制初始化状态机（弱口令/默认口令/两次不一致均被拒）与 S0.3 限流锁定，
+> 需另起服务后用 Playwright 访问 `/admin` 复现。
 
 ## 功能一览
 
@@ -167,6 +195,7 @@ journalctl -u guitar-studio -f     # 实时日志
 
 - `app.html`：页面结构与样式，应用唯一入口
 - `assets/js/`：原生 ES Module 源码（`core/` 通用核心、`modules/` 功能模块、`data/` 数据、`i18n/` 语言包）
+- `assets/js/main.js`：统一模块入口，静态 import 全部核心与功能模块（调音器 / 节拍器 / 和弦库 / 和弦闯关 / 音阶 / 练耳 / 指板 / 录音 / 节奏，V3.1 起新增练习计划、练习统计、和弦转换）
 - `index.html`：GitHub Pages 根地址自动跳转到 `app.html`
 
 本地/局域网：
@@ -175,9 +204,9 @@ journalctl -u guitar-studio -f     # 实时日志
 
 外网托管 / DDNS：
 
-- `server.js`：零依赖 Node 后端（静态托管 + 后台 API + IPv6 探测 + DDNS）
-- `server/admin.html`：后台控制面板（登录后配置 DDNS / 端口 / 查看日志）
-- `config.example.json`：配置模板（运行后生成的 `config.json` 含密码与凭证，**不会入库**）
+- `server/server.js`：零依赖 Node 后端（静态托管 + 后台 API + IPv6 探测 + DDNS）
+- `server/admin.html`：后台控制面板（登录后配置 DDNS / 端口 / 查看日志；V3.1 起首次进入强制初始化管理员口令）
+- `server/config.example.json`：配置模板（运行后生成的 `config.json` 含密码与凭证，**不会入库**）
 - `nginx/guitar-studio.conf.template`：Nginx 站点配置模板（IPv4+IPv6、安全拦截）
 - `deploy-centos.sh`：CentOS 一键部署（含 systemd / firewalld / SELinux）
 - `deploy-windows.ps1`、`start-hosting.bat`：Windows 一键部署（含便携 Nginx / 防火墙）
@@ -206,7 +235,7 @@ journalctl -u guitar-studio -f     # 实时日志
 
 按《产品需求文档与升级方案 v2.0》以**渐进式迁移**推进，V1 的两条产品底线（本地隐私、零依赖部署）保持不变：
 
-- **音频算法库化**：自相关测频（含 MPM 抗低八度误锁）、中位数平滑、音名换算、节拍调度、闯关/跟弹判定统一抽取到 `lib/audio-core.js` 纯函数模块（浏览器全局 `AudioCore`，Node 直接 `require`）。
+- **音频算法库化**：自相关测频（含 MPM 抗低八度误锁）、中位数平滑、音名换算、节拍调度、闯关/跟弹判定统一抽取到 `assets/js/core/audio-core.js` 纯函数模块（浏览器全局 `AudioCore`，Node 直接 `require`）。
 - **单元测试**：`test/audio-core.test.js` 与 `test/rhythm-data.test.js` 基于 Node 内置 test runner，**零依赖**，运行 `node --test` 即可（31 个用例，覆盖六弦标准音全范围识别、抗泛音、八度量化、TAP 测速，以及节奏型预设校验、根音映射、步进时值等）。
 - **PWA 离线**：新增 `manifest.webmanifest` + `sw.js` + 品牌图标，核心静态资源缓存优先、`/api/*` 永不缓存；HTTPS 环境可安装到桌面，离线也能练习。
 - **健康检查**：`GET /api/v1/health`（无需登录），供监控探针与负载均衡使用，返回服务名、版本、运行时长。

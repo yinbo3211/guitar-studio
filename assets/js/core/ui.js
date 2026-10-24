@@ -24,13 +24,26 @@ const SVG_ICONS = {
   close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>'
 };
 
+/* ---------- S0.4 XSS 边界规范 ----------
+   规则：任何「用户可输入内容」（自定义命名、备注、导入的 JSON 文本等）
+   进入 innerHTML 前必须经 esc() 转义；优先使用 textContent 渲染。
+   esc() 同时挂在 window 上，供各模块直接调用。 */
+function esc(v){
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function toast(msg, type='info', ms=2200){
   const wrap = $('#toastWrap');
   const el = document.createElement('div');
   el.className = 'toast';
   const colors = {info:'var(--cyan)', ok:'var(--mint)', err:'var(--red)', warn:'var(--amber)'};
   el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="${colors[type]||'var(--cyan)'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg><span>${msg}</span>`;
+    <circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg><span>${esc(msg)}</span>`;
   wrap.appendChild(el);
   setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(), 320); }, ms);
 }
@@ -41,5 +54,5 @@ function baseMidi(freq){
   return 69 + 12*Math.log2(freq/a4);
 }
 const _baseMidi = baseMidi;
-Object.assign(window, { $: $, $$: $$, SVG_ICONS: SVG_ICONS, toast: toast, baseMidi });
-export { $, $$, SVG_ICONS, toast, baseMidi };
+Object.assign(window, { $: $, $$: $$, SVG_ICONS: SVG_ICONS, toast: toast, baseMidi, esc });
+export { $, $$, SVG_ICONS, toast, baseMidi, esc };

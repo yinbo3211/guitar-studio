@@ -476,7 +476,7 @@ const Rhythm = {
           this.loopDone=Math.floor(absStep/total)+1;
           const bi=Math.floor(idx/sub);
           const loopTxt=this.loops===0?`${this.loopDone} / ∞`:`${Math.min(this.loopDone,this.loops)} / ${this.loops}`;
-          $('#rtStatus').innerHTML=`<b>${this.pattern.name}</b> · ${this.bpm} BPM · 循环 <b>${loopTxt}</b>`;
+          $('#rtStatus').innerHTML=`<b>${esc(this.pattern.name)}</b> · ${this.bpm} BPM · 循环 <b>${esc(loopTxt)}</b>`;
           dotEls.forEach((d,i)=>d.className='beat-dot'+(i===bi?(i===0?' flash-strong':(isSubAccent(beats,i)?' flash-sub':' flash-weak')):''));
           if(idx!==this.lastUiStep){                 // 高亮：当前 / 已奏变暗 / 下一格虚框
             this.lastUiStep=idx;

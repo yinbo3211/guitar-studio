@@ -92,5 +92,6 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else init();
 
 window.gsI18n = { t, setLang, getLang, LANGS };
+window.t = t;   // V3.1 F9：供各模块直接取词（缺词回退 zh-CN）
 export { init as initI18n };
 export default { t, setLang, getLang, LANGS };

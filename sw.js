@@ -12,12 +12,28 @@
    版本升级：递增 CACHE 版本号，activate 时清理旧缓存。
    ============================================================ */
 'use strict';
-const CACHE = 'guitar-studio-v1.2.2'; // P2-09：发版必须递增，旧缓存在 activate 时自动清理（P1-5：补全模块图）
+/* C3 修复：缓存版本不再手工递增——安装时读取 package.json 的 version
+   生成缓存名（如 guitar-studio-v3.1.0），漏改版本号导致旧缓存不清理的问题
+   从流程上消除；读取失败时回退到内置版本号，保证离线安装不中断。 */
+const FALLBACK_CACHE = 'guitar-studio-v3.1.0';
+let CACHE = FALLBACK_CACHE;
+async function resolveCacheName(){
+  try{
+    const res = await fetch('./package.json', { cache: 'no-store' });
+    if(!res.ok) return FALLBACK_CACHE;
+    const pkg = await res.json();
+    if(pkg && typeof pkg.version === 'string' && pkg.version){
+      return `guitar-studio-v${pkg.version}`;
+    }
+  }catch(e){}
+  return FALLBACK_CACHE;
+}
 /* 关键资源：缺失任何一个都会导致离线白屏/瘫痪，install 失败即重试
    P1-5 修复：必须与 main.js 的静态 import 图完全一致。原清单缺
    store / theme-switch / i18n 及 4 个语言包，main.js 静态 import 它们，
    离线冷启动时模块图直接 reject → 全站白屏；tone-engine/transport/tone-loader
-   同为静态 import，一并从 OPTIONAL 提升到 CORE。 */
+   同为静态 import，一并从 OPTIONAL 提升到 CORE。
+   V3.1：随 F1/F2/F4/F8/F10 新增模块同步补入，否则离线冷启动同样白屏。 */
 const CORE = [
   './',
   './app.html',
@@ -48,7 +64,14 @@ const CORE = [
   './assets/js/modules/fretboard.js',
   './assets/js/modules/scale.js',
   './assets/js/modules/recorder.js',
-  './assets/js/modules/rhythm.js'
+  './assets/js/modules/rhythm.js',
+  // V3.1 新增（F1 数据层 / F2 计划 / F4 和弦转换 / F8 乐理拼写 / F10 设备）
+  './assets/js/core/practice-store.js',
+  './assets/js/core/music-spelling.js',
+  './assets/js/core/audio-devices.js',
+  './assets/js/modules/plan.js',
+  './assets/js/modules/stats.js',
+  './assets/js/modules/chord-flow.js'
 ];
 /* 次要资源：允许个别失败（如图标），不阻塞安装 */
 const OPTIONAL = [
@@ -73,6 +96,7 @@ const OPTIONAL = [
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
+    CACHE = await resolveCacheName();      // C3：版本名随 package.json 自动更新
     const cache = await caches.open(CACHE);
     await Promise.all(CORE.map(u => cache.add(u)));   // 关键项：任一失败则 install 失败
     await Promise.allSettled(OPTIONAL.map(u => cache.add(u))); // 次要项：尽力而为

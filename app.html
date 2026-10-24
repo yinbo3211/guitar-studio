@@ -89,6 +89,16 @@
       <button class="nav-item" data-route="studio">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg><span data-i18n="nav.studio">录音棚
       </span></button>
+      <button class="nav-item" data-route="flow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7l-3 10"/><path d="M13 7h7l-3 10"/></svg><span data-i18n="nav.flow">和弦转换
+      </span></button>
+      <div class="nav-group-label"><span data-i18n="sec.progress">练习管理</span></div>
+      <button class="nav-item" data-route="plan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/><path d="M9 16l2 2 4-4"/></svg><span data-i18n="nav.plan">每日计划
+      </span></button>
+      <button class="nav-item" data-route="stats">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg><span data-i18n="nav.stats">练习统计
+      </span></button>
     </nav>
     <div class="sidebar-foot">
       所有音频处理均在本地浏览器完成<br>麦克风声音不会上传到任何服务器
@@ -244,6 +254,10 @@
 
           <div class="tuner-meter"><i id="tunerLevel"></i></div>
           <div class="tuner-actions">
+            <div class="dev-row" style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;flex-wrap:wrap">
+              <span class="dev-hint" style="font-size:12px;color:var(--txt-3)">输入设备</span>
+              <select id="tunerDeviceSel" class="preset-chip" style="max-width:220px"></select>
+            </div>
             <button class="btn btn-primary" id="tunerToggle" style="min-width:178px">
               <span style="display:inline-flex;width:18px;height:18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v3"/></svg></span>
               <span id="tunerToggleTxt">开启麦克风调音</span>
@@ -555,6 +569,29 @@
             <button data-m="interval">音程</button>
             <button data-m="triad">三和弦</button>
             <button data-m="seven">七和弦</button>
+            <button data-m="melody">旋律模仿</button>
+          </div>
+          <!-- F3：难度分级 -->
+          <div class="seg" id="earLevel" style="display:flex;justify-content:center;width:100%;margin-top:10px">
+            <button data-lv="basic" class="on">入门 · 自然音单八度</button>
+            <button data-lv="advance">进阶 · 含变化音双八度</button>
+            <button data-lv="master">大师 · 音程与旋律短句</button>
+          </div>
+          <!-- F3：旋律模仿（音名复现 + 回听） -->
+          <div id="earMelodyBox" style="display:none;margin-top:14px;text-align:center">
+            <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:8px">按顺序点出你听到的音名 <span id="earMelodyHint">0/0</span></div>
+            <div id="earMelodyInput" style="min-height:34px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;align-items:center"></div>
+            <div id="earMelodyNotes" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0">
+              <button data-semi="0">C</button><button data-semi="1">C#</button><button data-semi="2">D</button>
+              <button data-semi="3">D#</button><button data-semi="4">E</button><button data-semi="5">F</button>
+              <button data-semi="6">F#</button><button data-semi="7">G</button><button data-semi="8">G#</button>
+              <button data-semi="9">A</button><button data-semi="10">A#</button><button data-semi="11">B</button>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center">
+              <button class="preset-chip" id="earReplay">回听题目</button>
+              <button class="preset-chip" id="earMelodyClear">清空</button>
+              <button class="preset-chip" id="earMelodySubmit">提交答案</button>
+            </div>
           </div>
           <div class="ear-stage">
             <button class="btn-round ear-play" id="earPlay">
@@ -733,6 +770,10 @@
         </style>
         <div class="view-head">
           <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg></span>录音棚</div>
+          <div class="dev-row" style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+            <span class="dev-hint" style="font-size:12px;color:var(--txt-3)">输入设备</span>
+            <select id="studioDeviceSel" class="preset-chip" style="max-width:220px"></select>
+          </div>
           <div class="view-sub">录下自己的练习片段，回听找问题。录音文件保存在本地，可下载为 WebM 音频。</div>
         </div>
         <div class="card">
@@ -887,7 +928,152 @@
           <div class="rt-status" id="rtLastSession" style="min-height:0"></div>
         </div>
       </section>
-    </main>
+    
+      <!-- ===== 视图：和弦转换训练（F4） ===== -->
+      <section class="view" id="view-flow">
+        <style>
+          .flow-stage{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+          @media(max-width:640px){.flow-stage{grid-template-columns:1fr}}
+          .flow-box{background:var(--card-2);border:1px solid var(--line);border-radius:15px;padding:12px;text-align:center}
+          .flow-box.next{opacity:.62}
+          .flow-label{font-size:11.5px;color:var(--txt-3);margin-bottom:6px}
+          .flow-name{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--amber);margin-bottom:8px}
+          .flow-chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin:10px 0}
+          .flow-chip{padding:6px 11px;border-radius:11px;background:var(--card-2);border:1px solid var(--line);font-size:12.5px}
+          .flow-chip.on{background:var(--grad-amber);color:#1a1206;border-color:transparent;font-weight:600}
+          .flow-meta{display:flex;justify-content:center;gap:22px;margin-top:14px;font-size:13px;color:var(--txt-2)}
+          .flow-meta b{font-family:var(--font-mono);color:var(--amber);font-size:17px;margin-right:4px}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7l-3 10"/><path d="M13 7h7l-3 10"/></svg></span>和弦转换训练</div>
+          <div class="view-sub">按节拍器提示在两个及以上和弦之间切换，当前与下一个和弦同时显示。V3.1 为节拍引导版：只做节奏引导与次数记录，不判断你的切换动作是否标准。</div>
+        </div>
+        <div class="card">
+          <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:4px">选择要练习的和弦（至少 2 个）</div>
+          <div id="flowSeq" class="flow-chips"></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:8px">
+            <span style="font-size:12.5px;color:var(--txt-2)">每个和弦停留</span>
+            <div class="seg" id="flowBars" style="display:flex">
+              <button data-bars="1">1 小节</button>
+              <button data-bars="2" class="on">2 小节</button>
+              <button data-bars="4">4 小节</button>
+            </div>
+            <span style="font-size:12.5px;color:var(--txt-2)">目标速度 <b id="flowBpmVal">80 BPM</b></span>
+            <input type="range" id="flowBpm" min="30" max="300" value="80" style="width:150px">
+          </div>
+          <div class="flow-stage" style="margin-top:14px">
+            <div class="flow-box"><div class="flow-label">当前和弦</div><div class="flow-name" id="flowNowName">—</div><div id="flowNow"></div></div>
+            <div class="flow-box next"><div class="flow-label">下一个</div><div class="flow-name" id="flowNextName">—</div><div id="flowNext"></div></div>
+          </div>
+          <div style="text-align:center;margin-top:16px">
+            <button class="btn btn-primary" id="flowStart">开始转换练习</button>
+          </div>
+          <div class="flow-meta">
+            <span><b id="flowSwitches">0</b>次转换</span>
+            <span>目标 <b id="flowBpmVal2">80</b> BPM</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 视图：每日练习计划（F2） ===== -->
+      <section class="view" id="view-plan">
+        <style>
+          .plan-task{display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px;background:var(--card-2);border:1px solid var(--line);margin-bottom:10px}
+          .plan-task.finished{border-color:var(--mint);background:rgba(78,222,163,.08)}
+          .plan-task-main{flex:1;min-width:0}
+          .plan-task-label{font-size:14.5px;font-weight:600}
+          .plan-task-desc{font-size:12px;color:var(--txt-3);margin:3px 0 7px}
+          .plan-task-bar{height:6px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+          .plan-task-bar i{display:block;height:100%;background:var(--grad-amber);transition:width .3s}
+          .plan-task-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+          .plan-task-num{font-family:var(--font-mono);font-size:12.5px;color:var(--txt-2)}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/><path d="M9 16l2 2 4-4"/></svg></span>每日练习计划</div>
+          <div class="view-sub">选阶段 → 定时长 → 选关注点，3 步生成今日任务。完成判定只依据模块内可测指标（识别、命中、时长），不代表对演奏质量的评估。</div>
+        </div>
+        <div class="card">
+          <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:6px">① 学习阶段</div>
+          <div class="seg" id="planLevel" style="display:flex">
+            <button data-lv="basic" class="on">入门</button>
+            <button data-lv="advance">进阶</button>
+          </div>
+          <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px">② 每日时长目标：<b id="planMinutesVal">15 分钟</b></div>
+          <input type="range" id="planMinutes" min="5" max="120" step="5" value="15" style="width:100%;max-width:360px">
+          <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px">③ 当前关注点</div>
+          <div class="seg" id="planFocus" style="display:flex">
+            <button data-f="chords" class="on">和弦转换</button>
+            <button data-f="rhythm">节奏型</button>
+            <button data-f="ear">练耳</button>
+            <button data-f="scale">音阶</button>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+            <button class="btn btn-primary" id="planGenerate">生成今日计划</button>
+            <button class="btn btn-ghost" id="planReset">重置</button>
+          </div>
+          <div id="planProgress" style="margin-top:14px;font-size:13px;color:var(--amber);font-weight:600"></div>
+          <div id="planList" style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <!-- ===== 视图：练习统计中心（F1） ===== -->
+      <section class="view" id="view-stats">
+        <style>
+          .stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+          @media(max-width:520px){.stat-cards{grid-template-columns:1fr 1fr}}
+          .stat-card{background:var(--card-2);border:1px solid var(--line);border-radius:15px;padding:14px;text-align:center}
+          .stat-card b{display:block;font-family:var(--font-mono);font-size:21px;color:var(--amber)}
+          .stat-card span{font-size:11.5px;color:var(--txt-3)}
+          .stat-mod-row{display:grid;grid-template-columns:82px 1fr 46px 74px;gap:9px;align-items:center;padding:7px 0;font-size:12.5px}
+          .stat-mod-bar{height:7px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+          .stat-mod-bar i{display:block;height:100%;background:var(--grad-mint)}
+          .stat-mod-val{text-align:right;font-family:var(--font-mono);color:var(--mint)}
+          .stat-mod-dur{text-align:right;color:var(--txt-3)}
+          .stat-empty{color:var(--txt-3);font-size:13px;text-align:center;padding:18px}
+          .stat-chart-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--txt-3);margin-top:4px}
+          .stat-cal-head{font-size:13px;font-weight:600;margin-bottom:8px}
+          .stat-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+          .stat-cal-dow{font-size:11px;color:var(--txt-3);text-align:center}
+          .stat-cal-cell{aspect-ratio:1;display:grid;place-items:center;font-size:11px;border-radius:7px;background:rgba(255,255,255,.05);color:var(--txt-2)}
+          .stat-cal-cell.empty{background:none}
+          .stat-cal-cell.lv1{background:rgba(255,180,84,.25)}
+          .stat-cal-cell.lv2{background:rgba(255,180,84,.5);color:#1a1206}
+          .stat-cal-cell.lv3{background:var(--grad-amber);color:#1a1206;font-weight:600}
+        </style>
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg></span>练习统计中心</div>
+          <div class="view-sub">今日 / 本周 / 累计练习时长与次数、进步曲线、模块正确率对比与打卡日历。全部数据只存在本机浏览器，不上传服务器。</div>
+        </div>
+        <div class="card">
+          <div class="stat-cards">
+            <div class="stat-card"><b id="statTodayCount">0</b><span>今日次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statTodayDur">0 秒</div></div>
+            <div class="stat-card"><b id="statWeekCount">0</b><span>本周次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statWeekDur">0 秒</div></div>
+            <div class="stat-card"><b id="statAllCount">0</b><span>累计次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statAllDur">0 秒</div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px">
+            <span style="font-size:13px;font-weight:600">进步曲线</span>
+            <div class="seg" id="statsRange" style="display:flex">
+              <button data-d="7" class="on">7 天</button>
+              <button data-d="30">30 天</button>
+              <button data-d="90">90 天</button>
+            </div>
+          </div>
+          <div id="statChart"></div>
+          <div style="font-size:13px;font-weight:600;margin:16px 0 8px">连续打卡 <b id="statStreak" style="color:var(--amber)">0</b> 天</div>
+          <div id="statCalendar"></div>
+          <div style="font-size:13px;font-weight:600;margin:16px 0 8px">模块表现（时长 / 正确率）</div>
+          <div id="statModules"></div>
+          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-primary" id="statsExport">导出 JSON</button>
+            <button class="btn" id="statsExportCSV">导出 CSV</button>
+            <label class="btn btn-ghost" style="margin:0">导入备份<input type="file" id="statsImport" accept=".json,application/json" style="display:none"></label>
+            <button class="btn btn-ghost" id="statsClear">清空数据</button>
+            <span style="font-size:11.5px;color:var(--txt-3)">目标速度与实测速度分列，不做自动等同</span>
+          </div>
+        </div>
+      </section>
+
+</main>
 
     <!-- ============ 移动端底部导航 ============ -->
     <nav class="tabbar">

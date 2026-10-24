@@ -91,10 +91,8 @@ function sanitizeConfig(cfg){
       cfg.ddns.intervalMin = DEFAULT_CONFIG.ddns.intervalMin;
     }
   }
-  if(typeof cfg.adminPassword !== 'string' || !cfg.adminPassword){
-    log('配置 adminPassword 为空，回退默认 admin123（请尽快在后台修改）', 'warn');
-    cfg.adminPassword = DEFAULT_CONFIG.adminPassword;
-  }
+  /* S0.1：不再回退默认口令。口令缺失/仍是默认值时保持原值，
+     由 needsInit() 驱动「仅允许初始化」状态机，返回 409 阻断其它接口。 */
   return cfg;
 }
 function loadConfig(){
@@ -156,29 +154,74 @@ function newSession(ip){
   return token;
 }
 
-/* ---------------- 登录防爆破（P2-11） ---------------- */
-/* 按来源 IP 记录失败次数：连续 5 次失败锁定 10 分钟，登录成功即清零 */
+/* ---------------- 登录防爆破（P2-11 + S0.3 复核增强） ---------------- */
+/* S0.3：失败计数按「IP + 账号」双维度统计，锁定时间随失败轮次递增
+   （10min → 30min → 2h → 24h）；日志固定记录来源 IP，便于审计。 */
 const LOGIN_MAX_FAILS = 5;
 const LOGIN_LOCK_MS = 10*60*1000;
-const loginFails = new Map();   // ip -> { count, lockUntil }
-function loginAllowed(ip){
-  const f = loginFails.get(ip);
+const LOGIN_LOCK_STEPS = [10*60*1000, 30*60*1000, 2*60*60*1000, 24*60*60*1000];
+const loginFails = new Map();   // "ip|account" -> { count, lockUntil, rounds }
+function failKey(ip, account){ return `${String(ip||'')}|${String(account||'')}`; }
+function loginAllowed(ip, account){
+  const f = loginFails.get(failKey(ip, account));
   return !(f && f.lockUntil > Date.now());
 }
-function loginFail(ip){
-  const f = loginFails.get(ip) || { count:0, lockUntil:0 };
+function lockMinutes(ms){ return Math.round(ms/60000); }
+function loginFail(ip, account){
+  const key = failKey(ip, account);
+  const f = loginFails.get(key) || { count:0, lockUntil:0, rounds:0 };
   f.count++;
   if(f.count >= LOGIN_MAX_FAILS){
-    f.lockUntil = Date.now() + LOGIN_LOCK_MS; f.count = 0;
-    log('检测到连续登录失败，来源 IP 已临时锁定 10 分钟', 'warn');
+    const step = LOGIN_LOCK_STEPS[Math.min(f.rounds, LOGIN_LOCK_STEPS.length-1)];
+    f.lockUntil = Date.now() + step; f.count = 0; f.rounds++;
+    log(`账号 ${account} 登录连续失败，来源 IP ${ip || 'unknown'} 锁定 ${lockMinutes(step)} 分钟（第 ${f.rounds} 轮）`, 'warn');
   }
-  loginFails.set(ip, f);
+  loginFails.set(key, f);
   if(loginFails.size > 256){ // 防内存膨胀：清理已解锁且无计数的条目
     const now = Date.now();
     for(const [k,v] of loginFails){ if(v.lockUntil <= now && !v.count) loginFails.delete(k); }
   }
 }
-function loginOk(ip){ loginFails.delete(ip); }
+function loginOk(ip, account){ loginFails.delete(failKey(ip, account)); }
+
+/* ---------------- S0.2 安全响应头 ---------------- */
+/* 管理后台与静态资源统一注入；HTTPS 部署模板另配 HSTS（见 deploy 脚本） */
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Referrer-Policy': 'no-referrer',
+  'Permissions-Policy': 'microphone=(self), camera=(), geolocation=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  // S0.2：基础 CSP。页面需内联脚本（file:// 提示、模块引导）与 Tone vendor/回退 CDN，
+  // 因此 script-src 允许 self + 'unsafe-inline'；内联样式与字体数据亦放行。
+  'Content-Security-Policy':
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob:; " +
+    "font-src 'self' data:; " +
+    "media-src 'self' blob: mediastream:; " +
+    "connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com; " +
+    // Tone.js 会用 blob: Worker 在页面隐藏时维持时钟，需放行（否则音频节拍漂移）
+    "worker-src 'self' blob:; " +
+    "frame-ancestors 'self'; " +
+    "base-uri 'self'; form-action 'self'"
+};
+function applySecurityHeaders(res){
+  for(const [k,v] of Object.entries(SECURITY_HEADERS)){
+    try{ res.setHeader(k, v); }catch(e){}
+  }
+}
+
+/* ---------------- S0.1 首次启动强制初始化 ---------------- */
+/* 默认口令不再作为兜底：adminPassword 缺失或仍为默认串时，
+   后台仅允许 /api/init 与初始化页，其余接口一律 409 拒绝。 */
+export function isDefaultPassword(pw){
+  return !pw || typeof pw !== 'string' || pw === DEFAULT_CONFIG.adminPassword || pw.trim().length < 8;
+}
+export function needsInit(cfg){
+  return !cfg || isDefaultPassword(cfg.adminPassword);
+}
 
 /* ============================================================
    IPv6 探测
@@ -571,6 +614,7 @@ const DENY_FILES = new Set([
 const DENY_DIRS = ['nginx/', 'test/', 'node_modules/'];
 
 function serveStatic(req, res, pathname){
+  applySecurityHeaders(res);   // S0.2：静态资源同样注入安全头
   /* V2-BUG-03 修复（P2）：URI 解析失败（如 /%）与空字节（%00）归为 400，
      避免在 path 层抛 ERR_INVALID_PATH / TypeError 被外层 catch 变成 500 */
   let rel;
@@ -602,6 +646,7 @@ function serveStatic(req, res, pathname){
 /* ---------------- API 工具 ---------------- */
 function sendJSON(res, code, obj){
   const body = JSON.stringify(obj);
+  applySecurityHeaders(res);   // S0.2：所有响应统一注入安全头
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(body);
 }
@@ -663,36 +708,60 @@ const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://localhost');
   const pathname = u.pathname;
   try{
-    /* V2 M1：公开健康检查（供负载均衡/监控探针使用，无需登录；PRD API 一览） */
-    if(pathname === '/api/v1/health' && req.method === 'GET'){
-      return sendJSON(res, 200, {
-        ok: true,
-        service: 'guitar-studio',
-        version: '2.0.0-m1',
-        uptimeSec: Math.round(process.uptime()),
-        ts: Date.now()
-      });
-    }
+    applySecurityHeaders(res);   // S0.2：兜底注入，确保所有分支响应都带安全头
 
+    /* ---------------- S0.1 首次启动强制初始化状态机 ---------------- */
+    /* 口令仍为默认值/为空时：除 /api/init-status 与 /api/init 外，
+       所有 /api/* 一律 409（含登录与配置读写），必须先设置新口令。 */
+    if(pathname.startsWith('/api/')){
+      /* 健康检查为公开监控探针，不受初始化状态机约束 */
+      if(pathname === '/api/v1/health'){
+        return sendJSON(res, 200, {
+          ok: true,
+          service: 'guitar-studio',
+          version: '3.1.0',
+          needInit: needsInit(config),
+          uptimeSec: Math.round(process.uptime()),
+          ts: Date.now()
+        });
+      }
+      if(pathname === '/api/init-status' && req.method === 'GET'){
+        return sendJSON(res, 200, { ok:true, needInit: needsInit(config), minLength: 8 });
+      }
+      if(pathname === '/api/init' && req.method === 'POST'){
+        if(!needsInit(config)) return sendJSON(res, 400, { ok:false, msg:'已完成初始化' });
+        const body = await readBody(req);
+        const pw = typeof body.password === 'string' ? body.password : '';
+        if(pw.length < 8) return sendJSON(res, 400, { ok:false, msg:'口令至少 8 位' });
+        if(pw === DEFAULT_CONFIG.adminPassword) return sendJSON(res, 400, { ok:false, msg:'不能使用默认口令' });
+        config.adminPassword = pw;
+        if(!saveConfig()) return sendJSON(res, 500, { ok:false, msg:'配置写入失败，请检查目录权限' });
+        log('后台口令已初始化（首次启动强制设置完成）', 'ok');
+        const token = newSession(req.socket && req.socket.remoteAddress);
+        return sendJSON(res, 200, { ok:true, token, needInit:false });
+      }
+      if(needsInit(config)){
+        return sendJSON(res, 409, { ok:false, needInit:true, msg:'请先完成后台口令初始化' });
+      }
+    }
     /* 登录 */
     if(pathname === '/api/login' && req.method === 'POST'){
       const ip = (req.socket && req.socket.remoteAddress) || '';
-      // P2-11：锁定中的 IP 直接拒绝，不再校验密码
-      if(!loginAllowed(ip)){
-        log('登录尝试被拒绝（该 IP 锁定中）', 'warn');
-        return sendJSON(res, 429, { ok:false, msg:'失败次数过多，请 10 分钟后再试' });
-      }
       const body = await readBody(req);
-      if(body.password && body.password === config.adminPassword){
-        loginOk(ip);
-        const token = newSession(req.socket && req.socket.remoteAddress); // Fix-5: 记录会话来源 IP
-        log('管理员登录成功', 'ok');
-        // P2-11 修复②：仍在使用默认密码时返回标记，admin.html 据此显示强制改密提醒
-        const mustChangePassword = config.adminPassword === 'admin123';
-        return sendJSON(res, 200, { ok:true, token, mustChangePassword });
+      const account = (body && typeof body.account === 'string' && body.account) || 'admin';
+      // S0.3：按 IP+账号双维度判定锁定
+      if(!loginAllowed(ip, account)){
+        log(`登录尝试被拒绝：来源 IP ${ip || 'unknown'} 账号 ${account} 锁定中`, 'warn');
+        return sendJSON(res, 429, { ok:false, msg:'失败次数过多，请稍后再试' });
       }
-      loginFail(ip);
-      log('管理员登录失败（密码错误）', 'warn');
+      if(body.password && body.password === config.adminPassword){
+        loginOk(ip, account);
+        const token = newSession(req.socket && req.socket.remoteAddress); // Fix-5: 记录会话来源 IP
+        log(`管理员登录成功（来源 IP ${ip || 'unknown'}）`, 'ok');
+        return sendJSON(res, 200, { ok:true, token, mustChangePassword:false });
+      }
+      loginFail(ip, account);
+      log(`管理员登录失败（密码错误，来源 IP ${ip || 'unknown'}，账号 ${account}）`, 'warn');
       return sendJSON(res, 401, { ok:false, msg:'密码错误' });
     }
 
@@ -871,7 +940,11 @@ function listen(host){
     log(`本机访问：    http://localhost:${currentPort}/app.html`, 'info');
     if(v4) log(`局域网 IPv4： http://${v4}:${currentPort}/app.html`, 'info');
     if(v6) log(`外网 IPv6：    http://[${v6}]:${currentPort}/app.html`, 'info');
-    log(`后台面板：    /admin  （默认密码 admin123，请尽快修改）`, 'warn');
+    if(needsInit(config)){
+      log('后台尚未初始化：请先访问 /admin 设置管理员口令（至少 8 位，不可使用默认口令），在此之前所有 /api 接口均返回 409', 'warn');
+    }else{
+      log('后台面板：    /admin  （口令已初始化）', 'info');
+    }
     log('================================================', 'info');
     probeIPv6(); // 启动后后台异步探测一次公网 IPv6
     if(config.ddns.enabled) startTimer();

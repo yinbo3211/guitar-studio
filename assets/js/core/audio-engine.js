@@ -136,11 +136,16 @@ function micGuard(){
 }
 const Mic = {
   // BUG-04 修复：麦克风使用独立上下文字段，绝不覆盖/关闭播放上下文
-  stream:null, micCtx:null, analyser:null, raf:null, cb:null, frame:0,
-  async start(onPitch){
+  stream:null, micCtx:null, deviceId:null, analyser:null, raf:null, cb:null, frame:0,
+  async start(onPitch, deviceId){
     // P0-02 修复：Mic 为全局单例，复用旧流时必须刷新回调，
     // 否则切换模块后检测结果仍发给旧模块、判定完全失效
     this.cb = onPitch;
+    // F10：指定了设备且当前流来自其它设备时，先释放旧流再重开
+    if(this.stream && deviceId && deviceId === this.deviceId) return true;
+    if(this.stream && deviceId && deviceId !== this.deviceId){
+      this.stop();
+    }
     if(this.stream) return true; // 已有流：只换回调，不重复申请
     // Bug1 修复：getUserMedia 在途（权限弹窗未决/设备初始化慢）时并发再点会拿到
     // 第二条流，第一次 resolve 的 stream/micCtx/rAF 被覆盖而永不释放（麦灯常亮、CPU 翻倍）。
@@ -152,10 +157,13 @@ const Mic = {
   },
   async _startInner(onPitch){
     if(!micGuard()) return false; // P0-03：安全上下文/接口存在性前置校验
+    const audioConstraint = {echoCancellation:false, noiseSuppression:false, autoGainControl:false};
+    if(deviceId) audioConstraint.deviceId = { exact: deviceId };
     try{
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}
-      });
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
+      this.deviceId = deviceId || (this.stream.getAudioTracks()[0] &&
+        this.stream.getAudioTracks()[0].getSettings &&
+        this.stream.getAudioTracks()[0].getSettings().deviceId) || null;
     }catch(err){
       console.warn(err);
       if(err && (err.name==='NotAllowedError'||err.name==='SecurityError'))

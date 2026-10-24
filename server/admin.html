@@ -114,6 +114,27 @@ select option{background:var(--card)}
 </head>
 <body>
 
+<!-- S0.1：首次启动强制初始化（口令未设置时只允许此页） -->
+<div id="initView" class="hide" style="position:fixed;inset:0;z-index:999;display:grid;place-items:center;background:#0d0b08">
+  <div class="login-card" style="max-width:420px">
+    <div class="logo">
+      <div class="mark"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1b1206" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5v6c0 5-4 8-9 9-5-1-9-4-9-9V8l9-5z"/></svg></div>
+      <div><h1>初始化后台口令</h1><p>V3.1 安全加固 · S0.1</p></div>
+    </div>
+    <div class="sub">检测到尚未设置管理员口令。为安全起见，完成初始化前后台所有接口均不可用；口令至少 8 位，且不能使用默认口令 admin123。</div>
+    <label class="fld" style="margin-top:0">
+      <span>新管理员口令（至少 8 位）</span>
+      <input type="password" id="initPwd" placeholder="请输入新口令" autocomplete="new-password">
+    </label>
+    <label class="fld">
+      <span>确认新口令</span>
+      <input type="password" id="initPwd2" placeholder="请再次输入" autocomplete="new-password">
+    </label>
+    <button class="btn btn-primary btn-block" id="initBtn">初始化并进入后台</button>
+    <div class="hint" style="margin-top:16px;text-align:center">口令保存在服务器 config.json，请妥善保管。</div>
+  </div>
+</div>
+
 <!-- 登录 -->
 <div id="login">
   <div class="login-card">
@@ -293,6 +314,36 @@ select option{background:var(--card)}
     });
   }
 
+
+  /* ---------- S0.1 初始化状态机 ---------- */
+  function showInit(){
+    var v=$('initView'); if(!v) return;
+    v.classList.remove('hide'); v.style.display='grid';
+    $('login').style.display='none';
+  }
+  function hideInit(){
+    var v=$('initView'); if(!v) return;
+    v.classList.add('hide'); v.style.display='none';
+  }
+  function checkInit(){
+    fetch('/api/init-status').then(function(r){return r.json()}).then(function(j){
+      if(j && j.needInit) showInit(); else hideInit();
+    }).catch(function(){ hideInit(); });
+  }
+  function doInit(){
+    var p1=$('initPwd').value, p2=$('initPwd2').value;
+    if(!p1) return toast('请输入新口令','err');
+    if(p1.length<8) return toast('口令至少 8 位','err');
+    if(p1!==p2) return toast('两次输入的口令不一致','err');
+    fetch('/api/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p1})})
+      .then(function(r){return r.json().then(function(j){return {r:r,j:j}})})
+      .then(function(o){
+        if(o.j && o.j.ok){
+          token=o.j.token; sessionStorage.setItem('gs_admin_token',token);
+          hideInit(); enterApp(); toast('初始化完成，已进入后台','ok');
+        } else toast((o.j&&o.j.msg)||'初始化失败','err');
+      }).catch(function(){toast('无法连接服务','err')});
+  }
   /* ---------- 登录 ---------- */
   function doLogin(){
     var pwd = $('loginPwd').value;
@@ -314,6 +365,7 @@ select option{background:var(--card)}
             },400);
           }
         }
+        else if(j && j.needInit){ showInit(); toast('请先完成后台口令初始化','err'); }
         else toast(j.msg||'密码错误','err');
       }).catch(function(){toast('无法连接服务','err')});
   }
@@ -459,6 +511,10 @@ select option{background:var(--card)}
   /* ---------- 事件 ---------- */
   $('loginBtn').addEventListener('click', doLogin);
   $('loginPwd').addEventListener('keydown',function(e){ if(e.key==='Enter') doLogin(); });
+  /* S0.1 初始化页事件 */
+  if($('initBtn')) $('initBtn').addEventListener('click', doInit);
+  if($('initPwd2')) $('initPwd2').addEventListener('keydown',function(e){ if(e.key==='Enter') doInit(); });
+  checkInit();
   $('logoutBtn').addEventListener('click', doLogout);
   $('provider').addEventListener('change', toggleProvider);
   $('ipMode').addEventListener('change', toggleManual);
