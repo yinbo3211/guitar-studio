@@ -127,7 +127,7 @@ select option{background:var(--card)}
       <input type="password" id="loginPwd" placeholder="请输入密码" autocomplete="current-password">
     </label>
     <button class="btn btn-primary btn-block" id="loginBtn">登 录</button>
-    <div class="hint" style="margin-top:16px;text-align:center"><a href="guitar-studio.html">← 返回吉他练习室</a></div>
+    <div class="hint" style="margin-top:16px;text-align:center"><a href="../app.html">← 返回吉他练习室</a></div>
   </div>
 </div>
 
@@ -139,7 +139,7 @@ select option{background:var(--card)}
       <div><h1>六弦工坊 · 控制台</h1><p class="muted">IPv6 DDNS 与外网托管</p></div>
     </div>
     <div class="right">
-      <a class="btn btn-ghost" href="guitar-studio.html" style="min-height:40px;padding:8px 14px">打开练习室</a>
+      <a class="btn btn-ghost" href="../app.html" style="min-height:40px;padding:8px 14px">打开练习室</a>
       <button class="btn btn-ghost" id="logoutBtn" style="min-height:40px;padding:8px 14px">退出</button>
     </div>
   </div>
@@ -398,7 +398,7 @@ select option{background:var(--card)}
     var body = {
       provider:$('provider').value,
       domain:$('domain').value.trim(),
-      sub:$('sub').value.trim()||'@',
+      sub:$('sub').value.trim()||'guitar',
       intervalMin:Number($('intervalMin').value)||5,
       ttl:Number($('ttl').value)||120,
       cfProxy:$('cfProxy').checked,

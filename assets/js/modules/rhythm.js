@@ -89,6 +89,9 @@ const Rhythm = {
     $('#rtBpmMinus5').onclick=()=>setBpm(this.bpm-5);
     $('#rtBpmPlus5').onclick=()=>setBpm(this.bpm+5);
     this.setBpm=setBpm;
+    /* RT-012：Transport 初值 90、本模块 bpm 初值 60，init 时先校准统一时间轴，
+       否则用户首次直接播放（未拖动 BPM）时预备拍按 60、正式格按 90 调度，整体偏快。 */
+    Transport.setBpm(this.bpm);
 
     /* 循环次数 chips */
     const loops=[['1',1],['2',2],['4',4],['8',8],['∞',0]];
@@ -308,6 +311,9 @@ const Rhythm = {
     setTimeout(()=>{ if(token!==this._waitToken) return; if(this.ac.state!=='running'){ this.ac.onstatechange=null; this._setPlayIcon('play'); this._status('音频未获授权 · 请点击页面任意处后再按播放'); } },8000);
   },
   _beginPlayback(){
+    // RT-012：起播前再次声明本模块 BPM，防止和弦库 playProg 等外部模块改过全局
+    // Transport（其默认 80），导致本模块调度速度与界面显示的 BPM 不一致。
+    Transport.setBpm(this.bpm);
     this.phase=this.countIn?'countin':'playing';
     this.pausedElapsed=0; this.playedSeconds=0; this.loopDone=0;
     this.lastUiStep=-99;

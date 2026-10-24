@@ -106,15 +106,15 @@ $up = $false
 for($i=0; $i -lt 12; $i++){
     Start-Sleep -Milliseconds 500
     try{
-        $r = Invoke-WebRequest -Uri "https://$Domain/guitar-studio.html" -UseBasicParsing -TimeoutSec 5
+        $r = Invoke-WebRequest -Uri "https://$Domain/app.html" -UseBasicParsing -TimeoutSec 5
         if($r.StatusCode -eq 200){ $up = $true; break }
     }catch{}
 }
 if(-not $up){
     Warn ">> HTTPS 未就绪（DNS 未生效/证书未下发/443 被占用），稍后可重跑本脚本。"
-    Warn ">> 本机可先用 http://localhost:8080/guitar-studio.html 继续。"
+    Warn ">> 本机可先用 http://localhost:8080/app.html 继续。"
 } else {
-    Ok ">> HTTPS 已生效：https://$Domain/guitar-studio.html"
+    Ok ">> HTTPS 已生效：https://$Domain/app.html"
 }
 
 # ---- 6. 防火墙放行 443 ----
@@ -126,7 +126,7 @@ Ok ">> 防火墙已放行 80/443"
 
 # ---- 7. 完成提示 ----
 Ok "================ HTTPS 部署完成 ================"
-Write-Host "  外网访问： https://$Domain/guitar-studio.html"
+Write-Host "  外网访问： https://$Domain/app.html"
 Write-Host "  后台面板： https://$Domain/admin"
 Write-Host ""
 Warn "  别忘了 DDNS（域名指向你家的 IPv6），编辑 $Root\config.json："

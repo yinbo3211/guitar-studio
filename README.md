@@ -56,7 +56,7 @@
 ## 方式二：手机用 GitHub Pages（HTTPS）
 
 1. 仓库 **Settings → Pages**，Source 选 `main` 分支、根目录 `(root)`，保存。
-2. 访问 `https://<用户名>.github.io/<仓库名>/guitar-studio.html`。
+2. 访问 `https://<用户名>.github.io/<仓库名>/`（根地址会自动跳转到 `app.html`）。
 3. iPhone 用 Safari 打开，首次允许麦克风；**无声请关闭机身左侧静音键**。可“添加到主屏幕”获得接近 App 的全屏体验。
 
 ---
@@ -165,11 +165,9 @@ journalctl -u guitar-studio -f     # 实时日志
 
 前端（必须放在同一文件夹，缺一不可）：
 
-- `guitar-studio.html`：页面结构与样式，入口文件
-- `app-1.js`：通用工具 / 路由 / 调音器
-- `app-2.js`：节拍器 / 和弦库
-- `app-3.js`：和弦闯关 / 音阶练习 / 练耳 / 指板 / 录音
-- `index.html`：GitHub Pages 根地址自动跳转到 `guitar-studio.html`
+- `app.html`：页面结构与样式，应用唯一入口
+- `assets/js/`：原生 ES Module 源码（`core/` 通用核心、`modules/` 功能模块、`data/` 数据、`i18n/` 语言包）
+- `index.html`：GitHub Pages 根地址自动跳转到 `app.html`
 
 本地/局域网：
 
@@ -178,7 +176,7 @@ journalctl -u guitar-studio -f     # 实时日志
 外网托管 / DDNS：
 
 - `server.js`：零依赖 Node 后端（静态托管 + 后台 API + IPv6 探测 + DDNS）
-- `admin.html`：后台控制面板（登录后配置 DDNS / 端口 / 查看日志）
+- `server/admin.html`：后台控制面板（登录后配置 DDNS / 端口 / 查看日志）
 - `config.example.json`：配置模板（运行后生成的 `config.json` 含密码与凭证，**不会入库**）
 - `nginx/guitar-studio.conf.template`：Nginx 站点配置模板（IPv4+IPv6、安全拦截）
 - `deploy-centos.sh`：CentOS 一键部署（含 systemd / firewalld / SELinux）
@@ -197,7 +195,7 @@ journalctl -u guitar-studio -f     # 实时日志
 
 ## 技术说明
 
-- 前端：纯原生 HTML / CSS / JavaScript，无构建、无前端框架；`<script src>` 拆分为 3 个 JS 引用。
+- 前端：纯原生 HTML / CSS / JavaScript，无构建、无前端框架；`app.html` 通过 `<script type="module">` 加载 `assets/js/main.js`，各功能以 ES Module 组织。
 - 音频：Web Audio API（OscillatorNode 合成、AnalyserNode 时域采样）；音高检测为自相关算法；录音为 MediaRecorder API。
 - 后端：仅用 Node.js 内置模块（`http/https/os/fs/crypto`），Node 10+ 即可运行，无需 npm install。
 - IPv6 探测：网卡枚举全局单播地址（2000::/3）+ 多个外部回显服务（`6.ipw.cn`、`api-ipv6.ip.sb`、`v6.ident.me`、`api6.ipify.org`），后台异步探测、状态接口秒回。
