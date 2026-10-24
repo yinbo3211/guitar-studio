@@ -151,15 +151,25 @@ const Ear = {
      清零后，切页补报只在「本轮尚未满 10 题」时触发，一次练习仅一条会话。 */
   report(){
     if(typeof PracticeStore!=='undefined' && this.n>0){
-      const questions = this.n;
+      // BUG-03：先快照当轮口径再上报，随后立即复位——旧实现只重置
+      // startedAt，n/ok/reactionSum 持续累计，导致每 10 题重复上报历史
+      // 累计成绩（会话条数虚增、accuracy 被历史稀释）。
+      const roundN=this.n, roundOk=this.ok, roundStart=this.startedAt||Date.now(),
+            roundLevel=this.level, roundMode=this.mode,
+            roundAvg=this.reactionN?Math.round(this.reactionSum/this.reactionN):null;
       PracticeStore.addSession({
         module:'ear',
-        startedAt:this.startedAt||Date.now(),
-        durationMs:Date.now()-(this.startedAt||Date.now()),
-        accuracy:questions?this.ok/questions:null,
-        meta:{ level:this.level, mode:this.mode, questions,
-               avgReactionMs:this.reactionN?Math.round(this.reactionSum/this.reactionN):null }
+        startedAt:roundStart,
+        durationMs:Date.now()-roundStart,
+        accuracy:roundN?roundOk/roundN:null,
+        meta:{ level:roundLevel, mode:roundMode, questions:roundN,
+               avgReactionMs:roundAvg }
       });
+      this.n=0; this.ok=0;
+      this.reactionSum=0; this.reactionN=0;
+      this.startedAt=Date.now();
+      // streak/bestStreak 是跨轮连击统计，保留不重置
+      this.updateStats();
     }
     // 无论是否真的落库（未挂载数据层时）都复位，避免状态残留
     this.n=0; this.ok=0; this.reactionSum=0; this.reactionN=0;
@@ -194,7 +204,7 @@ const Ear = {
       const wrongs=this.shuffle(names.filter(x=>x!==label)).slice(0,3);
       this.opts=this.shuffle([label,...wrongs]);
       this.answer=this.opts.indexOf(label);
-      this._play=()=>{ AudioEngine.tone(freqFromMidi(midi),1.6,'sine',.3); };
+      this._play=()=>{ /* V3.1 BUG-5：与和弦库同源拨弦音色 */ AudioEngine.pluck(freqFromMidi(midi),0,1.6,.32); };
       $('#earQ').textContent= lvDef.octaves>1 ? '这是哪个音？（跨八度随机）' : '这是哪个音？（C 大调）';
     }
     if(this.mode==='interval'){
@@ -202,8 +212,8 @@ const Ear = {
       const root=pool[Math.floor(Math.random()*pool.length)];
       const item=this.intervals[Math.floor(Math.random()*this.intervals.length)];
       this._play=()=>{
-        AudioEngine.tone(freqFromMidi(root),1,'sine',.28);
-        AudioEngine.tone(freqFromMidi(root+item.semi),1.4,'sine',.28,1.05);
+        AudioEngine.pluck(freqFromMidi(root),0,1.4,.3);
+        AudioEngine.pluck(freqFromMidi(root+item.semi),1.05,1.4,.3);
       };
       const labels=this.intervals.map(x=>x.label);
       const wrongs=this.shuffle(labels.filter(x=>x!==item.label)).slice(0,3);
@@ -217,8 +227,9 @@ const Ear = {
       const root=50+Math.floor(Math.random()*8);
       this._play=()=>{
         // 先分解后柱式
-        item.iv.forEach((v,i)=>AudioEngine.tone(freqFromMidi(root+v),1.4,'sine',.16,0.15+i*0.18));
-        item.iv.forEach(v=>AudioEngine.tone(freqFromMidi(root+v),1.8,'triangle',.12,0.15+item.iv.length*0.18+0.25));
+        item.iv.forEach((v,i)=>AudioEngine.pluck(freqFromMidi(root+v),0.15+i*0.18,1.4,.2));
+        /* V3.1 BUG-5：齐奏改用和弦库同款 strum（吉他扫弦链路） */
+        AudioEngine.strum(item.iv.map(v=>freqFromMidi(root+v)),'down',.3);
       };
       const labels=list.map(x=>x.label);
       const wrongs=this.shuffle(labels.filter(x=>x!==item.label)).slice(0,3);

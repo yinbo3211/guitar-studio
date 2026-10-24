@@ -39,11 +39,21 @@ const Game = {
   },
   async startRound(){
     AudioEngine.ensure();
+    /* V3.1 BUG-7：进回合先渲染指法图与文字按法（麦克风之前，失败也可见） */
+    this._renderFingering();
     if(!this.mic){
+      // V3.1 BUG-4：记录原始按钮，失败后完整还原（不再丢按钮样式）
+      if(!this._startBtnHtml) this._startBtnHtml=$('#gameStart').innerHTML;
       $('#gameStart').innerHTML='<span class="dots"><i></i><i></i><i></i></span>';
       const ok=await Mic.start(r=>this.onPitch(r));
       this.mic=ok;
-      if(!ok){ $('#gameStart').innerHTML='开启麦克风失败，请重试'; return; }
+      if(!ok){
+        $('#gameStart').innerHTML=this._startBtnHtml;
+        const hint=Mic.lastDiagnostics?('失败原因: '+Mic.lastDiagnostics.hint):'开启麦克风失败，请重试';
+        $('#gameResult').style.display='block';
+        $('#gameResult').innerHTML='<div style="color:var(--red);line-height:1.7">'+hint+'<br>无麦克风也可照指法图练习按法。</div>';
+        return;
+      }
     }
     const lv=this.levels[this.level];
     this.queue=[];
@@ -59,6 +69,15 @@ const Game = {
     $('#gamePlay').style.display='block';
     this.running=true;
     this.nextChord();
+  },
+  /* V3.1 BUG-7：指法图 + 文字按法（麦克风无关，随时可见） */
+  _renderFingering(){
+    // V3.1 BUG-7：无 cur（首回合未抽题）时预览该难度池的第一个和弦
+    const ch = this.cur || (this.levels[this.level] && CHORD_MAP[this.levels[this.level].pool[0]]);
+    const d=$('#gameDiagram');
+    if(d && ch) d.innerHTML=renderDiagram(ch,{big:true});
+    const holder=$('#gameFingering');
+    if(holder && ch) holder.textContent=window.formatFingering?formatFingering(ch):'';
   },
   nextChord(){
     // P0-03：清掉尚未触发的超时跳转，防止超时等待期间点"跳过"造成双重推进

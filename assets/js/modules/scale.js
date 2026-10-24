@@ -8,7 +8,7 @@ const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNa
 
 const Scale = {
   sel:0, mode:'idle', seq:[], cells:[], fMin:0, fMax:4, rootPc:0,
-  i:0, combo:0, ok:0, bestCombo:0,
+  i:0, combo:0, ok:0, bestCombo:0, followStartedAt:0, followReported:false,
   mic:false, timer:null, cand:null, candN:0, cooldown:0, bpm:80,
   init(){
     if(this.inited) return; this.inited=true;
@@ -176,7 +176,8 @@ const Scale = {
     }
     this.mode='follow';
     this.i=0; this.combo=0; this.ok=0; this.bestCombo=0;
-    this.followStartedAt=Date.now();   // BUG-02：记录本轮跟弹起点，用于统计时长
+    // BUG-02：跟弹开始时记录起点并复位上报标志，一轮只计一次
+    this.followStartedAt=Date.now(); this.followReported=false;
     this.clearAll();
     $('#scxTip').textContent='照指板高亮的位置拨响当前音，逐音上行再下行';
     $('#scxCombo').textContent='0';
@@ -235,23 +236,26 @@ const Scale = {
        永远无法完成（计划无法达到 100%）。 */
     this.reportScale();
   },
-  /* BUG-02：音阶完成 -> 计入 F1 练习数据层 */
+  /* BUG-02：音阶完成 -> 计入 F1 练习数据层。
+     accuracy=弹对音数/序列长度（advance 中每弹对一音 ok++，正常自然结束时
+     ok 应等于 seq 长度；兼容中途漏判）。followReported 保证一轮只上报一次。 */
   reportScale(){
-    if(typeof PracticeStore==='undefined' || !PracticeStore) return;
-    const now=Date.now();
-    const startedAt=this.followStartedAt||now;
-    this.followStartedAt=now;
-    const total=this.seq?this.seq.length:0;
-    PracticeStore.addSession({
-      module:'scale',
-      startedAt,
-      durationMs:Math.max(0, now-startedAt),
-      // 正确率 = 弹对音数 / 序列总音数
-      accuracy: total>0 ? Math.max(0, Math.min(1, this.ok/total)) : null,
-      meta:{ scale:(this.cur()&&(this.cur().root+' '+this.cur().type))||null,
-             pos:(this.cur()&&this.cur().pos)||0,
-             notes:total, hit:this.ok, bestCombo:this.bestCombo, bpm:this.bpm }
-    });
+    if(!this.followReported && typeof PracticeStore!=='undefined'){
+      this.followReported=true;
+      const now=Date.now();
+      const startedAt=this.followStartedAt||now;
+      this.followStartedAt=now;
+      const total=this.seq?this.seq.length:0;
+      const sel=this.cur(), t=SCALE_TYPES[sel.type];
+      PracticeStore.addSession({
+        module:'scale',
+        startedAt,
+        durationMs:Math.max(0, now-startedAt),
+        accuracy:this.seq.length ? this.ok/this.seq.length : null,
+        meta:{ name:sel.root+' '+(t?t.name:sel.type), scale:(sel.root+' '+sel.type),
+               bpm:this.bpm, notes:total, hit:this.ok, bestCombo:this.bestCombo }
+      });
+    }
   },
   stopFollow(){
     if(this.mode==='follow'){ this.stopMic(); }

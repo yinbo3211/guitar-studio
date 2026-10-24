@@ -84,6 +84,14 @@ test('F8 和弦后缀 → 品质解析', () => {
   assert.strictEqual(M.qualityOf('sus4'), 'sus4');
 });
 
+test('回归 BUG-10：aug / + / +7 后缀应解析为增三和弦品质', () => {
+  // 旧正则 /^ \+/ 在 + 前误写空格，导致 '+' 与 '+7' 落到默认 'maj'
+  assert.strictEqual(M.qualityOf('aug'), 'aug');
+  assert.strictEqual(M.qualityOf('+'), 'aug', "裸 '+' 是增三和弦的标准简写");
+  assert.strictEqual(M.qualityOf('+7'), 'aug', "'+7'（增属七）应先识别增品质");
+  assert.strictEqual(M.qualityOf('  +  '), 'aug', '带空白的 + 也应识别');
+});
+
 test('F8 移调：半音位移与拼写', () => {
   assert.strictEqual(M.transpose('C', 2), 'D');
   assert.strictEqual(M.transpose('C', 1), 'Db');

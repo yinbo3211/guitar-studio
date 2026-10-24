@@ -170,7 +170,7 @@ function newSession(ip){
    「按 IP 聚合」的全局阈值：单 IP 累计失败达到 IP_MAX_FAILS 即整体锁定，
    与单账号锁定取「先触发者生效」。 */
 const LOGIN_MAX_FAILS = 5;                 // 单账号连续失败阈值
-const IP_MAX_FAILS = 15;                   // 单 IP 跨账号累计失败阈值（约 3 个账号额度）
+const IP_MAX_FAILS = 10;                   // 单 IP 跨账号累计失败阈值（撞库：单账号未满 5 次也会被累计拦截）
 const LOGIN_LOCK_MS = 10*60*1000;
 const LOGIN_LOCK_STEPS = [10*60*1000, 30*60*1000, 2*60*60*1000, 24*60*60*1000];
 const IP_LOCK_STEPS = [15*60*1000, 60*60*1000, 6*60*60*1000, 24*60*60*1000];
@@ -211,7 +211,7 @@ function loginFail(ip, account){
   });
   if(loginFails.size > 256){ // 防内存膨胀：清理已解锁且无计数的条目
     const now = Date.now();
-    for(const [k,v] of loginFails){ if(v.lockUntil <= now && !v.count) loginFails.delete(k); }
+    for(const [k,v] of map){ if(v.lockUntil <= now && !v.count) map.delete(k); }
   }
 }
 function loginOk(ip, account){
@@ -260,8 +260,16 @@ function applySecurityHeaders(res){
 /* ---------------- S0.1 首次启动强制初始化 ---------------- */
 /* 默认口令不再作为兜底：adminPassword 缺失或仍为默认串时，
    后台仅允许 /api/init 与初始化页，其余接口一律 409 拒绝。 */
+/* BUG-01 修复：初始化强度校验与「默认口令判定」共用同一函数，
+   非字符串、纯空白、trim 后不足 8 位、等于默认口令（忽略首尾空白）
+   一律视为不合格——此前 /api/init 只查 pw.length，8 个空格也能通过。 */
+export function isWeakPassword(pw){
+  if(typeof pw !== 'string') return true;
+  const t = pw.trim();
+  return t.length < 8 || t === DEFAULT_CONFIG.adminPassword;
+}
 export function isDefaultPassword(pw){
-  return !pw || typeof pw !== 'string' || pw === DEFAULT_CONFIG.adminPassword || pw.trim().length < 8;
+  return !pw || typeof pw !== 'string' || isWeakPassword(pw);
 }
 export function needsInit(cfg){
   return !cfg || isDefaultPassword(cfg.adminPassword);
@@ -659,7 +667,8 @@ const ALLOWED_FILES = new Set([
   'audio-core.js', 'rhythm-data.js', 'main.js', 'ui.js', 'router.js', 'audio-engine.js', 'tone-loader.js', 'tone-engine.js', 'transport.js', 'theme-switch.js', 'i18n.js',
   'tuner.js', 'metronome.js', 'chord-lib.js', 'chord-game.js', 'ear-training.js', 'fretboard.js', 'scale.js', 'recorder.js', 'rhythm.js',
   'chords.js', 'scales.js', 'zh-CN.js', 'en.js', 'ja.js', 'ko.js', 'tone.esm.js',
-  'sw.js', 'manifest.webmanifest', '404.html'   // V2 M1：算法库 / Service Worker / PWA 清单
+  'sw.js', 'manifest.webmanifest', '404.html',  // V2 M1：算法库 / Service Worker / PWA 清单
+  'version.json'                                // BUG-06：SW 缓存版本派生源（package.json 在禁止名单）
 ]);
 const ALLOWED_EXT = new Set(['.png','.jpg','.jpeg','.gif','.svg','.ico','.webm','.mp4','.wav','.ogg','.woff','.woff2','.css','.js']);
 /* P2-14 修复：按扩展名放行 + 敏感文件黑名单。
@@ -772,7 +781,8 @@ function auth(req){
 /* ============================================================
    HTTP 服务
    ============================================================ */
-const server = http.createServer(async (req, res) => {
+/* V3.1 BUG-1：请求处理器抽出（HTTP/HTTPS 共用同一套路由与静态服务） */
+async function requestHandler(req, res) {
   const u = new URL(req.url, 'http://localhost');
   const pathname = u.pathname;
   try{
@@ -967,7 +977,25 @@ const server = http.createServer(async (req, res) => {
     log('请求处理异常：' + e.message, status < 500 ? 'warn' : 'err');
     if(!res.headersSent) sendJSON(res, status, { ok:false, msg: e.message });
   }
-});
+}
+
+const server = http.createServer(requestHandler);
+
+/* V3.1 BUG-1：可选 HTTPS 服务（config.https 存在即启用，手机麦克风可用） */
+if (config.https && config.https.pfx) {
+  try {
+    const httpsOpts = {
+      pfx: fs.readFileSync(path.resolve(ROOT, config.https.pfx)),
+      passphrase: config.https.passphrase || ''
+    };
+    const httpsPort = config.https.port || 8443;
+    https.createServer(httpsOpts, requestHandler).listen(httpsPort, () => {
+      log(`HTTPS 服务：    https://<本机IP>:${httpsPort}/app.html  ← 手机端（首次访问需信任自签证书）`, 'ok');
+    });
+  } catch (e) {
+    log('HTTPS 启动失败（检查 config.https 证书路径/密码）：' + e.message, 'err');
+  }
+}
 
 /* ---------------- 启动（双栈） ---------------- */
 let currentPort = config.webPort;
@@ -1020,14 +1048,14 @@ function listen(host){
       }
     }
     log(`本机访问：    http://localhost:${currentPort}/app.html`, 'info');
-    if(v4) log(`局域网 IPv4： http://${v4}:${currentPort}/app.html`, 'info');
-    if(v6) log(`外网 IPv6：    http://[${v6}]:${currentPort}/app.html`, 'info');
+    if(v4) log(`局域网 IPv4： http://${v4}:${currentPort}/app.html  ← 手机浏览器直接打开`, 'info');
+    if(v6) log(`外网 IPv6：    http://[${v6}]:${currentPort}/app.html  ← 手机/外网可直开`, 'info');
     if(needsInit(config)){
       log('后台尚未初始化：请先访问 /admin 设置管理员口令（至少 8 位，不可使用默认口令），在此之前所有 /api 接口均返回 409', 'warn');
     }else{
       log('后台面板：    /admin  （口令已初始化）', 'info');
     }
-    log('================================================', 'info');
+    log(`提示：局域网 HTTP 下手机麦克风被浏览器禁用；调音/录音请用 HTTPS（GitHub Pages 或 README「局域网 HTTPS」）`, 'warn');    log('================================================', 'info');
     probeIPv6(); // 启动后后台异步探测一次公网 IPv6
     if(config.ddns.enabled) startTimer();
   });

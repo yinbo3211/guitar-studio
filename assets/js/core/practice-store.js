@@ -37,9 +37,33 @@ const storage = (() => {
 })();
 
 const nowId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-/* 容量上限：addSession 与 importData 共用同一常量（BUG-05 前两者口径不一致，
-   导入分支完全没有容量保护） */
-const MAX_SESSIONS = 5000;
+const MAX_SESSIONS = 5000;   // 容量保护：上报与导入共用同一上限
+
+/* ---------- 会话归一化（上报与导入共用，BUG-05） ----------
+   脏数据一律返回 null 跳过；时间戳缺失/非法时按当前时间兜底；
+   accuracy 钳制 0-1；时长非负；meta 必须是对象。
+   keepId=true（导入）时保留外部 id 以支持幂等，否则新生成 id。 */
+function normalizeSession(rec, { keepId = false } = {}) {
+  if (!rec || typeof rec !== 'object') return null;
+  if (typeof rec.module !== 'string' || !rec.module.trim()) return null;
+  const endedAt = Number.isFinite(rec.endedAt) ? rec.endedAt : Date.now();
+  const durationMs = Number.isFinite(rec.durationMs) && rec.durationMs > 0
+    ? Math.round(rec.durationMs)
+    : Math.max(0, endedAt - (Number.isFinite(rec.startedAt) ? rec.startedAt : endedAt));
+  const startedAt = Number.isFinite(rec.startedAt) ? rec.startedAt : endedAt - durationMs;
+  return {
+    id: keepId && rec.id ? rec.id : nowId(),
+    module: String(rec.module),
+    startedAt,
+    endedAt,
+    durationMs,
+    // 正确率与速度：未知一律 null，界面与导出均区分显示
+    accuracy: Number.isFinite(rec.accuracy) ? Math.max(0, Math.min(1, rec.accuracy)) : null,
+    targetBpm: Number.isFinite(rec.targetBpm) ? rec.targetBpm : null,
+    detectedBpm: Number.isFinite(rec.detectedBpm) ? rec.detectedBpm : null,
+    meta: rec.meta && typeof rec.meta === 'object' ? rec.meta : {}
+  };
+}
 
 function emptyData() {
   return { version: 1, sessions: [], plans: {}, migrated: false };
@@ -67,25 +91,9 @@ function write(data) {
  *          targetBpm?:number, detectedBpm?:number, meta?:object}} rec
  */
 function addSession(rec) {
-  if (!rec || !rec.module) return null;
+  const session = normalizeSession(rec);
+  if (!session) return null;
   const data = read();
-  // 结束时间可显式指定（导入/迁移/补记场景），默认取当前时间
-  const endedAt = Number.isFinite(rec.endedAt) ? rec.endedAt : Date.now();
-  const durationMs = Number.isFinite(rec.durationMs) && rec.durationMs > 0
-    ? Math.round(rec.durationMs)
-    : Math.max(0, endedAt - (Number.isFinite(rec.startedAt) ? rec.startedAt : endedAt));
-  const session = {
-    id: nowId(),
-    module: String(rec.module),
-    startedAt: Number.isFinite(rec.startedAt) ? rec.startedAt : endedAt - durationMs,
-    endedAt,
-    durationMs,
-    // 正确率与速度：未知一律 null，界面与导出均区分显示
-    accuracy: Number.isFinite(rec.accuracy) ? Math.max(0, Math.min(1, rec.accuracy)) : null,
-    targetBpm: Number.isFinite(rec.targetBpm) ? rec.targetBpm : null,
-    detectedBpm: Number.isFinite(rec.detectedBpm) ? rec.detectedBpm : null,
-    meta: rec.meta && typeof rec.meta === 'object' ? rec.meta : {}
-  };
   data.sessions.push(session);
   // 容量保护：最多保留 MAX_SESSIONS 条
   if (data.sessions.length > MAX_SESSIONS) data.sessions = data.sessions.slice(-MAX_SESSIONS);
@@ -257,7 +265,7 @@ function exportCSV() {
 
 /* 导入上限：单次最多接受 IMPORT_MAX 条，防止超大文件写满 localStorage
    （写满后后续写入会静默失败，反而造成数据丢失） */
-const IMPORT_MAX = 5000;
+const IMPORT_MAX = 20000;
 function importData(text) {
   let obj;
   try { obj = JSON.parse(text); } catch (e) { return { ok: false, msg: '不是合法 JSON' }; }
@@ -265,38 +273,26 @@ function importData(text) {
   const data = read();
   const seen = new Set(data.sessions.map(s => s.id));
   let added = 0, skipped = 0;
-  for (const s of obj.sessions) {
-    if (!s || typeof s !== 'object') { skipped++; continue; }
-    if (added >= IMPORT_MAX) { skipped++; continue; }     // BUG-05：导入条数上限
-    if (s.id && seen.has(s.id)) continue;                 // 幂等：同 id 不重复导入
-    /* BUG-05 修复：旧实现在此独立 push 外部对象，绕过了 addSession 的
-       归一化与容量保护——accuracy 不钳制（可 >1，统计出现「正确率 500%」）、
-       时间戳/时长不做有限性校验、总数不裁剪（可远超 5000 条撑爆存储）。
-       这里显式复用同一套归一化和钳制规则，保证「导入的数据」与
-       「本地记录的数据」口径完全一致。 */
-    const endedAt = Number.isFinite(s.endedAt) ? s.endedAt : (Number.isFinite(s.startedAt) ? s.startedAt : Date.now());
-    const startedAt = Number.isFinite(s.startedAt) ? s.startedAt : endedAt;
-    const dur = Number.isFinite(s.durationMs) && s.durationMs > 0
-      ? Math.round(s.durationMs)
-      : Math.max(0, endedAt - startedAt);
-    data.sessions.push({
-      id: s.id || nowId(),
-      module: String(s.module || 'unknown'),
-      startedAt,
-      endedAt,
-      durationMs: dur,
-      // 正确率钳制到 0–1，非法值（NaN/负数/>1）一律归 null
-      accuracy: Number.isFinite(s.accuracy) ? Math.max(0, Math.min(1, s.accuracy)) : null,
-      targetBpm: Number.isFinite(s.targetBpm) ? s.targetBpm : null,
-      detectedBpm: Number.isFinite(s.detectedBpm) ? s.detectedBpm : null,
-      meta: s.meta && typeof s.meta === 'object' ? s.meta : {}
-    });
-    if (s.id) seen.add(s.id);
+  for (const raw of obj.sessions) {
+    if (added >= IMPORT_MAX) { skipped++; continue; }        // BUG-05：导入条数上限
+    // BUG-05：导入路径与上报共用归一化——module 仅要求非空字符串
+    // （不设模块白名单，兼容历史/自定义模块名）；accuracy 钳 0-1、
+    // 时长非负、时间戳非法时兜底，脏条目整体跳过而不是落库。
+    if (raw && typeof raw === 'object' && raw.id != null && seen.has(raw.id)) {
+      skipped++;
+      continue;                               // 幂等：同 id 不重复导入
+    }
+    const s = normalizeSession(raw, { keepId: true });
+    if (!s || seen.has(s.id)) { skipped++; continue; }
+    data.sessions.push(s);
+    seen.add(s.id);
     added++;
   }
   // 容量保护：与 addSession 一致，只保留最近 MAX_SESSIONS 条
   if (data.sessions.length > MAX_SESSIONS) data.sessions = data.sessions.slice(-MAX_SESSIONS);
   if (obj.plans && typeof obj.plans === 'object') data.plans = { ...(data.plans || {}), ...obj.plans };
+  // 容量保护与上报一致：超出 5000 条只保留最新部分
+  if (data.sessions.length > MAX_SESSIONS) data.sessions = data.sessions.slice(-MAX_SESSIONS);
   write(data);
   return { ok: true, added, skipped };
 }

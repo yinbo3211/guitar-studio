@@ -10,7 +10,7 @@ const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNa
    模块 1：调音器
    ============================================================ */
 const Tuner = {
-  mode:'guitar', a4:440, active:false,
+  mode:'guitar', a4:440, active:false, sessionStartedAt:0,
   // 标准调弦：从 6 弦（最粗）到 1 弦（最细）
   strings:[
     {n:6, midi:40, label:'E'},
@@ -105,11 +105,16 @@ const Tuner = {
       $('#tunerToggle').classList.add('btn-primary');
       return;
     }
-    $('#tunerToggleTxt').textContent='正在请求麦克风…';
+    $('#tunerToggleTxt').textContent='正在请求麦克风(最多等10秒)…';
     const ok=await Mic.start(r=>this.onPitch(r));
+    if(!ok && Mic.lastDiagnostics){
+      $('#tunerSub').textContent='失败原因: '+Mic.lastDiagnostics.hint;
+    }
     if(ok){
       this.active=true;
-      this.tuneStartedAt=Date.now();   // BUG-02：记录本轮调音起点，用于统计时长
+      // BUG-02：开麦成功即作为本轮调音起点，供六弦全准时统计练习时长
+      this.sessionStartedAt=Date.now();
+      this.tuneStartedAt=this.sessionStartedAt;
       $('#tunerToggleTxt').textContent='停止调音';
       $('#tunerToggle').classList.remove('btn-primary');
       $('#tunerToggle').classList.add('btn-danger');
@@ -231,6 +236,23 @@ const Tuner = {
         if(btn) btn.classList.remove('tuned');
       }
     }
+  },
+  /* BUG-02：六弦全部调准 -> 上报一次 tuner 会话。
+     调音无「正确率」口径，accuracy 记 null；上报后把起点前推为当前时刻，
+     避免紧接着的下一轮把上一轮时长重复计入。 */
+  reportTuned(){
+    if(typeof PracticeStore==='undefined') return;
+    const now=Date.now();
+    const startedAt=this.sessionStartedAt||this.tuneStartedAt||now;
+    PracticeStore.addSession({
+      module:'tuner',
+      startedAt,
+      durationMs:Math.max(0, now-startedAt),
+      accuracy:null,
+      meta:{ strings:6, a4:this.a4, mode:this.mode }
+    });
+    this.sessionStartedAt=Date.now();
+    this.tuneStartedAt=this.sessionStartedAt;
   }
 };
 onRouteEnter.tuner=()=>{ Tuner.init(); };

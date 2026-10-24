@@ -13,16 +13,17 @@
    ============================================================ */
 'use strict';
 /* C3 修复 + BUG-06 修正：缓存版本不再手工递增——安装时读取版本号
-   生成缓存名（如 guitar-studio-v3.1.0），漏改版本号导致旧缓存不清理的问题
+   生成缓存名（如 guitar-studio-v3.2.0），漏改版本号导致旧缓存不清理的问题
    从流程上消除；读取失败时回退到内置版本号，保证离线安装不中断。
-   BUG-06：原实现 fetch('./package.json')，但服务端静态白名单 DENY_FILES
-   显式拒绝 package.json（线上恒 404），自动派生实际永不生效、偷偷退回
-   硬编码版本。改为优先读取白名单内的 /api/v1/version（公开只读，
-   不受初始化状态机拦截），package.json 仅作本地静态托管的兼容回退。 */
-const FALLBACK_CACHE = 'guitar-studio-v3.1.0';
+   BUG-06：package.json 被服务端静态黑名单拦截（含依赖/脚本信息，不应公网
+   暴露），SW 拉取恒为 404，缓存名永远停在 FALLBACK、发版不失效。
+   因此依次尝试：version.json（只含版本号的白名单静态文件）→
+   /api/v1/version（公开只读，不受初始化状态机拦截）→ package.json
+   （本地静态托管兼容回退）。 */
+const FALLBACK_CACHE = 'guitar-studio-v3.2.0';
 let CACHE = FALLBACK_CACHE;
 async function resolveCacheName(){
-  const sources = ['./api/v1/version', './package.json'];
+  const sources = ['./version.json', './api/v1/version', './package.json'];
   for(const url of sources){
     try{
       const res = await fetch(url, { cache: 'no-store' });
@@ -44,6 +45,7 @@ const CORE = [
   './',
   './app.html',
   './index.html',
+  './version.json',   // BUG-06：缓存版本派生源，离线也需可读，缺失会回退 FALLBACK 版本名
   './assets/js/main.js',
   './assets/js/core/audio-core.js',
   './assets/js/core/tone-loader.js',
@@ -59,6 +61,7 @@ const CORE = [
   './assets/js/core/ui.js',
   './assets/js/core/router.js',
   './assets/js/core/audio-engine.js',
+  './assets/js/core/mic-manager.js',   // V3.0.1：audio-engine 静态依赖
   './assets/js/data/rhythm-data.js',
   './assets/js/data/chords.js',
   './assets/js/data/scales.js',
@@ -102,7 +105,7 @@ const OPTIONAL = [
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
-    CACHE = await resolveCacheName();      // C3：版本名随 package.json 自动更新
+    CACHE = await resolveCacheName();      // C3：版本名随 version.json 自动更新
     const cache = await caches.open(CACHE);
     await Promise.all(CORE.map(u => cache.add(u)));   // 关键项：任一失败则 install 失败
     await Promise.allSettled(OPTIONAL.map(u => cache.add(u))); // 次要项：尽力而为

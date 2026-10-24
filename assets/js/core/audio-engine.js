@@ -63,38 +63,16 @@ const AudioEngine = {
   _integrateTone(){
     ToneEngine.ensure().then(Tone=>{
       if(!Tone) return;
-      const rawCtx = Tone.getContext().rawContext;
-      if(this.ctx && !this.ctx.__gsShared && rawCtx.state!==undefined){
-        // BUG-02 修复：替换上下文时必须同步重建 master，
-        // 否则 master 属于旧 AudioContext，跨上下文连接必然失败，
-        // 且失败前 master.disconnect() 会让它成为悬空节点（全站静音）
-        //
-        // P1-1 修复：Tone 异步接管发生在「首次音频手势之后」的极窄竞态窗口内时，
-        // Rhythm.demoGain/metroGain、ChordLib 等早期消费节点仍挂在旧 master 上。
-        // 若此时 disconnect 旧 master，它既不接 Tone 新总线也不接旧 destination，
-        // 会变成永久悬空的静音节点（节奏/进度伴奏一路失声，必须刷新页面恢复）。
-        // 做法：保留旧 master → 旧 ctx.destination 的输出，让早期声部继续有声；
-        // 仅把「今后」新建的节点切到 Tone 共享上下文/总线。代价仅是接管瞬间
-        // 短暂存在两个上下文（首屏 main.js 已预取 Tone，正常情况下此窗口不会出现）。
-        const vol = this.master ? this.master.gain.value : .5;
-        const oldMaster = this.master;
-        this.ctx = rawCtx; rawCtx.__gsShared = true;
-        this.master = rawCtx.createGain();
-        this.master.gain.value = vol;
-        this.master.connect(rawCtx.destination);   // 兜底直连，保证一定有声
-        void oldMaster;   // 显式保留：旧 master 仍连在旧 ctx.destination 上，不 disconnect
-      }
-      const bus = ToneEngine.rawBuses && ToneEngine.rawBuses.music;
-      if(this.master && bus && bus instanceof AudioNode){
-        this.master.disconnect();
-        this.master.connect(bus);
-      }
-    }).catch(e=>{
-      // BUG-02 修复：任何失败都要把 master 接回 destination，绝不留下悬空节点
-      console.warn('[audio-engine] Tone 总线接入失败，走原生输出：', e&&e.message);
-      try{ this.master && this.master.connect(this.ctx.destination); }catch(_){}
-    });
-  },
+      try{
+        // V3.1 修4（BUG-3 疑点 C 根治）：不再中途替换 this.ctx——
+        // AudioEngine 的振荡器链路固定跑在自有 ctx-A，Tone 合成器跑在 rawCtx-B，
+        // 两条发声链互不混用时间基准；只把 master 声音汇入 tone-engine 总线做统一限幅
+        if(this.master && ToneEngine.rawBuses){
+          this.master.disconnect();
+          this.master.connect(ToneEngine.rawBuses.music);
+        }
+      }catch(e){ console.warn('[audio-engine] Tone 总线接入失败，走原生输出：', e&&e.message); }
+    }).catch(()=>{});  },
   /* 拨弦合成：三角波基音 + 泛音 + 指数衰减 */
   pluck(freq, when=0, dur=1.6, vol=.32){
     const ctx=this.ensure(), t0=ctx.currentTime+when;
@@ -152,151 +130,13 @@ const AudioEngine = {
   }
 };
 
-/* ---------- 麦克风管理 ---------- */
-/* P0-03 修复：HTTP 明文（非 localhost）下浏览器判定非安全上下文，
-   navigator.mediaDevices 本身是 undefined，直接调用会抛 TypeError。
-   先做存在性/安全性校验，把「为什么不能用」讲清楚，再谈授权。 */
-function micGuard(){
-  if(!window.isSecureContext){
-    toast('当前是 HTTP 明文访问，浏览器已禁用麦克风。','err',4500);
-    toast('请用 HTTPS 域名访问（Cloudflare 橙云 / Caddy / certbot）或本机 localhost。','err',4500);
-    return false;
-  }
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    toast('当前浏览器未开放麦克风接口，请更换 Chrome/Edge 并用 HTTPS 访问。','err',4500);
-    return false;
-  }
-  return true;
-}
-/* 麦克风失败诊断：把「为什么拿不到麦克风」讲清楚（物理机实测需求）。
-   手机通过局域网 http://192.168.x.x 访问时 isSecureContext=false，
-   浏览器直接禁用麦克风——这是安全策略而非 bug，必须给出可用路径。 */
-function diagInfo(err){
-  const host = (location && location.hostname) || '';
-  const insecure = !window.isSecureContext;
-  return {
-    protocol: (location && location.protocol) || '',
-    hostname: host,
-    isSecureContext: window.isSecureContext,
-    hasMediaDevices: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-    errName: (err && err.name) || 'UnknownError',
-    errMessage: (err && err.message) || '',
-    ua: (navigator && navigator.userAgent) || '',
-    /* 非安全上下文 + 非本机 = 手机局域网明文访问 */
-    lanInsecure: !!insecure && host !== 'localhost' && host !== '127.0.0.1' && host !== ''
-  };
-}
-function micHint(err){
-  const d = diagInfo(err);
-  const name = d.errName;
-  if(!d.hasMediaDevices || (d.lanInsecure && !d.isSecureContext)){
-    return '手机用局域网 http 访问时浏览器禁用麦克风。请改用 HTTPS 地址（GitHub Pages 或自签证书），详见 README「局域网 HTTPS」';
-  }
-  if(name === 'NotAllowedError' || name === 'SecurityError')
-    return '麦克风权限被拒：点击地址栏左侧 🔒 图标 → 允许麦克风，然后重试';
-  if(name === 'NotFoundError' || name === 'OverconstrainedError')
-    return '没有检测到可用的麦克风设备，请检查设备连接';
-  if(name === 'NotReadableError')
-    return '麦克风被其他程序占用：请关闭微信/腾讯会议/系统录音机等后重试';
-  if(name === 'TimeoutError' || name === 'AbortError')
-    return '10 秒内未获得系统授权：检查 Windows 设置 → 隐私 → 麦克风 → 允许桌面应用访问麦克风';
-  return '无法访问麦克风：' + (d.errMessage || name) + '（建议使用 localhost 或 HTTPS 访问）';
-}
-const Mic = {
-  // BUG-04 修复：麦克风使用独立上下文字段，绝不覆盖/关闭播放上下文
-  stream:null, micCtx:null, deviceId:null, analyser:null, raf:null, cb:null, frame:0,
-  // 生命周期状态与失败诊断（UI 可读，便于排查「点了没反应」）
-  state:'idle', lastDiagnostics:null,
-  async start(onPitch, deviceId){
-    // P0-02 修复：Mic 为全局单例，复用旧流时必须刷新回调，
-    // 否则切换模块后检测结果仍发给旧模块、判定完全失效
-    this.cb = onPitch;
-    // F10：指定了设备且当前流来自其它设备时，先释放旧流再重开
-    if(this.stream && deviceId && deviceId === this.deviceId) return true;
-    if(this.stream && deviceId && deviceId !== this.deviceId){
-      this.stop();
-    }
-    if(this.stream) return true; // 已有流：只换回调，不重复申请
-    // Bug1 修复：getUserMedia 在途（权限弹窗未决/设备初始化慢）时并发再点会拿到
-    // 第二条流，第一次 resolve 的 stream/micCtx/rAF 被覆盖而永不释放（麦灯常亮、CPU 翻倍）。
-    // 复用同一个在途承诺，并发调用共享一次申请与一套音频图。
-    if(this._starting) return this._starting;
-    /* 物理机实测 BUG：_startInner 内部引用了 deviceId，但旧签名未接收该参数，
-       严格模式下读取未声明变量直接抛 ReferenceError: deviceId is not defined
-       → Mic.start 永远失败 → 调音器卡在「正在请求麦克风…」、
-         和弦闯关无法识别弹奏声音（用户实测症状）。此处显式透传。 */
-    this._starting = this._startInner(onPitch, deviceId);
-    try{ return await this._starting; }
-    finally{ this._starting = null; }
-  },
-  async _startInner(onPitch, deviceId){
-    this.state='requesting';
-    if(!micGuard()){ this.state='idle'; return false; } // P0-03：安全上下文/接口存在性前置校验
-    /* 与录音棚（recorder.js）保持一致的采集参数：不强制关闭自动增益。
-       强制 autoGainControl:false 会让吉他/人声输入电平过低，
-       PitchDetect 的 RMS 与自相关都取不到有效值 → 拨弦后无任何反应。 */
-    const audioConstraint = { echoCancellation:false, noiseSuppression:false };
-    if(deviceId) audioConstraint.deviceId = { exact: deviceId };
-    try{
-      /* 物理机实测：权限弹窗被系统隐私策略吞掉时，getUserMedia 的 promise
-         会永久 pending（调音器卡死）。这里加 10 秒超时竞速后走失败分支。 */
-      this.stream = await Promise.race([
-        navigator.mediaDevices.getUserMedia({ audio: audioConstraint }),
-        new Promise((_, rej) => setTimeout(() => rej(Object.assign(
-          new Error('getUserMedia timeout'), { name: 'TimeoutError' })), 10000))
-      ]);
-      this.deviceId = deviceId || (this.stream.getAudioTracks()[0] &&
-        this.stream.getAudioTracks()[0].getSettings &&
-        this.stream.getAudioTracks()[0].getSettings().deviceId) || null;
-    }catch(err){
-      console.warn('[Mic] getUserMedia 失败：', err);
-      this.lastDiagnostics = diagInfo(err);
-      this.state='idle';
-      const hint = micHint(err);
-      toast(hint, 'err', 5200);
-      return false;
-    }
-    const AC = window.AudioContext||window.webkitAudioContext;
-    this.micCtx = new AC();
-    /* 物理机实测：新建的 AudioContext 可能处于 suspended（无用户手势或
-       系统策略），此时 getFloatTimeDomainData 恒为全零 → 拨弦完全无反应。
-       必须显式 resume 后再启动检测循环。 */
-    if(this.micCtx.state === 'suspended'){
-      try{ await this.micCtx.resume(); }catch(e){ /* 忽略：后续会有兜底提示 */ }
-    }
-    const src=this.micCtx.createMediaStreamSource(this.stream);
-    this.analyser=this.micCtx.createAnalyser();
-    this.analyser.fftSize=2048;
-    src.connect(this.analyser);
-    this.buf=new Float32Array(this.analyser.fftSize);
-    this.frame=0;
-    const loop=()=>{
-      // P2-19 修复：PitchDetect 为 O(maxLag×SIZE)，rAF(~60fps) 全帧检测
-      // 在低端手机易掉帧，降为 ~30fps（隔帧检测）
-      this.raf=requestAnimationFrame(loop);
-      if(++this.frame%2===0) return;
-      this.analyser.getFloatTimeDomainData(this.buf);
-      const r=PitchDetect(this.buf, this.micCtx.sampleRate);
-      if(this.cb) this.cb(r); // P0-02：始终调用最新回调
-    };
-    loop();
-    this.state='running';
-    return true;
-  },
-  stop(){
-    this.cb=null; // P0-02：停止后不再向任何模块回调
-    this.state='idle';
-    if(this.raf) cancelAnimationFrame(this.raf);
-    this.raf=null;
-    if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
-    if(this.micCtx){ this.micCtx.close(); this.micCtx=null; }
-    this.analyser=null; this.deviceId=null;
-  }
-};
-
-/* V2 M1：PitchDetect（归一化自相关基频检测，含 MPM 抗低八度误锁与抛物线插值）
-   与 makeSmoother（中位数平滑）已迁移至 lib/audio-core.js，由顶部解构引入，
-   算法回归测试见 test/audio-core.test.js。 */
-
-Object.assign(window, { AudioEngine, Mic, micGuard, micHint, diagInfo });
-export { AudioEngine, Mic, micGuard, micHint, diagInfo };
+/* ---------- 麦克风管理（V3.2：统一由 core/mic-manager.js 承载） ----------
+   调音器/和弦闯关/录音棚共用同一个 Mic 实例，避免重复 getUserMedia 与
+   生命周期竞态；实现见 core/mic-manager.js（single-flight + 10s 超时 +
+   失败诊断 + stop 后在途回调作废）。 */
+import { Mic, buildDiagnostics } from './mic-manager.js';
+/* 兼容旧引用名：micHint/diagInfo 指向 MicManager 的统一诊断实现 */
+const diagInfo = buildDiagnostics;
+const micHint = (err) => (buildDiagnostics(err) || {}).hint || '';
+Object.assign(window, { AudioEngine, Mic, buildDiagnostics, diagInfo, micHint });
+export { AudioEngine, Mic, buildDiagnostics, diagInfo, micHint };

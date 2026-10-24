@@ -95,9 +95,10 @@ test('工程: lint.mjs 成功路径输出 lint ok', async () => {
 
 /* ---- 6) 第二轮深度审查追加修复 ---- */
 test('Mic: getUserMedia 在途时复用同一承诺，不并发申请第二条流', () => {
-  const f = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'core', 'audio-engine.js'), 'utf8');
-  assert.ok(/this\._starting/.test(f), 'Mic 应有在途承诺字段 _starting');
-  assert.ok(/if\s*\(this\._starting\)\s*return\s+this\._starting/.test(f), '在途时应直接复用该承诺');
+  // V3.0.1：Mic 迁移至 core/mic-manager.js（超时/诊断/默认麦克风），单飞语义保留
+  const f = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'core', 'mic-manager.js'), 'utf8');
+  assert.ok(/this\._pending/.test(f), 'Mic 应有在途承诺字段 _pending');
+  assert.ok(/if \(this\.state === 'requesting' && this\._pending\) return this\._pending;/.test(f), '在途时应直接复用该承诺');
 });
 
 test('节奏练习: 手动停止也在清零前快照循环数并传给 _finishSession', () => {

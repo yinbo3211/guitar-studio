@@ -48,11 +48,16 @@ try {
 
 # 本机模式下尝试申请局域网访问权限（会弹一次 UAC）
 if (-not $bindAll) {
-    $wantLan = Read-Host '是否允许同一 WiFi 下的手机访问？(Y=是，其他键=仅本机使用)'
+    $wantLan = 'Y'   # V3.1 BUG-1：默认开启局域网（不再交互阻塞；UAC 拒绝则自动降级本机模式）
     if ($wantLan -eq 'Y' -or $wantLan -eq 'y') {
         try {
             $arg = "http add urlacl url=http://+:$Port/ user=Everyone"
             Start-Process -FilePath 'netsh' -ArgumentList $arg -Verb RunAs -Wait | Out-Null
+            # V3.1：同步放行 Windows 防火墙入站（urlacl 成功但防火墙拦截仍会不通）
+            try {
+                $fw = "advfirewall firewall add rule name='GuitarStudio-$Port' dir=in action=allow protocol=TCP localport=$Port"
+                Start-Process -FilePath 'netsh' -ArgumentList $fw -Verb RunAs -Wait | Out-Null
+            } catch { Write-Host '[提示] 防火墙规则未添加，可手动放行 TCP 端口' -ForegroundColor Yellow }
             $listener.Stop(); $listener.Close()
             $listener = New-Object System.Net.HttpListener
             $listener.Prefixes.Add("http://+:$Port/")
@@ -70,6 +75,7 @@ Write-Host '================================================' -ForegroundColor C
 Write-Host '  六弦工坊 · AI 吉他练习室 已启动' -ForegroundColor Cyan
 Write-Host '================================================' -ForegroundColor Cyan
 Write-Host ("  本机地址 : http://localhost:{0}/{1}" -f $Port, $Entry)
+Write-Host ("  手机入口 : 打印的局域网地址直接用浏览器打开（V3.1 起麦克风需 HTTPS，见 README「局域网 HTTPS」）")
 if ($bindAll) {
     $ips = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
         Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' -and $_.PrefixOrigin -ne 'WellKnown' } |

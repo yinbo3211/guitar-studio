@@ -135,6 +135,57 @@ test('F1 导入非法数据不崩溃', () => {
   assert.strictEqual(P.importData('{"sessions":[null,{"module":"x"}]}').added, 1, '脏条目应被跳过');
 });
 
+/* ---------- BUG-05 回归：导入路径与上报共用归一化 ---------- */
+test('回归 BUG-05：导入条目逐条归一化（空 module 跳过 / accuracy 钳制 / 时长非负）', () => {
+  const payload = JSON.stringify({ sessions: [
+    null,
+    42,
+    'nope',
+    {},
+    { module: '   ' },                                   // 纯空白 module → 跳过
+    { module: '', durationMs: 100 },                     // 空 module → 跳过
+    { id: 'a1', module: 'ear', accuracy: 9, durationMs: -500 },   // 钳 1、时长归零
+    { id: 'a2', module: 'ear', accuracy: -0.4 },         // 钳 0
+    { id: 'a3', module: 'custom-x', accuracy: 0.5, durationMs: 12000,
+      meta: { questions: 10 } }                          // 自定义模块名必须接受（不设白名单）
+  ]});
+  const r = P.importData(payload);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.added, 3, '3 条合法，其余脏条目全部跳过');
+  const all = P.listSessions({});
+  assert.strictEqual(all.length, 3);
+  const a1 = all.find(s => s.id === 'a1');
+  assert.strictEqual(a1.accuracy, 1, '越界 accuracy 应钳制到 1');
+  assert.strictEqual(a1.durationMs, 0, '负时长应归零');
+  const a2 = all.find(s => s.id === 'a2');
+  assert.strictEqual(a2.accuracy, 0, '负 accuracy 应钳制到 0');
+  const a3 = all.find(s => s.id === 'a3');
+  assert.strictEqual(a3.module, 'custom-x', '不得用模块白名单拒绝自定义/历史模块名');
+  assert.deepStrictEqual(a3.meta, { questions: 10 });
+});
+
+test('回归 BUG-05：导入保留外部 id 且幂等；合并后受 5000 条上限保护', () => {
+  const one = JSON.stringify({ sessions: [{ id: 'fixed-id', module: 'tuner', durationMs: 1000 }] });
+  assert.strictEqual(P.importData(one).added, 1);
+  assert.strictEqual(P.importData(one).added, 0, '同一外部 id 重复导入必须幂等');
+  assert.strictEqual(P.listSessions({}).length, 1);
+
+  // 容量保护：导入 5005 条后只保留最新 5000 条（最早 5 条被裁掉）
+  const bulk = { sessions: [] };
+  const now = Date.now();
+  for (let i = 0; i < 5005; i++) {
+    bulk.sessions.push({ id: 'bulk-' + i, module: 'flow', durationMs: 100,
+      startedAt: now - (5005 - i) * 1000, endedAt: now - (5005 - i) * 1000 + 100 });
+  }
+  P.clearAll();
+  const r = P.importData(JSON.stringify(bulk));
+  assert.strictEqual(r.added, 5005);
+  const list = P.listSessions({});
+  assert.strictEqual(list.length, 5000, '导入同样受 MAX_SESSIONS=5000 上限保护');
+  assert.strictEqual(list[0].id, 'bulk-5', '应保留最新的 5000 条（最早 bulk-0..4 被裁）');
+  assert.strictEqual(list[4999].id, 'bulk-5004');
+});
+
 test('F1 旧数据迁移（gs_rhythm_v1）', () => {
   // 模拟旧模块写入的 localStorage
   const legacy = { t: { sec: 600, loops: 12, count: 3 }, maxBpm: 120, last: [{ d: '10-24 12:00', n: '民谣扫弦', b: 90, l: 4, s: 120 }] };

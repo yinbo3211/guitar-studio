@@ -158,9 +158,10 @@ test('BUG-04 和弦任务按 meta.switches 计数、练耳按 meta.questions 计
   const { PracticeStore: P } = await import(pathToFileURL(path.join(ROOT, 'assets/js/core/practice-store.js')).href);
   P.clearAll();
   const src = readSrc('assets/js/modules/plan.js');
-  assert.ok(/flow:\s*s=>s\.switches>0\s*\?\s*s\.switches\s*:\s*s\.count/.test(src),
+  // 兜底口径抽成 bySessions()，避免 flow/ear 行内直接出现 s.count（易被误读为「仍按条数」）
+  assert.ok(/flow:\s*s=>s\.switches>0\s*\?\s*s\.switches\s*:\s*bySessions\(s\)/.test(src),
     'flow 任务应按 switches 计数');
-  assert.ok(/ear:\s*s=>s\.questions>0\s*\?\s*s\.questions\s*:\s*s\.count/.test(src),
+  assert.ok(/ear:\s*s=>s\.questions>0\s*\?\s*s\.questions\s*:\s*bySessions\(s\)/.test(src),
     'ear 任务应按 questions 计数');
   assert.ok(/sum\[m\]\.switches\s*\+=\s*meta\.switches/.test(src), '需累计 meta.switches');
   assert.ok(/sum\[m\]\.questions\s*\+=\s*meta\.questions/.test(src), '需累计 meta.questions');

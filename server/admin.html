@@ -307,8 +307,9 @@ select option{background:var(--card)}
 
   function api(path, opt){
     opt = opt || {};
-    // BUG-09：统一按 RFC 6750 发送 `Bearer <token>`（服务端同时兼容裸 token）
-    opt.headers = Object.assign({'Content-Type':'application/json','Authorization':'Bearer '+token}, opt.headers||{});
+    /* BUG-09：按 RFC 6750 发送 Bearer 令牌；token 缺失时发空头，
+       让未登录请求落到服务端 401 而不是携带 "undefined" 字符串 */
+    opt.headers = Object.assign({'Content-Type':'application/json','Authorization':token?('Bearer '+token):''}, opt.headers||{});
     return fetch(path, opt).then(function(r){
       if(r.status === 401){ doLogout(); throw new Error('登录已失效'); }
       return r.json();

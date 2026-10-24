@@ -54,9 +54,7 @@ const Transport = {
     if (Tone) {
       this.backend = 'tone';
       Tone.getTransport().bpm.value = this.bpm;
-      Tone.getTransport().scheduleRepeat((time) => {
-        this._fire(time, this.tick++);
-      }, '32t', 0);                       // 1/12 拍 tick（三十二分三连音）
+      this._registerRepeat();             // V3.1 修1：数字秒调度（'32t' 时值兼容性弃用）
     } else {
       this.backend = 'native';
     }
@@ -87,6 +85,17 @@ const Transport = {
     }
     return this._ctx;
   },
+  /* V3.1 修1：用数字秒注册 1/12 拍 tick；setBpm 后重注册以跟随新间隔 */
+  _registerRepeat() {
+    const Tone = ToneEngine.Tone;
+    if (!Tone || this.backend !== 'tone') return;
+    try {
+      if (this._repeatId !== undefined) Tone.getTransport().clear(this._repeatId);
+      this._repeatId = Tone.getTransport().scheduleRepeat((time) => {
+        this._fire(time, this.tick++);
+      }, this.tickDuration());            // tickDuration() = 60/bpm/12 纯数字秒
+    } catch (e) { console.warn('[Transport] scheduleRepeat 注册失败：', e && e.message); }
+  },
 
   /* ---------- BPM（R-BPM-04：支持线性渐变） ---------- */
   setBpm(v, ramp = 0.06) {
@@ -99,6 +108,10 @@ const Transport = {
     } else if (this.playing) {
       // 原生：重锚时间轴原点保持视觉相位（V2-BUG-05 语义上移）
       this._startAudioTime = this._ctx.currentTime - this._visualPos * this.beatDuration();
+    }
+    if (this.backend === 'tone') {
+      clearTimeout(this._reRegTimer);
+      this._reRegTimer = setTimeout(() => this._registerRepeat(), Math.max(80, ramp * 1000 + 30));
     }
     this._bpmListeners.forEach((f) => { try { f(v, old); } catch (e) {} });
     return v;

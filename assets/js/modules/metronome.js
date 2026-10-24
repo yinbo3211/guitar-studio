@@ -115,6 +115,25 @@ const Metro = {
       if(this.subIdx>=this.sub){this.subIdx=0;this.beat=(this.beat+1)%this.beats;}
     });
     $('#metroToggle').onclick=()=>this.toggle();
+    // V3.1 修5：试音诊断（强/弱/细分各一声，任何一路失败给出完整诊断）
+    const st=$('#metroSoundTest');
+    if(st) st.onclick=()=>{
+      AudioEngine.ensure();
+      const diag={backend:'none-yet',tone:!!ToneEngine.Tone,buses:!!(ToneEngine.buses&&ToneEngine.buses.metro),voices:null,tonePath:null,nativePath:null};
+      Transport.init().then(async()=>{
+        diag.backend=Transport.backend;
+        this._ensureVoices();
+        diag.voices=!!this._voices;
+        try{ this._hit(AudioEngine.ctx.currentTime+0.1); diag.tonePath=true; }
+        catch(e){ diag.tonePath=e.message; }
+        try{ const c=AudioEngine.ctx,o=c.createOscillator(),g=c.createGain();
+             o.frequency.value=1050; g.gain.setValueAtTime(.3,c.currentTime);
+             g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.1);
+             o.connect(g); g.connect(AudioEngine.master); o.start(); o.stop(c.currentTime+.12);
+             diag.nativePath=true; }catch(e){ diag.nativePath=e.message; }
+        setTimeout(()=>toast(`诊断: ${JSON.stringify(diag)}`, 'info', 4200), 350);
+      });
+    };
     this.renderDots();
   },
   /* ---------- 自定义音源（物理机实测：使用真实采样音色） ---------- */
@@ -247,6 +266,7 @@ const Metro = {
   _ensureVoices(){
     const Tone=ToneEngine.Tone;
     if(this._voices || !Tone) return;
+    if(!ToneEngine.buses || !ToneEngine.buses.metro) return;   // V3.1 修3：总线未就绪不建声部
     const bus=ToneEngine.buses.metro;
     try{
       this._voices={
@@ -260,6 +280,16 @@ const Metro = {
     }catch(e){ this._voices=null; }
   },
   _hit(time){
+    try {
+      this._hitInner(time);
+    } catch (e) {
+      // V3.1 修2：Tone 发声链任一异常 → 弃用合成器，自动降级原生（保证有声音底线）
+      console.warn('[Metro] Tone 发声失败，降级原生路径：', e && e.message);
+      this._voices = null;
+      try { AudioEngine.click(this.beat===0, time - (AudioEngine.ctx?AudioEngine.ctx.currentTime:0)); } catch (e2) {}
+    }
+  },
+  _hitInner(time){
     this._ensureVoices();
     const strong=this.beat===0;
     const subAcc=isSubAccent(this.beats,this.beat);
@@ -306,8 +336,7 @@ const Metro = {
       if(this._voices && Tone){
       // P2-2 修复：Tone v15 triggerAttackRelease(note,duration,time,velocity)，
       // 第 4 参数是 velocity(0..1)，原先传 {gain:.2} 不生效，细分音与正拍一样响。
-      this._voices.click.triggerAttackRelease(800,.03,time,0.2);
-      }else{
+      this._voices.click.triggerAttackRelease(800,.03,time,0.2);      }else{
         const ctx=AudioEngine.ctx;
         // 同上：把绝对调度时间钳制到不早于「现在」，避免落在过去而静音
         const t0=Math.max(ctx.currentTime, time||ctx.currentTime);
