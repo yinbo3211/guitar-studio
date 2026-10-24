@@ -29,38 +29,16 @@ const AudioEngine = {
   _integrateTone(){
     ToneEngine.ensure().then(Tone=>{
       if(!Tone) return;
-      const rawCtx = Tone.getContext().rawContext;
-      if(this.ctx && !this.ctx.__gsShared && rawCtx.state!==undefined){
-        // BUG-02 修复：替换上下文时必须同步重建 master，
-        // 否则 master 属于旧 AudioContext，跨上下文连接必然失败，
-        // 且失败前 master.disconnect() 会让它成为悬空节点（全站静音）
-        //
-        // P1-1 修复：Tone 异步接管发生在「首次音频手势之后」的极窄竞态窗口内时，
-        // Rhythm.demoGain/metroGain、ChordLib 等早期消费节点仍挂在旧 master 上。
-        // 若此时 disconnect 旧 master，它既不接 Tone 新总线也不接旧 destination，
-        // 会变成永久悬空的静音节点（节奏/进度伴奏一路失声，必须刷新页面恢复）。
-        // 做法：保留旧 master → 旧 ctx.destination 的输出，让早期声部继续有声；
-        // 仅把「今后」新建的节点切到 Tone 共享上下文/总线。代价仅是接管瞬间
-        // 短暂存在两个上下文（首屏 main.js 已预取 Tone，正常情况下此窗口不会出现）。
-        const vol = this.master ? this.master.gain.value : .5;
-        const oldMaster = this.master;
-        this.ctx = rawCtx; rawCtx.__gsShared = true;
-        this.master = rawCtx.createGain();
-        this.master.gain.value = vol;
-        this.master.connect(rawCtx.destination);   // 兜底直连，保证一定有声
-        void oldMaster;   // 显式保留：旧 master 仍连在旧 ctx.destination 上，不 disconnect
-      }
-      const bus = ToneEngine.rawBuses && ToneEngine.rawBuses.music;
-      if(this.master && bus && bus instanceof AudioNode){
-        this.master.disconnect();
-        this.master.connect(bus);
-      }
-    }).catch(e=>{
-      // BUG-02 修复：任何失败都要把 master 接回 destination，绝不留下悬空节点
-      console.warn('[audio-engine] Tone 总线接入失败，走原生输出：', e&&e.message);
-      try{ this.master && this.master.connect(this.ctx.destination); }catch(_){}
-    });
-  },
+      try{
+        // V3.1 修4（BUG-3 疑点 C 根治）：不再中途替换 this.ctx——
+        // AudioEngine 的振荡器链路固定跑在自有 ctx-A，Tone 合成器跑在 rawCtx-B，
+        // 两条发声链互不混用时间基准；只把 master 声音汇入 tone-engine 总线做统一限幅
+        if(this.master && ToneEngine.rawBuses){
+          this.master.disconnect();
+          this.master.connect(ToneEngine.rawBuses.music);
+        }
+      }catch(e){ console.warn('[audio-engine] Tone 总线接入失败，走原生输出：', e&&e.message); }
+    }).catch(()=>{});  },
   /* 拨弦合成：三角波基音 + 泛音 + 指数衰减 */
   pluck(freq, when=0, dur=1.6, vol=.32){
     const ctx=this.ensure(), t0=ctx.currentTime+when;
