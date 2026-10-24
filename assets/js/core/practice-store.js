@@ -229,7 +229,7 @@ function getPlan(date) {
   const data = read();
   return (data.plans || {})[date || dayKey(Date.now())] || null;
 }
-function listPlan() { return (read().plans || {}); }
+function listPlans() { return (read().plans || {}); }
 
 /* ---------- 导出 / 导入（F1 数据出口） ---------- */
 function exportJSON() {
@@ -258,8 +258,7 @@ function exportCSV() {
   // 逗号/引号转义（CSV RFC4180 基本规则）
   return rows.map(r => r.map(v => {
     const s = String(v == null ? '' : v);
-    return /[",
-]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   }).join(',')).join('\n');
 }
 
