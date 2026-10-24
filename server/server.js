@@ -499,7 +499,7 @@ const DDNS = {
       .replace(/\+/g,'%20').replace(/\*/g,'%2A').replace(/%7E/g,'~')
       .replace(/!/g,'%21').replace(/'/g,'%27').replace(/\(/g,'%28').replace(/\)/g,'%29');
   },
-  async _aliREQ(params){
+  async _aliReq(params){
     const d = config.ddns;
     const all = Object.assign({
       Format:'JSON',
@@ -525,7 +525,7 @@ const DDNS = {
     // 域名记录数超页时找不到已有记录，会误建重复 AAAA 记录
     let rec = null, pageNum = 1, totalPages = 1;
     while(pageNum <= totalPages && !rec){
-      const page = await this._aliREQ({
+      const page = await this._aliReq({
         Action:'DescribeDomainRecords',
         DomainName:d.domain,
         PageNumber:pageNum,
@@ -542,9 +542,9 @@ const DDNS = {
     const ttl = String(Math.max(600, Number(d.ttl) || 600));
     let r;
     if(rec){
-      r = await this._aliREQ({ Action:'UpdateDomainRecord', RecordId:rec.RecordId, RR:sub, Type:'AAAA', Value:ip, TTL:ttl });
+      r = await this._aliReq({ Action:'UpdateDomainRecord', RecordId:rec.RecordId, RR:sub, Type:'AAAA', Value:ip, TTL:ttl });
     }else{
-      r = await this._aliREQ({ Action:'AddDomainRecord', DomainName:d.domain, RR:sub, Type:'AAAA', Value:ip, TTL:ttl });
+      r = await this._aliReq({ Action:'AddDomainRecord', DomainName:d.domain, RR:sub, Type:'AAAA', Value:ip, TTL:ttl });
     }
     if(!r || !r.RecordId)
       throw new Error('阿里云写入失败：' + (r && (r.Message||r.Code) ? (r.Message+' ('+r.Code+')') : '未知错误'));
@@ -602,6 +602,7 @@ function startTimer(){
   log(`DDNS 定时任务已开启，每 ${config.ddns.intervalMin} 分钟检查一次`, 'ok');
 }
 
+/* ============================================================
 /* ============================================================
    静态文件（根路径只返回吉他网页）
    ============================================================ */
@@ -929,8 +930,7 @@ function parseArgs(){
       if(!isPort(p)){ log(`参数 ${a} 非法：--port 需为 1-65535 的整数`, 'err'); process.exit(1); }
       config.webPort = p;
     }else if(a.startsWith('--port=')){
-      log(`参数 ${a} 非法：--port 需为 1-65535 的整数`, 'err');
-      process.exit(1);
+      log(`参数 ${a} 非法：--port 需为 1-65535 的整数`, 'err'); process.exit(1);
     }
     const h = a.match(/^--host=(.+)$/);
     if(h){
