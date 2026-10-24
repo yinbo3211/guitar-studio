@@ -195,7 +195,7 @@ const Ear = {
       const wrongs=this.shuffle(names.filter(x=>x!==label)).slice(0,3);
       this.opts=this.shuffle([label,...wrongs]);
       this.answer=this.opts.indexOf(label);
-      this._play=()=>{ AudioEngine.tone(freqFromMidi(midi),1.6,'sine',.3); };
+      this._play=()=>{ /* V3.1 BUG-5：与和弦库同源拨弦音色 */ AudioEngine.pluck(freqFromMidi(midi),0,1.6,.32); };
       $('#earQ').textContent= lvDef.octaves>1 ? '这是哪个音？（跨八度随机）' : '这是哪个音？（C 大调）';
     }
     if(this.mode==='interval'){
@@ -203,8 +203,8 @@ const Ear = {
       const root=pool[Math.floor(Math.random()*pool.length)];
       const item=this.intervals[Math.floor(Math.random()*this.intervals.length)];
       this._play=()=>{
-        AudioEngine.tone(freqFromMidi(root),1,'sine',.28);
-        AudioEngine.tone(freqFromMidi(root+item.semi),1.4,'sine',.28,1.05);
+        AudioEngine.pluck(freqFromMidi(root),0,1.4,.3);
+        AudioEngine.pluck(freqFromMidi(root+item.semi),1.05,1.4,.3);
       };
       const labels=this.intervals.map(x=>x.label);
       const wrongs=this.shuffle(labels.filter(x=>x!==item.label)).slice(0,3);
@@ -218,8 +218,9 @@ const Ear = {
       const root=50+Math.floor(Math.random()*8);
       this._play=()=>{
         // 先分解后柱式
-        item.iv.forEach((v,i)=>AudioEngine.tone(freqFromMidi(root+v),1.4,'sine',.16,0.15+i*0.18));
-        item.iv.forEach(v=>AudioEngine.tone(freqFromMidi(root+v),1.8,'triangle',.12,0.15+item.iv.length*0.18+0.25));
+        item.iv.forEach((v,i)=>AudioEngine.pluck(freqFromMidi(root+v),0.15+i*0.18,1.4,.2));
+        /* V3.1 BUG-5：齐奏改用和弦库同款 strum（吉他扫弦链路） */
+        AudioEngine.strum(item.iv.map(v=>freqFromMidi(root+v)),'down',.3);
       };
       const labels=list.map(x=>x.label);
       const wrongs=this.shuffle(labels.filter(x=>x!==item.label)).slice(0,3);
