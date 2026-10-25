@@ -7,6 +7,24 @@
 
 
 
+## V4.1 新特性：弹唱演奏（Note Highway）
+
+> 弹唱曲库的「开始弹唱」改为 **GuitarPicker 式滚动音符高速路**，呈现与
+> https://adervec.github.io/GuitarPicker/#/play/bi-twinkle 一致：
+> 画布 highway、判定线、实时音高标记、指板品位提示、血条、判定流水
+> （Perfect/Good/Off/Miss）、逐词卡拉 OK 歌词、合成伴奏乐队、结算评级横幅。
+> 版本 4.0.0 → **4.1.0**。第三方代码与数据来源见 `NOTICE.md`。
+
+- **演奏视图**：`assets/js/gp/play.js`（移植自 GuitarPicker `src/views/play.js`，MIT），
+  宿主壳 `assets/js/modules/song-play.js`，路由 `songPlay`。
+- **曲库数据**：`assets/js/gp/songs.js` —— 231 首需求手册曲目 + 5 首公有领域旋律；
+  歌词为 **QQ 音乐真实抓取**（230 首，含毫秒时间戳），和弦进行为通用和声模板。
+  生成链路：`tools/fetch_gp_songs.py` → `tools/build_gp_songs.py`。
+- **评分口径**：Perfect ≤28 音分、Good ≤60 音分，命中窗口 ±0.16s，
+  预备拍 3 秒；成绩经 `PracticeStore` 落库（module `songplay`）。
+- **样式隔离**：GuitarPicker 的 CSS 全部收敛在 `.gp-scope`（`assets/css/gp.css`），
+  不与宿主主题令牌冲突。
+
 ## V4.0 新特性：弹唱曲库与课程练习（Songbook）
 
 > 按《六弦工坊 V4.0 需求手册》交付。版本 3.3.0 → **4.0.0**。

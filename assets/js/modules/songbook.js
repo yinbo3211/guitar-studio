@@ -231,8 +231,9 @@ const Songbook = {
     if (action === 'start') {
       const song = songById(id);
       if (!song) return;
-      try { if (typeof SongPractice !== 'undefined' && SongPractice) SongPractice.prepare(id); } catch (err) { /* 练习模块缺失时仍跳转 */ }
-      goRoute('songPractice');
+      /* V4.1：走 GuitarPicker note-highway 演奏视图（与参考站一致的呈现） */
+      try { if (typeof SongPlay !== 'undefined' && SongPlay) SongPlay.prepare(id); } catch (err) { /* 演奏模块缺失时仍跳转 */ }
+      goRoute('songPlay');
       return;
     }
     if (action === 'sheets') {

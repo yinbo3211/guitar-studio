@@ -6,7 +6,7 @@
 
 /* ---------- 路由 ---------- */
 /* V4.0：新增 songbook（弹唱曲库）与 songPractice（弹唱练习）两个路由 */
-const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚',flow:'和弦转换训练',plan:'每日练习计划',stats:'练习统计中心',songbook:'弹唱曲库',songPractice:'弹唱练习'};
+const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚',flow:'和弦转换训练',plan:'每日练习计划',stats:'练习统计中心',songbook:'弹唱曲库',songPractice:'弹唱练习',songPlay:'弹唱演奏'};
 const onRouteEnter = {};
 function go(route){
   location.hash = '#/'+route;
@@ -72,7 +72,8 @@ const MORE_LABEL = {
   songbook:'曲库'
 };
 /* songPractice 需要「先选曲」才有内容，不作为独立入口出现在更多菜单 */
-const MORE_EXCLUDE = ['songPractice'];
+/* 练习页与演奏页都只能从曲卡进入：不出现在底栏「更多」里 */
+const MORE_EXCLUDE = ['songPractice', 'songPlay'];
 const MORE_ROUTES = Object.keys(ROUTE_TITLES)
   .filter(r => TABBAR_ROUTES.indexOf(r) < 0 && MORE_EXCLUDE.indexOf(r) < 0)
   .map(r => ({ r, label: MORE_LABEL[r] || ROUTE_TITLES[r], ic: MORE_EXTRA_IC[r] || MORE_EXTRA_IC.stats }));

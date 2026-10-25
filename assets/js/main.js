@@ -33,6 +33,9 @@ import './modules/stats.js';         // V3.1 F1：练习统计中心
 import './data/songlist-data.js';    // V4.0 T1：弹唱曲库数据层（231 首 / 706 谱）
 import './modules/songbook.js';      // V4.0 T1+T2：曲库浏览页与课程单元系统
 import './modules/song-practice.js'; // V4.0 T3：弹唱练习模式
+import './gp/catalog.js';            // V4.1：弹唱曲库访问层（移植 GuitarPicker，MIT）
+import './gp/play.js';               // V4.1：note-highway 演奏视图
+import './modules/song-play.js';     // V4.1：演奏视图宿主壳（路由 songPlay）
 
 /* 原 app-3.js 尾部：全部模块注册完 onRouteEnter 后再执行首次路由 */
 applyRoute();

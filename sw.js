@@ -84,7 +84,31 @@ const CORE = [
   // V4.0 新增（T1 曲库数据层 / T1+T2 曲库浏览与课程单元 / T3 弹唱练习）
   './assets/js/data/songlist-data.js',
   './assets/js/modules/songbook.js',
-  './assets/js/modules/song-practice.js'
+  './assets/js/modules/song-practice.js',
+  './assets/js/modules/song-play.js',
+  // V4.1：note-highway 演奏视图及其全部依赖（离线冷启动不白屏）
+  './assets/js/gp/accompany.js',
+  './assets/js/gp/avatar.js',
+  './assets/js/gp/avatars.js',
+  './assets/js/gp/backgrounds.js',
+  './assets/js/gp/band.js',
+  './assets/js/gp/catalog.js',
+  './assets/js/gp/components.js',
+  './assets/js/gp/engine.js',
+  './assets/js/gp/grader.js',
+  './assets/js/gp/karaoke-render.js',
+  './assets/js/gp/karaoke-timeline.js',
+  './assets/js/gp/notes.js',
+  './assets/js/gp/parts.js',
+  './assets/js/gp/pitch.js',
+  './assets/js/gp/play.js',
+  './assets/js/gp/player.js',
+  './assets/js/gp/song-format.js',
+  './assets/js/gp/songs.js',
+  './assets/js/gp/state.js',
+  './assets/js/gp/synth.js',
+  './assets/js/gp/theory.js',
+  './assets/js/gp/voices.js',
 ];
 /* 次要资源：允许个别失败（如图标），不阻塞安装 */
 const OPTIONAL = [
@@ -96,6 +120,7 @@ const OPTIONAL = [
   './assets/css/tokens.css',
   './assets/css/base.css',
   './assets/css/components.css',
+  './assets/css/gp.css',
   './assets/css/ui-kit.css',
   './assets/css/themes/theme-neon.css',
   './assets/css/themes/theme-dawn.css',

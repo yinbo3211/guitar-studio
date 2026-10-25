@@ -1,0 +1,385 @@
+.gp-scope /* ============================================================ 
+   六弦工坊 V4.1 · 弹唱演奏视图样式（移植自 GuitarPicker，MIT）
+   ------------------------------------------------------------
+   全部规则收敛在 .gp-scope 作用域内，避免与宿主 --bg/--accent
+   等设计令牌冲突；默认使用 GuitarPicker 的 midnight 主题，
+   以保证与 https://adervec.github.io/GuitarPicker 外观一致。
+   ============================================================ */
+
+/* Theme variable sets. Switch via <html data-theme="..."> */
+.gp-scope {
+  --radius: 14px;
+  --radius-sm: 9px;
+  --gap: 16px;
+  --font: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --mono: "Cascadia Code", "Consolas", ui-monospace, monospace;
+  --speed: 160ms;
+
+  /* judgment colors are shared across themes */
+  --j-perfect: #21d07a;
+  --j-good: #5ec8ff;
+  --j-off: #ffb454;
+  --j-miss: #ff5d6c;
+}
+.gp-scope /* ---- Midnight (default) ---- */
+.gp-scope {
+  --bg: #0b0f1a;
+  --bg-2: #111726;
+  --panel: #151d30;
+  --panel-2: #1b2440;
+  --line: #26324f;
+  --text: #e8eefc;
+  --muted: #9aa9c7;
+  --accent: #6ea8fe;
+  --accent-2: #b388ff;
+  --accent-ink: #07101f;
+  --good: #21d07a;
+  --warn: #ffb454;
+  --bad: #ff5d6c;
+  --highway: #0a0e18;
+  --highway-line: #1c2740;
+}
+.gp-scope * { box-sizing: border-box; }
+.gp-scope html, .gp-scope body { height: 100%; margin: 0; }
+.gp-scope body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;                 /* no pull-to-refresh reload mid-song */
+  -webkit-tap-highlight-color: transparent;  /* no grey flash on every tap */
+}
+.gp-scope button, .gp-scope input, .gp-scope select, .gp-scope textarea { font-family: inherit; color: inherit; }
+.gp-scope a { color: var(--accent); }
+.gp-scope .hidden { display: none !important; }
+.gp-scope /* dvh: mobile URL-bar safe. minmax(0, .gp-scope 1fr): an auto row takes its item's max-content
+   height, .gp-scope so a tall canvas grew the row past the window and pushed the play controls
+   out of sight — the 0 minimum lets the row be exactly the window height. */
+.gp-scope #app { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: minmax(0, 1fr);
+  height: 100vh; height: 100dvh; }
+.gp-scope /* ---------- Sidebar ---------- */
+.gp-scope #sidebar {
+  background: linear-gradient(180deg, var(--bg-2), var(--bg));
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; padding: 16px 12px;
+}
+.gp-scope .brand { display: flex; gap: 12px; align-items: center; padding: 6px 8px 18px; }
+.gp-scope .brand-mark { font-size: 28px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.4)); }
+.gp-scope .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.gp-scope .brand-text strong { font-size: 18px; letter-spacing: .3px; }
+.gp-scope .brand-text span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+.gp-scope #nav { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }
+.gp-scope .nav-item {
+  display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+  border-radius: var(--radius-sm); color: var(--muted); cursor: pointer;
+  border: 1px solid transparent; font-size: 14px; transition: var(--speed);
+  text-decoration: none;
+}
+.gp-scope .nav-item .ico { width: 20px; text-align: center; font-size: 16px; }
+.gp-scope .nav-item:hover { background: var(--panel); color: var(--text); }
+.gp-scope .nav-item.active { background: var(--panel-2); color: var(--text); border-color: var(--line); }
+.gp-scope .nav-item.active .ico { filter: drop-shadow(0 0 6px var(--accent)); }
+.gp-scope .nav-sep { font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px;
+  color: var(--muted); opacity: .65; padding: 14px 12px 4px; }
+.gp-scope .sidebar-foot { padding-top: 12px; border-top: 1px solid var(--line); margin-top: 8px; }
+.gp-scope .io-indicator { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.gp-scope .io-row { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+.gp-scope .io-row span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-scope .io-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex: none; }
+.gp-scope .io-dot.in.live { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.gp-scope .io-dot.out { background: var(--accent); }
+.gp-scope /* ---------- Main ---------- */
+#main { display: flex; flex-direction: column; overflow: hidden; }
+.gp-scope #topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 22px; border-bottom: 1px solid var(--line); background: var(--bg-2);
+}
+.gp-scope #crumb { font-size: 15px; font-weight: 600; }
+.gp-scope #crumb small { color: var(--muted); font-weight: 400; margin-left: 8px; }
+.gp-scope .topbar-right { display: flex; align-items: center; gap: 14px; }
+.gp-scope .health-mini { width: 140px; height: 12px; border-radius: 8px; background: var(--panel);
+  border: 1px solid var(--line); overflow: hidden; position: relative; }
+.gp-scope .health-mini::after { content: ""; position: absolute; inset: 0; width: var(--h, 100%);
+  background: linear-gradient(90deg, var(--bad), var(--warn) 45%, var(--good));
+  transition: width 200ms; }
+.gp-scope .coin-chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px;
+  border-radius: 999px; background: var(--panel); border: 1px solid var(--line);
+  color: var(--text); font-size: 13px; text-decoration: none; font-variant-numeric: tabular-nums; }
+.gp-scope .coin-chip:hover { border-color: var(--warn); }
+.gp-scope .coin-chip b { color: var(--warn); }
+.gp-scope .streak-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px;
+  border-radius: 999px; font-size: 13px; color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 16%, var(--panel-2)); border: 1px solid var(--warn); }
+.gp-scope .streak-chip.cold { color: var(--muted); background: var(--panel-2); border-color: var(--line); }
+.gp-scope #theme-quick, .gp-scope select.input, .gp-scope input.input, .gp-scope textarea.input {
+  background: var(--panel); border: 1px solid var(--line); color: var(--text);
+  border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; outline: none;
+}
+.gp-scope select.input:focus, .gp-scope input.input:focus, .gp-scope textarea.input:focus { border-color: var(--accent); }
+.gp-scope /* min-height:0 or the flex item is sized by its content instead of the window —
+   the canvas reports its own (stale, .gp-scope larger) pixel height, .gp-scope which pushed the play
+   controls below the fold. Also what makes .play-shell's height:100% definite. */
+#view { padding: 22px; overflow-y: auto; flex: 1; min-height: 0; }
+.gp-scope #view.no-pad { padding: 0; }
+.gp-scope /* ---------- Generic components ---------- */
+.row { display: flex; gap: var(--gap); flex-wrap: wrap; }
+.gp-scope .col { display: flex; flex-direction: column; gap: var(--gap); }
+.gp-scope .grid { display: grid; gap: var(--gap); }
+.gp-scope .grid.cards { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.gp-scope .spread { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.gp-scope .muted { color: var(--muted); }
+.gp-scope .center { text-align: center; }
+.gp-scope h1 { font-size: 24px; margin: 0 0 4px; }
+.gp-scope h2 { font-size: 18px; margin: 0 0 10px; }
+.gp-scope h3 { font-size: 15px; margin: 0 0 6px; }
+.gp-scope .page-head { margin-bottom: 18px; }
+.gp-scope .page-head p { color: var(--muted); margin: 4px 0 0; }
+
+.gp-scope .panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px;
+}
+.gp-scope .panel.tight { padding: 14px; }
+.gp-scope .card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; cursor: pointer; transition: var(--speed);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.gp-scope .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.gp-scope .card .title { font-weight: 600; }
+.gp-scope .card .sub { font-size: 12px; color: var(--muted); }
+.gp-scope .tag { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
+.gp-scope .tag.beginner { color: var(--good); border-color: var(--good); }
+.gp-scope .tag.intermediate { color: var(--warn); border-color: var(--warn); }
+.gp-scope .tag.advanced { color: var(--bad); border-color: var(--bad); }
+
+.gp-scope .btn {
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 9px 15px; cursor: pointer; font-size: 14px;
+  transition: var(--speed);
+}
+.gp-scope .btn:hover { border-color: var(--accent); }
+.gp-scope .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.gp-scope .btn.primary:hover { filter: brightness(1.08); }
+.gp-scope .btn.ghost { background: transparent; }
+.gp-scope .btn.danger { border-color: var(--bad); color: var(--bad); }
+.gp-scope .btn:disabled { opacity: .45; cursor: not-allowed; }
+.gp-scope .btn.lg { padding: 12px 22px; font-size: 15px; }
+.gp-scope label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); }
+.gp-scope label.field .input, .gp-scope label.field select, .gp-scope label.field input, .gp-scope label.field textarea { color: var(--text); }
+.gp-scope .slider { display: flex; align-items: center; gap: 10px; }
+.gp-scope .slider input[type=range] { flex: 1; accent-color: var(--accent); }
+.gp-scope .slider .val { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+.gp-scope .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.gp-scope .stat .num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.gp-scope .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+.gp-scope table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+.gp-scope table.data th, .gp-scope table.data td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.gp-scope table.data th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+.gp-scope table.data tr:hover td { background: var(--panel-2); }
+.gp-scope .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.gp-scope .pill { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--panel-2); cursor: pointer; font-size: 13px; }
+.gp-scope .pill.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.gp-scope .progress { height: 10px; border-radius: 6px; background: var(--panel-2); overflow: hidden; border: 1px solid var(--line); }
+.gp-scope .progress > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.gp-scope /* ---------- Toasts ---------- */
+#toast-host { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 10px; z-index: 50; }
+.gp-scope .toast { background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm); padding: 11px 15px; min-width: 220px; max-width: 360px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.35); animation: toast-in 180ms ease; font-size: 14px; }
+.gp-scope .toast.good { border-left-color: var(--good); }
+.gp-scope .toast.bad { border-left-color: var(--bad); }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.gp-scope /* ---------- Tuner ---------- */
+.tuner-wrap { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 720px; margin: 0 auto; }
+.gp-scope .tuner-display { text-align: center; padding: 26px; }
+.gp-scope .tuner-note { font-size: 86px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+.gp-scope .tuner-note small { font-size: 26px; vertical-align: super; color: var(--muted); }
+.gp-scope .tuner-freq { color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 4px; }
+.gp-scope .tuner-meter { position: relative; height: 70px; margin: 22px 0 8px; }
+.gp-scope .tuner-needle { position: absolute; top: 0; bottom: 0; left: 50%; width: 3px; background: var(--accent);
+  transform-origin: bottom center; transition: transform 90ms linear, background 120ms; }
+.gp-scope .tuner-scale { position: absolute; inset: auto 0 0 0; height: 2px; background: var(--line); }
+.gp-scope .tuner-center { position: absolute; bottom: 0; left: 50%; width: 2px; height: 18px; background: var(--muted); transform: translateX(-50%); }
+.gp-scope .tuner-verdict { font-size: 16px; font-weight: 600; }
+.gp-scope .tuner-verdict.intune { color: var(--good); }
+.gp-scope .tuner-verdict.flat, .gp-scope .tuner-verdict.sharp { color: var(--warn); }
+.gp-scope .string-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.gp-scope .string-btn { width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--line);
+  background: var(--panel-2); cursor: pointer; font-weight: 700; font-size: 15px; transition: var(--speed); }
+.gp-scope .string-btn.target { border-color: var(--accent); }
+.gp-scope .string-btn.intune { border-color: var(--good); background: color-mix(in srgb, var(--good) 18%, var(--panel-2)); }
+.gp-scope /* ---------- Highway / Play ---------- */
+.play-shell { position: relative; height: 100%; display: flex; flex-direction: column; }
+.gp-scope /* Canvas + HUD live on a stage so (a) the overlay covers the highway and not the
+   control bar, .gp-scope and (b) the canvas can shrink: a flex item's min-height is auto, .gp-scope which for a canvas means its own intrinsic height — the one the ResizeObserver
+   keeps writing back. It could grow but never shrink, .gp-scope so on a short screen it
+   pushed the controls off the bottom. */
+.play-stage { position: relative; flex: 1; min-height: 0; }
+.gp-scope #highway-canvas, .gp-scope #kara-canvas { display: block; width: 100%; height: 100%; background: var(--highway); }
+.gp-scope .play-overlay { position: absolute; inset: 0; pointer-events: none; }
+.gp-scope .play-hud { position: absolute; top: 14px; left: 14px; right: 14px; display: flex;
+  justify-content: space-between; align-items: flex-start; pointer-events: none; }
+.gp-scope .hud-box { background: rgba(0,0,0,.42); backdrop-filter: blur(4px); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 8px 12px; pointer-events: auto; }
+.gp-scope .play-avatar { width: 52px; height: 60px; flex: none; background: rgba(0,0,0,.42);
+  backdrop-filter: blur(4px); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 2px; pointer-events: auto; }
+.gp-scope .killfeed { position: absolute; right: 16px; top: 70px; display: flex; flex-direction: column;
+  gap: 6px; align-items: flex-end; pointer-events: none; }
+.gp-scope .kill { padding: 5px 11px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  background: rgba(0,0,0,.5); border: 1px solid var(--line); animation: toast-in 140ms; }
+.gp-scope .kill.perfect { color: var(--j-perfect); border-color: var(--j-perfect); }
+.gp-scope .kill.good { color: var(--j-good); border-color: var(--j-good); }
+.gp-scope .kill.off { color: var(--j-off); border-color: var(--j-off); }
+.gp-scope .kill.miss { color: var(--j-miss); border-color: var(--j-miss); }
+.gp-scope .healthbar-big { height: 16px; border-radius: 10px; background: rgba(0,0,0,.4);
+  border: 1px solid var(--line); overflow: hidden; width: 260px; }
+.gp-scope .healthbar-big > i { display: block; height: 100%; transition: width 160ms;
+  background: linear-gradient(90deg, var(--bad), var(--warn) 50%, var(--good)); }
+.gp-scope .play-controls { display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+  border-top: 1px solid var(--line); background: var(--bg-2); flex-wrap: wrap; }
+.gp-scope .play-bottom-fade { position:absolute; left:0; right:0; bottom:0; height:90px; pointer-events:none;
+  background: linear-gradient(180deg, transparent, rgba(0,0,0,.25)); }
+.gp-scope .lyric-line { position:absolute; left:0; right:0; bottom:18px; text-align:center; font-size:22px;
+  font-weight:700; text-shadow: 0 2px 10px rgba(0,0,0,.8); pointer-events:none; --kw-future: var(--muted); }
+.gp-scope .lyric-line .kw { color: var(--kw-future); transition: color 90ms; }
+.gp-scope .lyric-line .kw.done { color: var(--accent); }
+.gp-scope .lyric-line .kw.cur { -webkit-background-clip: text; background-clip: text; color: transparent; }
+.gp-scope .banner { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+.gp-scope .banner .panel { text-align:center; max-width: 480px; }
+.gp-scope .big-grade { font-size: 64px; font-weight: 800; }
+.gp-scope /* ---------- Karaoke ---------- */
+.view-pad { padding: 22px; }
+.gp-scope .kara-pick { cursor: pointer; transition: transform 120ms, border-color 120ms; }
+.gp-scope .kara-pick:hover { transform: translateY(-2px); border-color: var(--accent); }
+.gp-scope .kara-stage { position:absolute; left:0; right:0; top:46%; transform: translateY(-50%);
+  text-align:center; pointer-events:none; padding: 0 6%; --kw-future: var(--muted); }
+.gp-scope .kara-stage > div { text-shadow: 0 2px 14px rgba(0,0,0,.85); line-height: 1.18; }
+.gp-scope .kara-countin { height: 26px; letter-spacing: 8px; color: var(--accent); font-size: 18px; opacity: .85; }
+.gp-scope .kara-prev { font-size: 20px; opacity: .4; min-height: 24px; }
+.gp-scope .kara-cur { font-size: clamp(28px, 5vw, 54px); font-weight: 800; margin: 6px 0 10px; min-height: 60px; }
+.gp-scope .kara-next { font-size: 24px; opacity: .62; min-height: 28px; }
+.gp-scope .kara-next2 { font-size: 19px; opacity: .34; min-height: 22px; }
+.gp-scope .kara-cur .kw { color: var(--kw-future); transition: color 90ms; }
+.gp-scope .kara-cur .kw.done { color: var(--accent); }
+.gp-scope .kara-cur .kw.cur { -webkit-background-clip: text; background-clip: text; color: transparent; }
+.gp-scope /* ---------- Editor / piano roll ---------- */
+.roll-wrap { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--highway); }
+.gp-scope #roll-canvas { display: block; width: 100%; cursor: crosshair; }
+.gp-scope /* ---------- Charts ---------- */
+.chart { width: 100%; height: 220px; display: block; }
+.gp-scope .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color: var(--muted); }
+.gp-scope .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align: middle; }
+.gp-scope /* ---------- Minigame ---------- */
+.quiz-choices { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.gp-scope .quiz-choice { padding: 16px; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--panel-2); cursor: pointer; font-size: 16px; text-align:center; transition: var(--speed); }
+.gp-scope .quiz-choice:hover { border-color: var(--accent); }
+.gp-scope .quiz-choice.correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 20%, var(--panel-2)); }
+.gp-scope .quiz-choice.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 20%, var(--panel-2)); }
+.gp-scope /* ---------- Fretboard / capo ---------- */
+.gp-scope .capo-note { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px;
+  border:1px solid var(--warn); color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.gp-scope /* scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+.gp-scope ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
+.gp-scope ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- Mobile vs desktop ----------
+   Three switches, each keyed to what it actually detects:
+     width   -> how much layout fits (rail, then bottom tab bar)
+     pointer -> finger or mouse (touch target size)
+     height  -> landscape phone, where the note highway wants the whole screen
+   ponytail: no JS device sniffing and no manual mode toggle — the browser already
+   knows all three, and "Request desktop site" is a built-in browser menu item.
+   Add a stored override only if someone actually wants mobile layout on a desktop. */
+
+/* Tablet / narrow: collapse the sidebar to a centered icon rail. */
+@media (max-width: 820px) {
+.gp-scope #app { grid-template-columns: 60px 1fr; }
+.gp-scope .brand-text, .gp-scope .nav-item span:not(.ico), .gp-scope .io-indicator { display: none; }
+.gp-scope #sidebar { padding: 14px 6px; }
+.gp-scope .brand { justify-content: center; padding: 6px 0 14px; }
+.gp-scope .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
+.gp-scope .nav-item .ico { font-size: 19px; }
+.gp-scope .nav-sep { text-align: center; padding: 12px 0 4px; font-size: 8px; letter-spacing: .6px; }
+}
+
+/* Phones: trim chrome and stack every multi-column form grid to one column.
+   ponytail: one rule collapses all .grid form layouts instead of editing ~9 inline
+   styles across views; the locker swatch grid uses a raw inline display:grid (no .grid
+   class) so it stays multi-column, which is what we want there. */
+@media (max-width: 560px) {
+.gp-scope #view { padding: 14px; }
+.gp-scope #topbar { padding: 10px 14px; }
+.gp-scope #crumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp-scope .topbar-right { gap: 8px; }
+.gp-scope /* Give the title the width back: the play view already draws its own health bar, .gp-scope and the theme picker lives in Settings. */
+  #health-mini, .gp-scope #theme-quick { display: none; }
+.gp-scope .panel { padding: 14px; overflow-x: auto; }       /* wide tables scroll in-panel, not off-page */
+.gp-scope .grid { grid-template-columns: 1fr !important; }   /* beat inline gridTemplateColumns on phones */
+.gp-scope .quiz-choices { grid-template-columns: 1fr; }
+.gp-scope .healthbar-big { width: 100%; }
+.gp-scope #toast-host { left: 14px; right: 14px; bottom: 78px; }  /* clear of the tab bar */
+.gp-scope .toast { min-width: 0; max-width: none; }
+.gp-scope /* The rail becomes a thumb-reachable bottom tab bar: the note highway scrolls
+     right-to-left, .gp-scope so every pixel of width is lookahead time. */
+  #app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+.gp-scope #sidebar { order: 2; flex-direction: row; padding: 2px 0;
+    border-right: 0; border-top: 1px solid var(--line); }
+.gp-scope .brand, .gp-scope .nav-sep, .gp-scope .sidebar-foot { display: none; }
+.gp-scope #nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.gp-scope #nav::-webkit-scrollbar { display: none; }
+.gp-scope .nav-item { flex: none; min-width: 58px; }
+.gp-scope /* Without this the icon row's content width wins and stretches the whole app
+     wider than the screen — grid/flex items default to min-width:auto. */
+  #sidebar, .gp-scope #nav, .gp-scope #main { min-width: 0; }
+.gp-scope /* One scrollable row of controls instead of four wrapped ones — the rows it
+     saves go to the highway. */
+  .play-controls { flex-wrap: nowrap; overflow-x: auto; gap: 10px; padding: 8px 12px; }
+.gp-scope .play-controls > * { flex: none; }
+.gp-scope .play-hud { top: 8px; left: 8px; right: 8px; }
+.gp-scope .lyric-line { font-size: 17px; }
+}
+
+/* Touch: fingers need ~44px, and manipulation drops the 300ms double-tap delay. */
+@media (pointer: coarse) {
+.gp-scope .btn, .gp-scope .nav-item, .gp-scope .quiz-choice, .gp-scope select.input, .gp-scope input.input { min-height: 44px; }
+.gp-scope button, .gp-scope a, .gp-scope select, .gp-scope input, .gp-scope .card, .gp-scope .quiz-choice { touch-action: manipulation; }
+}
+
+/* No hover (touch): a tapped card would otherwise keep its hover lift stuck on. */
+@media (hover: none) {
+.gp-scope .card:hover, .gp-scope .kara-pick:hover { transform: none; }
+}
+
+/* Landscape phone on the immersive routes (play/karaoke): give them the whole
+   screen. Both views carry their own "← Songs" button, so nothing is trapped. */
+@media (max-height: 500px) and (orientation: landscape) {
+.gp-scope #app:has(#view.no-pad) { grid-template-columns: 1fr; }
+.gp-scope #app:has(#view.no-pad) #sidebar, .gp-scope #main:has(#view.no-pad) #topbar { display: none; }
+.gp-scope /* One swipeable row, .gp-scope not two wrapped ones — 97px of controls out of 390 was
+     a quarter of the screen. */
+  #view.no-pad .play-controls { flex-wrap: nowrap; overflow-x: auto; padding: 5px 10px; gap: 8px; }
+.gp-scope #view.no-pad .play-controls > * { flex: none; }
+.gp-scope #view.no-pad .play-avatar { display: none; }
+}
+
+/* Portrait phone: the highway is only as wide as the screen, so say so once and
+   fade out. Pure CSS — no element, no timer, gone the moment you rotate. */
+@media (max-width: 700px) and (orientation: portrait) {
+.gp-scope .play-shell::after {
+    content: "↻ Rotate for more of the note highway";
+    position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%);
+    background: rgba(0,0,0,.6); border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 15px; font-size: 13px; white-space: nowrap; pointer-events: none;
+    animation: hint-fade 7s forwards;
+  }
+}
+@keyframes hint-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }

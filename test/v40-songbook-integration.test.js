@@ -59,7 +59,7 @@ test('V4-2 router 注册 songbook / songPractice 两个路由', () => {
 
 test('V4-2 「更多」菜单收录曲库但排除练习页（练习页只能从曲卡进入）', () => {
   assert.ok(/MORE_EXCLUDE/.test(ROUTER), '存在排除清单');
-  assert.ok(/MORE_EXCLUDE\s*=\s*\[\s*'songPractice'\s*\]/.test(ROUTER));
+  assert.ok(/MORE_EXCLUDE\s*=\s*\[\s*'songPractice'\s*(?:,\s*'songPlay'\s*)?\]/.test(ROUTER));
   assert.ok(/MORE_LABEL[\s\S]*songbook/.test(ROUTER), '更多菜单含曲库标签');
 });
 
@@ -91,12 +91,13 @@ test('V4-3 main.js 已静态引入三个新模块（否则不会注册 onRouteEn
 /* ============================================================
    V4-4 版本
    ============================================================ */
-test('V4-4 package.json 与 version.json 版本一致且为 4.0.0', () => {
+test('V4-4 package.json 与 version.json 版本号一致且不低于 4.0.0', () => {
   const pkg = JSON.parse(read('package.json'));
   const ver = JSON.parse(read('version.json'));
-  assert.strictEqual(pkg.version, '4.0.0');
-  assert.strictEqual(ver.version, '4.0.0');
   assert.strictEqual(pkg.version, ver.version, '两处版本号必须一致（SW 缓存名取自 version.json）');
+  const cmp = (v) => v.split('.').map(Number);
+  const [a, b] = [cmp(pkg.version), cmp('4.0.0')];
+  assert.ok(a[0] > b[0] || (a[0] === b[0] && a[1] >= b[1]), `版本应 >= 4.0.0，实际 ${pkg.version}`);
 });
 
 /* ============================================================

@@ -1,0 +1,102 @@
+/* ============================================================
+   六弦工坊 V4.1 · 适配器：GuitarPicker Store → 宿主持久化层
+   ------------------------------------------------------------
+   被移植的 GuitarPicker 模块（engine/player/band/synth）只依赖
+   Store.settings() / Store.setSetting() / Store.addHistory() 三个面，
+   这里把它们映射到宿主既有的 gsStore（localStorage `gs.prefs` 的 `gp`
+   子对象）与 PracticeStore（统一练习数据层），避免引入第二套存储。
+   宿主环境下 gsStore / PracticeStore 缺失时退化为内存态，不抛错。
+   ============================================================ */
+'use strict';
+
+/* 与 GuitarPicker 默认值保持一致；缺失项由这里补齐 */
+const GP_DEFAULTS = {
+  a4: 440,
+  noteSpeed: 1,
+  instrument: 'acoustic-guitar',
+  inputDeviceId: '',
+  outputDeviceId: '',
+  backingVolume: 0.7,
+  vocalVolume: 0.8,
+  band: true,
+  noteSounds: true,
+  showFingering: true,
+  karaokeLyrics: true,
+  karaokeScoring: false,
+  micGate: 0.012,
+};
+
+const mem = { gp: { ...GP_DEFAULTS }, history: [] };
+
+function readPrefs() {
+  try {
+    if (typeof gsStore !== 'undefined' && gsStore && typeof gsStore.read === 'function') return gsStore.read() || {};
+    if (typeof window !== 'undefined' && window.gsStore) return window.gsStore.read() || {};
+  } catch (e) { /* 隐私模式：退化为内存态 */ }
+  return {};
+}
+function writePrefs(patch) {
+  try {
+    if (typeof gsStore !== 'undefined' && gsStore && typeof gsStore.write === 'function') return gsStore.write(patch);
+    if (typeof window !== 'undefined' && window.gsStore) return window.gsStore.write(patch);
+  } catch (e) { /* 写入失败不阻断 UI */ }
+  Object.assign(mem, patch);
+  return null;
+}
+function toastSafe(msg, kind) {
+  try { if (typeof toast === 'function') toast(msg, kind === 'bad' ? 'err' : kind); } catch (e) { /* 无 toast 环境静默 */ }
+}
+
+export const Store = {
+  settings() {
+    const gp = readPrefs().gp || mem.gp || {};
+    return { ...GP_DEFAULTS, ...gp };
+  },
+  setSetting(key, value) {
+    const gp = { ...(readPrefs().gp || mem.gp || {}), [key]: value };
+    mem.gp = gp;
+    writePrefs({ gp });
+  },
+  patch(obj) {
+    const gp = { ...(readPrefs().gp || mem.gp || {}), ...obj };
+    mem.gp = gp;
+    writePrefs({ gp });
+  },
+  /** 成绩入宿主统一练习数据层：module 固定 'songplay'（弹唱曲库） */
+  addHistory(entry) {
+    const rec = {
+      module: 'songplay',
+      startedAt: Number.isFinite(entry.startedAt) ? entry.startedAt : (Date.now() - (entry.durationSec || 0) * 1000),
+      endedAt: entry.ts || Date.now(),
+      durationMs: Math.max(0, Math.round((entry.durationSec || 0) * 1000)),
+      accuracy: Number.isFinite(entry.accuracy) ? entry.accuracy / 100 : null,
+      targetBpm: Number.isFinite(entry.bpm) ? entry.bpm : null,
+      detectedBpm: null,
+      meta: {
+        songId: entry.songId || '',
+        songTitle: entry.songTitle || '',
+        unit: '',
+        tier: null,
+        score: entry.score || 0,
+        maxStreak: entry.maxStreak || 0,
+        passed: !!entry.passed,
+        grade: entry.grade || '',
+        notes: entry.notes || { perfect: 0, good: 0, off: 0, miss: 0 },
+        record: false,
+      },
+    };
+    try {
+      if (typeof PracticeStore !== 'undefined' && PracticeStore && typeof PracticeStore.addSession === 'function') {
+        PracticeStore.addSession(rec);
+      }
+    } catch (e) {
+      toastSafe('成绩写入失败（不影响本次演奏）', 'bad');
+    }
+    mem.history.push(entry);
+    return entry;
+  },
+  history() { return mem.history.slice(); },
+  onChange() { return () => {}; },
+};
+
+export default Store;
