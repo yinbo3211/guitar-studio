@@ -5,7 +5,8 @@
 'use strict';
 
 /* ---------- 路由 ---------- */
-const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚',flow:'和弦转换训练',plan:'每日练习计划',stats:'练习统计中心'};
+/* V4.0：新增 songbook（弹唱曲库）与 songPractice（弹唱练习）两个路由 */
+const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚',flow:'和弦转换训练',plan:'每日练习计划',stats:'练习统计中心',songbook:'弹唱曲库',songPractice:'弹唱练习'};
 const onRouteEnter = {};
 function go(route){
   location.hash = '#/'+route;
@@ -60,15 +61,20 @@ const MORE_EXTRA_IC = {
   studio:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/>',
   flow:'<path d="M4 7h7l-3 10"/><path d="M13 7h7l-3 10"/>',
   plan:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/>',
-  stats:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'
+  stats:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  /* V4.0：曲库图标（线性书本，与既有图标语言一致） */
+  songbook:'<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 16.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5z"/>'
 };
 const MORE_LABEL = {
   home:'首页', tuner:'调音', metro:'节拍', game:'闯关',
   rhythm:'节奏', chords:'和弦库', scale:'音阶', ear:'练耳',
-  fret:'指板', studio:'录音', flow:'和弦转换', plan:'计划', stats:'统计'
+  fret:'指板', studio:'录音', flow:'和弦转换', plan:'计划', stats:'统计',
+  songbook:'曲库'
 };
+/* songPractice 需要「先选曲」才有内容，不作为独立入口出现在更多菜单 */
+const MORE_EXCLUDE = ['songPractice'];
 const MORE_ROUTES = Object.keys(ROUTE_TITLES)
-  .filter(r => TABBAR_ROUTES.indexOf(r) < 0)
+  .filter(r => TABBAR_ROUTES.indexOf(r) < 0 && MORE_EXCLUDE.indexOf(r) < 0)
   .map(r => ({ r, label: MORE_LABEL[r] || ROUTE_TITLES[r], ic: MORE_EXTRA_IC[r] || MORE_EXTRA_IC.stats }));
 $('#moreGrid').innerHTML = MORE_ROUTES.map(m=>`
   <button class="more-item" data-route="${m.r}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);transition:all .2s">

@@ -7,6 +7,9 @@
    ============================================================ */
 'use strict';
 
+/* V4.0 T4：统计中心曲库分区复用曲库模块的纯函数（去重计数 / 时长 / 分层完成率） */
+import { songbookStats } from './songbook.js';
+
 const { clamp } = AudioCore;
 /* i18n 取词：t 可能未挂到 window（i18n.js 以 gsI18n 暴露），这里做安全兜底 */
 const T = (typeof t === 'function') ? t
@@ -45,8 +48,45 @@ const Stats = {
   },
   moduleName(m){
     const map = {tuner:'调音器', metro:'节拍器', rhythm:'节奏型', game:'和弦闯关',
-      chords:'和弦库', scale:'音阶', ear:'练耳', fret:'指板', studio:'录音', flow:'和弦转换'};
+      chords:'和弦库', scale:'音阶', ear:'练耳', fret:'指板', studio:'录音', flow:'和弦转换',
+      songbook:T('nav.songbook','弹唱曲库')};   // V4.0 T4：弹唱打卡并入模块对比
     return map[m] || m;
+  },
+  /* V4.0 T4：弹唱曲库统计分区（已练曲目 / 累计时长 / 近 7 天 / 分层完成率） */
+  renderSongbook(){
+    const box = document.getElementById('statSongbookBox');
+    if(!box || typeof PracticeStore === 'undefined') return;
+    let sessions = [];
+    try { sessions = PracticeStore.listSessions({ module:'songbook' }); }
+    catch(_){ sessions = []; }
+    const s = songbookStats(sessions);
+    if(!s.practicedCount){
+      box.innerHTML = `<div class="stat-empty">${T('songbook.stats.empty','还没有弹唱记录，去曲库挑一首开始吧')}</div>`;
+      return;
+    }
+    const tf = (k, pairs)=>{ let x = T(k, k); for(const p in pairs) x = x.replace('{'+p+'}', pairs[p]); return x; };
+    const tierRows = [1,2,3].map(t=>{
+      const r = s.byTier[t] || { done:0, total:0, rate:0 };
+      const pct = Math.round((r.rate||0)*100);
+      return `<div class="stat-mod-row">
+        <span class="stat-mod-name">${T('songbook.tier.'+t, '')}</span>
+        <span class="stat-mod-bar"><i style="width:${pct}%"></i></span>
+        <span class="stat-mod-val">${pct}%</span>
+        <span class="stat-mod-dur">${r.done}/${r.total}</span>
+      </div>`;
+    }).join('');
+    box.innerHTML = `
+      <div class="stat-sub-title">${T('songbook.stats.title','弹唱曲库统计')}</div>
+      <div class="stat-sb-grid">
+        <div class="stat-sb-cell"><b>${s.practicedCount}/${s.total}</b>
+          <span>${tf('songbook.stats.practiced', { done:s.practicedCount, total:s.total })}</span></div>
+        <div class="stat-sb-cell"><b>${this.fmtDur(s.totalDurationMs)}</b>
+          <span>${T('songbook.stats.duration','累计弹唱时长')}</span></div>
+        <div class="stat-sb-cell"><b>${this.fmtDur(s.last7DaysMs)}</b>
+          <span>${T('songbook.stats.last7','近 7 天时长')}</span></div>
+      </div>
+      <div class="stat-sub-title" style="margin-top:12px">${T('songbook.stats.tier','分层完成率')}</div>
+      ${tierRows}`;
   },
   render(){
     if(typeof PracticeStore==='undefined') return;
@@ -77,6 +117,7 @@ const Stats = {
     }
     this.renderChart();
     this.renderCalendar();
+    this.renderSongbook();      // V4.0 T4：曲库分区
   },
   /* 进步曲线：轻量 SVG 手绘，不引入图表库（PRD 4.1 性能要求） */
   renderChart(){

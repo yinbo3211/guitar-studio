@@ -239,8 +239,11 @@ test('BUG-06 提供 /api/v1/version 且 Service Worker 优先读取它', () => {
    BUG-07 非 ASCII 路径解析
    ============================================================ */
 test('BUG-07 非 ASCII 路径下 ROOT 解析正确（fileURLToPath 解码）', () => {
-  // 构造一个含中文的 file URL，验证 fileURLToPath 能正确解码
-  const cn = '/Coze/Drive/扣子/guitar-studio/test/x.test.js';
+  // 构造一个含中文的 file URL，验证 fileURLToPath 能正确解码。
+  // 跨平台：以当前盘符/根为起点拼绝对路径——Windows 下直接写 '/Coze/...'
+  // 会被 pathToFileURL 解析成 'C:\\Coze\\...'（POSIX 下则是 '/Coze/...'），
+  // 因此断言基准必须按平台生成，而不是硬编码 POSIX 形式。
+  const cn = path.join(path.parse(ROOT).root, 'Coze', 'Drive', '扣子', 'guitar-studio', 'test', 'x.test.js');
   const u = pathToFileURL(cn);
   assert.ok(/%E6%89%A3|%E6%89%/.test(u.pathname) || !/%/.test(u.pathname),
     'file URL 的 pathname 是百分号编码形式');

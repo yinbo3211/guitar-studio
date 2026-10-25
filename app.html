@@ -93,6 +93,9 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7l-3 10"/><path d="M13 7h7l-3 10"/></svg><span data-i18n="nav.flow">和弦转换
       </span></button>
       <div class="nav-group-label"><span data-i18n="sec.progress">练习管理</span></div>
+      <button class="nav-item" data-route="songbook">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 16.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg><span data-i18n="nav.songbook">弹唱曲库
+      </span></button>
       <button class="nav-item" data-route="plan">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/><path d="M9 16l2 2 4-4"/></svg><span data-i18n="nav.plan">每日计划
       </span></button>
@@ -178,6 +181,11 @@
           <button type="button" class="tool-card" data-route="studio">
             <div class="tc-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg></div>
             <h3>录音棚</h3><p>一键录制练习片段，波形回放、对比原速，支持下载保存为音频文件</p>
+          </button>
+          <button type="button" class="tool-card" data-route="songbook">
+            <span class="tag tag-amber tc-mic">231 首</span>
+            <div class="tc-icon ic-mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 16.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg></div>
+            <h3>弹唱曲库</h3><p>231 首从易到难的民谣弹唱曲目，19 个课程单元逐关解锁，弹唱练习全程节拍引导</p>
           </button>
         </div>
       </section>
@@ -1073,6 +1081,13 @@
           .stat-cal-cell.lv1{background:rgba(255,180,84,.25)}
           .stat-cal-cell.lv2{background:rgba(255,180,84,.5);color:#1a1206}
           .stat-cal-cell.lv3{background:var(--grad-amber);color:#1a1206;font-weight:600}
+          /* V4.0 T4：曲库统计分区 */
+          .stat-sub-title{font-size:13px;font-weight:600;margin-bottom:8px}
+          .stat-sb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+          @media(max-width:520px){.stat-sb-grid{grid-template-columns:1fr}}
+          .stat-sb-cell{background:var(--card-2);border:1px solid var(--line);border-radius:13px;padding:12px;text-align:center}
+          .stat-sb-cell b{display:block;font-family:var(--font-mono);font-size:17px;color:var(--mint)}
+          .stat-sb-cell span{font-size:11px;color:var(--txt-3)}
         </style>
         <div class="view-head">
           <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg></span>练习统计中心</div>
@@ -1104,7 +1119,23 @@
             <button class="btn btn-ghost" id="statsClear">清空数据</button>
             <span style="font-size:11.5px;color:var(--txt-3)">目标速度与实测速度分列，不做自动等同</span>
           </div>
+          <div id="statSongbookBox" style="margin-top:18px"></div>
         </div>
+      </section>
+
+      <!-- ===== 视图：弹唱曲库（V4.0 T1 浏览 + T2 课程单元） ===== -->
+      <section class="view" id="view-songbook" aria-live="polite">
+        <div class="view-head">
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 16.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg></span><span data-i18n="songbook.title">弹唱曲库</span></div>
+          <div class="view-sub" data-i18n="songbook.sub">231 首从易到难的民谣弹唱曲目，按 19 个课程单元递进；完成上一单元 40% 即解锁下一单元，也可开启自由模式全部开放。</div>
+        </div>
+        <div class="card" id="sbTop"></div>
+        <div id="sbList" class="sb-page"></div>
+      </section>
+
+      <!-- ===== 视图：弹唱练习（V4.0 T3，路由 songPractice） ===== -->
+      <section class="view" id="view-songPractice" aria-live="polite">
+        <div class="sp-wrap" id="spWrap"></div>
       </section>
 
 </main>

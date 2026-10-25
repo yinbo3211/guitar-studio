@@ -16,7 +16,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -76,9 +76,12 @@ async function loadRhythm() {
   globalThis.AudioCore = new Proxy({}, { get: () => () => ({}) });
 
   // 按 main.js 顺序真实导入
-  await import(path.join(ROOT, 'assets/js/data/rhythm-data.js'));
-  const { Transport } = await import(path.join(ROOT, 'assets/js/core/transport.js'));
-  const { Rhythm } = await import(path.join(ROOT, 'assets/js/modules/rhythm.js'));
+  // 注：Windows 下动态 import() 必须传 file URL——直接传 'C:\\...' 会被当成
+  //     'c:' 协议而抛 ERR_UNSUPPORTED_ESM_URL_SCHEME（跨平台修复）
+  const imp = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
+  await imp('assets/js/data/rhythm-data.js');
+  const { Transport } = await imp('assets/js/core/transport.js');
+  const { Rhythm } = await imp('assets/js/modules/rhythm.js');
   return { Rhythm, Transport };
 }
 

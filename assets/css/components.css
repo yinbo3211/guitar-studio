@@ -165,3 +165,128 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .gs-modal-btn{padding:9px 18px;border-radius:10px;background:var(--grad-amber);color:#1a1206;font-weight:600;font-size:13px;border:none;cursor:pointer}
 .gs-modal-btn:active{transform:scale(.96)}
 @keyframes gs-fade{from{opacity:0}to{opacity:1}}
+
+/* ============================================================
+   V4.0 弹唱曲库 songbook（T1 浏览 / T2 课程单元 / T3 弹唱练习）
+   ------------------------------------------------------------
+   配色沿用设计令牌，不引入新色值；深色底 + 高对比文字。
+   ============================================================ */
+/* ---------- T1 顶部：总进度环 + 难度 tab + 搜索 ---------- */
+.sb-head{display:flex;gap:16px;align-items:center}
+.sb-ring{position:relative;width:72px;height:72px;flex:0 0 72px}
+.sb-ring-track{stroke:rgba(255,255,255,.09)}
+.sb-ring-bar{stroke:var(--mint);stroke-linecap:round;transition:stroke-dasharray .45s ease}
+.sb-ring-txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+.sb-ring-txt b{font-size:16px;font-family:var(--font-display)}
+.sb-ring-txt span{font-size:10.5px;color:var(--txt-3)}
+.sb-head-txt{flex:1;min-width:0}
+.sb-head-title{font-size:15px;font-weight:700;font-family:var(--font-display)}
+.sb-head-sub{font-size:12px;color:var(--txt-2);margin-top:3px}
+.sb-free{display:inline-flex;align-items:center;gap:7px;margin-top:9px;font-size:12px;color:var(--txt-2);cursor:pointer}
+.sb-free input{width:15px;height:15px;accent-color:var(--mint);cursor:pointer}
+
+.sb-tabs{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.sb-tab{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:99px;
+  background:var(--card-2);border:1px solid var(--line);color:var(--txt-2);font-size:12.5px;cursor:pointer;transition:all .16s}
+.sb-tab:hover{color:var(--txt);border-color:var(--line-strong)}
+.sb-tab.is-active{background:rgba(255,180,84,.14);border-color:rgba(255,180,84,.38);color:var(--amber);font-weight:600}
+.sb-tab-n{font-size:11px;opacity:.72;font-variant-numeric:tabular-nums}
+
+.sb-search{margin-top:12px}
+.sb-search-input{width:100%;padding:10px 14px;border-radius:var(--radius-sm);
+  background:var(--card-2);border:1px solid var(--line);color:var(--txt);font-size:13.5px;font-family:var(--font-body)}
+.sb-search-input:focus{outline:none;border-color:rgba(255,180,84,.4)}
+
+/* ---------- T2 课程单元 ---------- */
+.sb-page{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+.sb-unit{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 15px 16px}
+.sb-unit-head{margin-bottom:13px}
+.sb-unit-title{display:flex;align-items:baseline;gap:9px}
+.sb-unit-id{font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--amber)}
+.sb-unit-cnt{font-size:11.5px;color:var(--txt-3);font-variant-numeric:tabular-nums}
+.sb-progress{margin-top:8px;height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.sb-progress i{display:block;height:100%;border-radius:99px;background:var(--grad-amber);transition:width .4s ease}
+.sb-progress.is-mint i{background:var(--grad-mint)}
+.sb-unit-warmup{display:flex;align-items:center;gap:7px;margin-top:10px;flex-wrap:wrap}
+.sb-unit-wlabel{font-size:11.5px;color:var(--txt-3)}
+
+/* ---------- 曲卡 ---------- */
+.sb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:11px}
+.sb-card{background:var(--card-2);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:13px 14px;display:flex;flex-direction:column;gap:8px;transition:border-color .18s,transform .18s}
+.sb-card:hover{border-color:var(--line-strong)}
+.sb-card.is-done{border-color:rgba(46,230,168,.28)}
+.sb-card.is-locked{opacity:.55;cursor:not-allowed;filter:saturate(.5)}
+.sb-card-top{display:flex;align-items:baseline;gap:8px;min-width:0}
+.sb-no{font-size:11px;color:var(--txt-3);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.sb-title{font-size:14.5px;font-weight:600;font-family:var(--font-display);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sb-meta{font-size:11.5px;color:var(--txt-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-badges{display:flex;gap:5px;flex-wrap:wrap}
+.sb-note{font-size:11.5px;color:var(--violet);line-height:1.55;background:rgba(139,124,246,.09);
+  border-left:2px solid rgba(139,124,246,.45);padding:6px 9px;border-radius:0 7px 7px 0}
+.sb-actions{display:flex;gap:7px;margin-top:2px}
+.sb-start{background:rgba(255,180,84,.13);border-color:rgba(255,180,84,.32);color:var(--amber);font-weight:600}
+.sb-actions .btn-mini.on{background:rgba(65,217,255,.13);border-color:rgba(65,217,255,.32);color:var(--cyan)}
+.sb-sheets{display:flex;flex-direction:column;gap:6px;margin-top:4px;padding-top:9px;border-top:1px dashed var(--line)}
+.sb-sheet-row{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--txt-2);flex-wrap:wrap}
+.sb-sheet-src{flex:0 0 auto;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--txt-3)}
+.sb-sheet-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-sheet-diff{flex:0 0 auto;color:var(--amber);font-variant-numeric:tabular-nums}
+.sb-sheet-link{flex:0 0 auto}
+.sb-locked-txt{font-size:12px;color:var(--txt-3);line-height:1.6}
+.sb-empty,.sb-error{padding:22px 16px;text-align:center;color:var(--txt-2);font-size:13px}
+.sb-error{color:var(--red)}
+
+/* ---------- T3 弹唱练习 ---------- */
+.sp-wrap{min-height:320px;display:flex;flex-direction:column;gap:14px}
+.sp-empty{display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 18px;text-align:center}
+.sp-empty-txt{font-size:13.5px;color:var(--txt-2)}
+.sp-prepare{display:flex;flex-direction:column;gap:13px}
+.sp-title{font-size:19px;font-weight:700;font-family:var(--font-display)}
+.sp-meta{font-size:12.5px;color:var(--txt-2);margin-top:4px}
+.sp-note{font-size:12px;color:var(--violet);line-height:1.6;background:rgba(139,124,246,.09);
+  border-left:2px solid rgba(139,124,246,.45);padding:7px 10px;border-radius:0 7px 7px 0;
+  font-family:var(--font-body);width:100%;resize:vertical;min-height:58px}
+.sp-capo{font-size:12.5px;color:var(--txt-3)}
+.sp-capo span{color:var(--txt);font-weight:600;margin-left:6px}
+.sp-bpm-row{display:flex;align-items:center;gap:11px;font-size:12.5px;color:var(--txt-2)}
+.sp-bpm-row input[type=range]{flex:1;accent-color:var(--amber)}
+.sp-bpm-row b{font-family:var(--font-mono);font-size:14px;color:var(--amber);min-width:38px;text-align:right}
+
+.sp-count{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:52px 0}
+.sp-count-num{font-size:88px;font-weight:800;font-family:var(--font-display);
+  background:var(--grad-amber);-webkit-background-clip:text;background-clip:text;color:transparent;
+  line-height:1;animation:sp-pop .5s ease}
+@keyframes sp-pop{from{transform:scale(.72);opacity:.25}to{transform:scale(1);opacity:1}}
+
+.sp-hud-top{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:12px 15px;flex-wrap:wrap}
+.sp-hud-song{flex:1;min-width:0;font-size:14.5px;font-weight:600;font-family:var(--font-display);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-hud-bpm{font-size:12.5px;color:var(--amber);font-variant-numeric:tabular-nums}
+.sp-hud-time{font-family:var(--font-mono);font-size:18px;color:var(--mint);font-variant-numeric:tabular-nums}
+.sp-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px 0}
+.sp-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;width:100%}
+.sp-step{display:flex;align-items:center;gap:9px;padding:12px 13px;border-radius:var(--radius-sm);
+  background:var(--card-2);border:1px solid var(--line);color:var(--txt-2);font-size:13px;cursor:pointer;transition:all .16s}
+.sp-step:hover{border-color:var(--line-strong);color:var(--txt)}
+.sp-step.is-done{background:rgba(46,230,168,.12);border-color:rgba(46,230,168,.34);color:var(--mint)}
+.sp-step-i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;
+  background:rgba(255,255,255,.08);font-size:11.5px;font-weight:700;flex:0 0 22px}
+.sp-step.is-done .sp-step-i{background:rgba(46,230,168,.2);color:var(--mint)}
+.sp-hud-bottom{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+.sp-result{display:flex;flex-direction:column;gap:11px}
+.sp-result-title{font-size:17px;font-weight:700;font-family:var(--font-display)}
+.sp-result-row{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:13px;color:var(--txt-2);padding:7px 0;border-bottom:1px dashed var(--line)}
+.sp-result-row b{font-family:var(--font-mono);font-size:15px;color:var(--txt)}
+.sp-result-actions{display:flex;gap:10px;margin-top:4px}
+
+/* ---------- 响应式：窄屏收紧 ---------- */
+@media (max-width:640px){
+  .sb-grid{grid-template-columns:1fr}
+  .sb-head{gap:12px}
+  .sp-count-num{font-size:68px}
+}

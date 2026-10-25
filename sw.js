@@ -80,7 +80,11 @@ const CORE = [
   './assets/js/core/audio-devices.js',
   './assets/js/modules/plan.js',
   './assets/js/modules/stats.js',
-  './assets/js/modules/chord-flow.js'
+  './assets/js/modules/chord-flow.js',
+  // V4.0 新增（T1 曲库数据层 / T1+T2 曲库浏览与课程单元 / T3 弹唱练习）
+  './assets/js/data/songlist-data.js',
+  './assets/js/modules/songbook.js',
+  './assets/js/modules/song-practice.js'
 ];
 /* 次要资源：允许个别失败（如图标），不阻塞安装 */
 const OPTIONAL = [
