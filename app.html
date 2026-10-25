@@ -211,6 +211,9 @@
           .string-btn.heard{border-color:var(--mint);color:var(--mint);box-shadow:0 0 18px -4px rgba(46,230,168,.6)}
           .string-btn.tuned{background:var(--grad-mint);color:#052018;border-color:transparent}
           .string-btn.tuned span{color:rgba(5,32,24,.7)}
+          /* V3.2：手动锁定目标弦（点弦按钮切换）的选中态，与「听到」/「已调准」区分 */
+          .string-btn.picked{border-color:var(--amber);box-shadow:0 0 0 2px rgba(255,180,84,.35)}
+          .string-btn.picked.heard{box-shadow:0 0 0 2px rgba(255,180,84,.35)}
           .tuner-meter{height:7px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 auto 4px;max-width:340px}
           .tuner-meter i{display:block;height:100%;width:0%;border-radius:6px;background:var(--grad-mint);transition:width .08s}
           .tuner-actions{display:flex;gap:12px;justify-content:center;margin-top:10px}

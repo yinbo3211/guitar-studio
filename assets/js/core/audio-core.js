@@ -50,69 +50,219 @@
   /* 两频率间音分差（可为负） */
   const centsBetween = (f1, f2) => 1200 * Math.log2(f1 / f2);
 
-  /* ---------- 归一化自相关基频检测（对相位不敏感，含抛物线插值） ---------- */
+  /* ---------- YIN 基频检测（算法参考 hybridpicker/pro-tuner） ----------
+     ------------------------------------------------------------
+     重写背景（上一代 = NSDF 自相关 + MPM 峰选）：
+       · RMS 硬门限高达 0.01 —— 麦克风离音孔稍远、或轻拨时整帧被判死，
+         界面表现为「指针不动 / 识别不到」（本次要解决的核心问题之一）；
+       · NSDF 在真实拨弦（强二次谐波 + 噪声）下偶发低八度误锁。
+     现按 YIN（de Cheveigné & Kawahara, 2002）实现：
+       d(τ) 差分函数 → CMNDF 累积均值归一化 → 绝对门限 0.11（兜底 0.18）
+       → 抛物线插值（亚样本精度）→ clarity = 1 − CMNDF(τ*)
+     CMNDF 自带幅度归一化且对每个 lag 用「之前的均值」归一，天然抑制
+     长滞后处的低八度误锁，灵敏度也显著优于 NSDF + 全局 argmax。
+
+     【纯度约定】本函数保持「单帧纯函数」：
+       · 不修改输入缓冲（既有回归测试断言）；
+       · 不持有跨帧状态 —— 中值滤波 / EMA / 起音检测由 createPitchTracker 承担，
+         这样同一进程内连续喂不同音高不会被历史平滑拖住（单测也依赖此性质）。
+     ------------------------------------------------------------ */
+  const YIN_THRESHOLD = 0.11;           // YIN 绝对门限（参考实现的实测取值）
+  const YIN_FALLBACK = 0.18;            // 无谷低于门限时的兜底门限
+  const YIN_CLARITY_MIN = 0.25;         // clarity 下限，与旧实现的语义一致
+  /* 电平门限：只用于剔除「完全静音」这种无效帧；真正的灵敏度决策
+     交给调用方的噪声门（makeNoiseGate），参考实现亦如此分工。
+     旧值 0.01 相当于把灵敏度砍掉一个数量级，是远场拾音失效的主因。 */
+  const YIN_LEVEL_GATE = 5e-4;
+
+  /* 单帧工作区：实时路径每帧分配 TypedArray 会造成 GC 抖动，
+     这里按 (SIZE, maxLag) 缓存复用；本函数全同步执行，无重入风险。 */
+  let _mSize = -1, _mMaxLag = -1, _mX = null, _mTmp = null, _mDiff = null, _mCm = null;
+  function _mem(size, maxLag) {
+    if (_mSize === size && _mMaxLag >= maxLag) return;
+    _mSize = size; _mMaxLag = maxLag;
+    _mX = new Float32Array(size);
+    _mTmp = new Float32Array(size);
+    _mDiff = new Float64Array(maxLag + 1);
+    _mCm = new Float64Array(maxLag + 1);
+  }
+
+  /* 前置低通：4 点滑动平均 ×2 次（首零点 ~12kHz）。
+     YIN 的差分函数会把通带内所有噪声能量全额累加：实测在「极低电平 + 宽带噪声」
+     的远场场景下，E2 的偏差可达 40¢ 以上且是系统性偏移（不是随机抖动，
+     跨帧平滑也压不住）。加这道低通把差分函数的噪声带宽先收窄，
+     同一次测量下最差偏差由 42¢ 降到 ~3¢，正常电平下则由 0.6¢ 改善到 0.2¢。
+     滑动平均是线性相位，对周期信号只是整体延时一个常量，周期不变 →
+     不会引入音分偏差；1320Hz（测频上限）处的幅度损失 <3%，可忽略。 */
+  const YIN_PRE_L = 4, YIN_PRE_PASSES = 2;
+  function _lowpass(x, size) {
+    const tmp = _mTmp, L = YIN_PRE_L;
+    for (let p = 0; p < YIN_PRE_PASSES; p++) {
+      let acc = 0;
+      for (let i = 0; i < size; i++) {
+        acc += x[i];
+        if (i >= L) acc -= x[i - L];
+        tmp[i] = acc / (i + 1 < L ? i + 1 : L);
+      }
+      x.set(tmp.subarray(0, size));
+    }
+    return x;
+  }
+
   function PitchDetect(buf, sampleRate) {
     const SIZE = buf.length;
-    // 去直流（不修改输入缓冲）
+    const out = { freq: null, rms: 0, clarity: 0 };
+    if (!SIZE || SIZE < 128) return out;
+    // 去直流：写进工作区副本，输入缓冲保持只读（回归：PitchDetect 不修改输入缓冲）
     let mean = 0;
     for (let i = 0; i < SIZE; i++) mean += buf[i];
     mean /= SIZE;
-    const x = new Float32Array(SIZE);
-    for (let i = 0; i < SIZE; i++) x[i] = buf[i] - mean;
-    // 能量 / RMS
     let e2 = 0;
-    for (let i = 0; i < SIZE; i++) e2 += x[i] * x[i];
+    for (let i = 0; i < SIZE; i++) { const v = buf[i] - mean; e2 += v * v; }
     const rms = Math.sqrt(e2 / SIZE);
-    if (rms < 0.01) return { freq: null, rms, clarity: 0 };
-    // 基频范围：约 50Hz（低音区）~ 1320Hz（E6）
-    const maxLag = Math.min(SIZE - 1, Math.floor(sampleRate / FREQ_MIN));
-    const minLag = Math.floor(sampleRate / FREQ_MAX);
-    /* V2-BUG-01 修复（P1）：原 s/n 归一化按重叠样本数平均，长 lag 处
-       重叠样本少、方差被放大，实测曲线在周期整数倍处高于真周期处，
-       抛物线插值极值点右移 → 估计周期偏长 → 频率偏低（48kHz 下
-       E2 偏差达 -16.6 音分，永远进不了 ±5¢ 的「准 ✓」绿区）。
-       改用 NSDF = 2·Σx[i]x[i+lag] / (Σx[i]² + Σx[i+lag]²)；
-       两段重叠能量用平方前缀和 O(1) 取得，计算量与原实现相当。
-       NSDF 下 ac[0]=1，clarity=bestVal 量纲仍为 0~1，阈值语义不变。 */
-    const sq = new Float64Array(SIZE + 1);
-    for (let i = 0; i < SIZE; i++) sq[i + 1] = sq[i] + x[i] * x[i];
-    const ac = new Float32Array(maxLag + 1);
-    for (let lag = 0; lag <= maxLag; lag++) {
-      let s = 0; const n = SIZE - lag;
-      for (let i = 0; i < n; i++) s += x[i] * x[i + lag];
-      const eLeft = sq[n], eRight = sq[SIZE] - sq[lag];
-      ac[lag] = (eLeft + eRight) > 0 ? 2 * s / (eLeft + eRight) : 0;
+    out.rms = rms;
+    if (!(rms > YIN_LEVEL_GATE)) return out;        // 静音帧
+
+    /* YIN 要求 maxLag 不超过半个分析窗；低频下限再压一道。
+       minLag 由上限频率反推，避免检出高于吉他的泛音级频率。 */
+    const maxLag = Math.min(SIZE >> 1, Math.floor(sampleRate / FREQ_MIN));
+    const minLag = Math.max(2, Math.floor(sampleRate / FREQ_MAX));
+    if (maxLag <= minLag + 2) return out;
+    /* 必须先把 lag 范围定下来再申请工作区：_mem 会因 maxLag 变大而
+       重新分配 _mX，若已写入去直流结果就会被整片清零（历史坑）。 */
+    _mem(SIZE, maxLag);
+    const x = _mX;
+    for (let i = 0; i < SIZE; i++) x[i] = buf[i] - mean;
+    const diff = _mDiff, cmndf = _mCm;
+    // 差分函数之前先收窄噪声带宽（见 _lowpass 注释）
+    _lowpass(x, SIZE);
+
+    // Step 1：差分函数 d(τ) = Σ (x[j] − x[j+τ])²
+    diff[0] = 0;
+    for (let tau = 1; tau <= maxLag; tau++) {
+      const n = SIZE - tau;
+      let s = 0;
+      for (let j = 0; j < n; j++) { const d = x[j] - x[j + tau]; s += d * d; }
+      diff[tau] = s;
     }
-    // 越过 lag0 后的下降段抵达谷底，再在其后寻找最高峰（即基频周期）
-    let lag = minLag;
-    while (lag < maxLag && ac[lag + 1] <= ac[lag]) lag++;
-    let bestLag = lag, bestVal = ac[lag];
-    for (let i = lag; i <= maxLag; i++) { if (ac[i] > bestVal) { bestVal = ac[i]; bestLag = i; } }
-    /* BugFix（V2 M1 回归测试发现）：整数倍周期（低八度）误锁——
-       纯音/干净信号的自相关在 2×、3× 周期处的峰值与 1× 周期几乎相同甚至更高，
-       全局 argmax 会选中更大的滞后，导致 220Hz 被判为 110Hz。
-       改用 MPM 准则：谷底之后取第一个 ≥ 全局峰值 90% 的局部极大；
-       clarity 仍按全局峰值计算，与 V1 一致。 */
-    let chosen = bestLag;
-    for (let i = lag + 1; i < maxLag; i++) {
-      if (ac[i] >= bestVal * 0.9 && ac[i] >= ac[i - 1] && ac[i] >= ac[i + 1]) { chosen = i; break; }
+    // Step 2：累积均值归一化 d'(τ) = d(τ) / ((1/τ)·Σ_{k≤τ} d(k))，d'(0)=1
+    cmndf[0] = 1;
+    let run = 0;
+    for (let tau = 1; tau <= maxLag; tau++) {
+      run += diff[tau];
+      cmndf[tau] = run > 0 ? (diff[tau] * tau) / run : 1;
     }
-    bestLag = chosen;
-    const clarity = clamp(bestVal / ac[0], 0, 1);
-    if (clarity < 0.25) return { freq: null, rms, clarity };
-    // 抛物线插值细化周期
+    // Step 3：绝对门限——取第一个跌破门限的谷，并在谷内走到局部最小
+    let bestLag = -1;
+    for (let tau = minLag; tau < maxLag; tau++) {
+      if (cmndf[tau] < YIN_THRESHOLD) {
+        while (tau + 1 < maxLag && cmndf[tau + 1] < cmndf[tau]) tau++;
+        bestLag = tau;
+        break;
+      }
+    }
+    if (bestLag < 0) {
+      // 兜底：全窗最小值足够「周期性」才采纳（参考实现同策略）
+      let bv = 1;
+      for (let tau = minLag; tau < maxLag; tau++) if (cmndf[tau] < bv) { bv = cmndf[tau]; bestLag = tau; }
+      if (!(bv < YIN_FALLBACK)) return out;
+    }
+    const clarity = clamp(1 - cmndf[bestLag], 0, 1);
+    out.clarity = clarity;
+    if (clarity < YIN_CLARITY_MIN) return out;
+    // Step 4：抛物线插值细化周期（位移限幅 ±1，防止外推到离谱的 lag）
     let refined = bestLag;
-    if (bestLag > 0 && bestLag < maxLag) {
-      const a = ac[bestLag - 1], b = ac[bestLag], c = ac[bestLag + 1];
-      const den = (a - 2 * b + c);
+    if (bestLag > minLag && bestLag < maxLag) {
+      const y0 = cmndf[bestLag - 1], y1 = cmndf[bestLag], y2 = cmndf[bestLag + 1];
+      const den = 2 * (y0 - 2 * y1 + y2);
       if (den !== 0) {
-        const p = 0.5 * (a - c) / den;
-        if (isFinite(p) && Math.abs(p) < 1) refined = bestLag + p;
+        const delta = (y0 - y2) / den;
+        if (isFinite(delta)) refined = bestLag + clamp(delta, -1, 1);
       }
     }
     const freq = sampleRate / refined;
-    if (freq < FREQ_MIN || freq > FREQ_MAX) return { freq: null, rms, clarity: 0 };
-    return { freq, rms, clarity };
+    if (!(freq >= FREQ_MIN && freq <= FREQ_MAX)) { out.clarity = 0; return out; }
+    out.freq = freq;
+    return out;
+  }
+
+  /* ---------- RMS 噪声门（参考 pro-tuner/js/audio/noise-gate.js） ----------
+     单帧 YIN 灵敏度提高后必须用门限挡住环境噪声，否则会给出大量抖动读数。
+     · 三档预设：安静 / 普通 / 嘈杂；
+     · setThreshold 用于自动校准本底噪声，且永不低于用户所选预设
+       （防止把噪声 floor 校准得比预设还灵敏）；
+     · 跌落后保持 150ms 开门，避免音符自然衰减尾巴被切断造成读数闪烁。 */
+  const GATE_PRESETS = Object.freeze({ low: 0.001, medium: 0.004, high: 0.015 });
+  function makeNoiseGate(level) {
+    const preset = GATE_PRESETS[level] != null ? GATE_PRESETS[level] : GATE_PRESETS.medium;
+    let threshold = preset, holdUntil = 0;
+    return {
+      setLevel(l) {
+        const v = GATE_PRESETS[l];
+        threshold = v != null ? v : preset;
+        holdUntil = 0;
+      },
+      setThreshold(v) { threshold = Math.max(preset, Number(v) || 0); holdUntil = 0; },
+      calibrated(v) { if (Number.isFinite(v) && v > 0) this.setThreshold(v); },
+      get threshold() { return threshold; },
+      above(rms, now) {
+        const t = typeof now === 'number' ? now : Date.now();
+        if (rms >= threshold) { holdUntil = t + 150; return true; }
+        return t < holdUntil;
+      },
+      reset() { holdUntil = 0; }
+    };
+  }
+
+  /* ---------- 跨帧音高跟踪（参考 pro-tuner PitchDetector Step 5~7） ----------
+     单帧读数仍有抖动与偶发八度跳变，逐帧再做三层处理：
+       · 起音检测：RMS 突增 3 倍 → 认定换音，立即丢弃历史（换弦后跟上而不是拖尾）
+       · 9 点中值：剔除离群野值
+       · proximity-aware EMA：接近目标（<10¢）时收敛更快，跳变 >100¢ 时立即吸附
+     另有 ×2 / ÷2 八度纠正（参考实现刻意去掉 ÷3/×3，因为 3 倍音程比与真换音难区分）。
+     @returns {{freq:number, clarity:number}|null} */
+  function createPitchTracker() {
+    const RING = 9;
+    const ring = new Float64Array(RING);
+    const sortBuf = new Float64Array(RING);
+    let idx = 0, count = 0, smoothed = 0, prevRms = 0;
+    return {
+      reset() { idx = 0; count = 0; smoothed = 0; prevRms = 0; },
+      get value() { return smoothed; },
+      push(freq, rms, clarity) {
+        const nowRms = Number(rms) > 0 ? Number(rms) : 0;
+        const onset = prevRms > 0 && nowRms > prevRms * 3;
+        prevRms = nowRms;
+        if (!(freq > 0) || !isFinite(freq)) return null;
+        if (onset) { idx = 0; count = 0; smoothed = 0; }   // 新的一次拨弦
+        let f = freq;
+        if (smoothed > 0) {
+          const ratio = f / smoothed;
+          if (ratio > 1.8 && ratio < 2.2) f = f / 2;
+          else if (ratio > 0.45 && ratio < 0.55) f = f * 2;
+        }
+        ring[idx] = f;
+        idx = (idx + 1) % RING;
+        count = count < RING ? count + 1 : RING;
+        for (let i = 0; i < count; i++) sortBuf[i] = ring[i];
+        const view = sortBuf.subarray(0, count);
+        view.sort();
+        const mid = count >> 1;
+        const med = count % 2 ? view[mid] : (view[mid - 1] + view[mid]) / 2;
+        const conf = clamp(Number(clarity) > 0 ? Number(clarity) : 0, 0, 1);
+        const baseAlpha = clamp(30 / med, 0.08, 0.5);
+        let alpha = baseAlpha + (1 - baseAlpha) * conf * 0.4;
+        if (smoothed === 0) {
+          smoothed = med;
+        } else {
+          const cd = Math.abs(1200 * Math.log2(med / smoothed));
+          if (cd < 10) alpha = Math.min(1, alpha * 2);
+          else if (cd > 100) alpha = 1;
+          smoothed = alpha * med + (1 - alpha) * smoothed;
+        }
+        return { freq: smoothed, clarity: conf };
+      }
+    };
   }
 
   /* ---------- 平滑工具：值稳定才采纳（滑动窗口取中位数） ---------- */
@@ -188,9 +338,9 @@
 
   /* ---------- 导出 ---------- */
 /* ---------- ESM 导出（R-ESM-02：具名导出） ---------- */
-export { NOTE_NAMES, NOTE_CN, OPEN_MIDI, FREQ_MIN, FREQ_MAX, clamp, midiFromFreq, freqFromMidi, noteName, noteNameNoOct, pitchClass, pcFromName, centsBetween, PitchDetect, makeSmoother, quantizeToOctave, matchFretTarget, isPitchMatch, tapBpm, beatDuration, stepDuration, isSubAccent };
+export { NOTE_NAMES, NOTE_CN, OPEN_MIDI, FREQ_MIN, FREQ_MAX, clamp, midiFromFreq, freqFromMidi, noteName, noteNameNoOct, pitchClass, pcFromName, centsBetween, PitchDetect, makeNoiseGate, GATE_PRESETS, createPitchTracker, makeSmoother, quantizeToOctave, matchFretTarget, isPitchMatch, tapBpm, beatDuration, stepDuration, isSubAccent };
 
-export const AudioCore = { NOTE_NAMES, NOTE_CN, OPEN_MIDI, FREQ_MIN, FREQ_MAX, clamp, midiFromFreq, freqFromMidi, noteName, noteNameNoOct, pitchClass, pcFromName, centsBetween, PitchDetect, makeSmoother, quantizeToOctave, matchFretTarget, isPitchMatch, tapBpm, beatDuration, stepDuration, isSubAccent };
+export const AudioCore = { NOTE_NAMES, NOTE_CN, OPEN_MIDI, FREQ_MIN, FREQ_MAX, clamp, midiFromFreq, freqFromMidi, noteName, noteNameNoOct, pitchClass, pcFromName, centsBetween, PitchDetect, makeNoiseGate, GATE_PRESETS, createPitchTracker, makeSmoother, quantizeToOctave, matchFretTarget, isPitchMatch, tapBpm, beatDuration, stepDuration, isSubAccent };
 
 /* V2 兼容：非模块引用（如 admin 调试脚本）仍可走全局 */
 if (typeof window !== 'undefined') window.AudioCore = AudioCore;

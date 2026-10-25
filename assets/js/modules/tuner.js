@@ -1,10 +1,21 @@
 /* ============================================================
-   六弦工坊 V3 · 模块 1：调音器
-   （M3 目录重构：由 V2 app-*.js 拆分，代码体保持不变）
+   六弦工坊 V3.2 · 模块 1：调音器
+   ------------------------------------------------------------
+   V3.2 底层重写（参考 hybridpicker/pro-tuner）：
+     ① 基频检测由自相关改为 YIN（见 core/audio-core.js PitchDetect），
+        RMS 硬门限 0.01 → 5e-4，灵敏度提升约 20 倍，麦克风离远也能拾取；
+     ② 增加 RMS 噪声门（150ms 保持）与开麦自适应本底校准，避免放宽
+        门限后被环境噪声糊一脸；
+     ③ 增加跨帧跟踪器（起音检测 + 9 点中值 + proximity EMA），读数稳定
+        但换弦能立刻跟上；
+     ④ 删除「偏差 >60 音分就清空整个 UI」的分支——那是指针看起来卡死
+        不动的直接原因（每一帧都被擦成 rotate(0)）；
+     ⑤ 支持手动锁定目标弦（点弦按钮切换），进入 ±5 音分才亮绿，
+        ≥8 音分才退出（滞后判定，避免临界闪烁）。
    ============================================================ */
 'use strict';
 
-const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
+const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeNoiseGate, createPitchTracker, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
 
 /* ============================================================
    模块 1：调音器
@@ -20,7 +31,14 @@ const Tuner = {
     {n:2, midi:59, label:'B'},
     {n:1, midi:64, label:'E'}
   ],
-  smooth:makeSmoother(4), shownCents:0, inTuneCount:0, heardString:null, tunedSet:new Set(),
+  /* V3.2：跨帧跟踪 + 噪声门（原来只有一个 makeSmoother(4) 中位数） */
+  tracker:createPitchTracker(),
+  gate:makeNoiseGate('medium'),
+  picked:null,          // 手动锁定的目标弦 midi（null = 自动识别最近的一根）
+  inTune:false,         // 绿区滞后状态：进 ≤5¢，出 ≥8¢
+  shownCents:0, inTuneCount:0, heardString:null, tunedSet:new Set(),
+  lostFrames:0,
+  calibFrames:[], calibDone:false,
   init(){
     if(this.inited) return; this.inited=true;
     // 表盘刻度
@@ -57,10 +75,19 @@ const Tuner = {
     // 弦按钮
     $('#stringRow').innerHTML=this.strings.map(s=>
       `<button class="string-btn" data-midi="${s.midi}"><b>${s.label}</b><span>${s.n}弦</span></button>`).join('');
+    /* V3.2：点弦按钮 = ①播放该弦的标准参考音 ②锁定/解锁目标弦。
+       锁定后所有判定都只针对这一根弦，不会再被邻弦抢跑；
+       调准后按钮转绿（.tuned）。再点一次即解锁回到自动模式。 */
     $('#stringRow').addEventListener('click',e=>{
       const b=e.target.closest('.string-btn'); if(!b) return;
       AudioEngine.ensure();
-      AudioEngine.pluck(this.freq(+b.dataset.midi),0,2.2,.4);
+      const midi=+b.dataset.midi;
+      AudioEngine.pluck(this.freq(midi),0,2.2,.4);
+      this.picked = (this.picked===midi) ? null : midi;
+      this.syncPickedUI();
+      $('#tunerSub').textContent = this.picked!=null
+        ? ('已锁定 '+(this.strings.find(s=>s.midi===this.picked)||{}).n+'弦 · 目标 '+this.freq(this.picked).toFixed(1)+' Hz')
+        : '松开锁定，自动识别最近的一根弦';
     });
     // 模式
     $('#tunerMode').addEventListener('click',e=>{
@@ -68,6 +95,7 @@ const Tuner = {
       $$('#tunerMode button').forEach(x=>x.classList.toggle('on',x===b));
       this.mode=b.dataset.mode;
       this.tunedSet.clear(); this.heardString=null;
+      this.picked=null;
       $('#stringRow').style.display=this.mode==='guitar'?'flex':'none';
     });
     // A4
@@ -81,24 +109,32 @@ const Tuner = {
     // 开关
     $('#tunerToggle').addEventListener('click',()=>this.toggle());
   },
-  /* BUG-02：调音完成 -> 计入 F1 练习数据层（每日计划「调音检查」依赖此上报） */
-  reportTuned(){
-    if(typeof PracticeStore==='undefined' || !PracticeStore) return;
-    const now=Date.now();
-    const startedAt=this.tuneStartedAt||now;
-    this.tuneStartedAt=now;
-    PracticeStore.addSession({
-      module:'tuner',
-      startedAt,
-      durationMs:Math.max(0, now-startedAt),
-      meta:{ mode:this.mode, a4:this.a4, strings:6 }
-    });
-  },
   freq(m){ return this.a4*Math.pow(2,(m-69)/12); },
+  /* 同步「手动锁定」的按钮高亮（不触碰 heard / tuned 的既有语义） */
+  syncPickedUI(){
+    $$('.string-btn').forEach(b=>b.classList.toggle('picked', this.picked!=null && +b.dataset.midi===this.picked));
+  },
+  /* V3.2：开麦初期自适应本底噪声（参考 pro-tuner calibrateNoiseFloor）。
+     取前若干帧「安静值」的 75 分位 ×2.5 作为门限；剔除明显是弹弦的大值，
+     防止用户抢先拨弦把门限抬到听不见。 */
+  calibrate(rms){
+    if(this.calibDone || !(rms>0)) return;
+    if(rms < 0.05) this.calibFrames.push(rms);      // 过滤掉拨弦瞬态
+    if(this.calibFrames.length < 20) return;
+    this.calibDone = true;
+    const arr = this.calibFrames.slice().sort((a,b)=>a-b);
+    const p75 = arr[Math.min(arr.length-1, Math.floor(arr.length*0.75))];
+    const t = Math.min(0.02, p75 * 2.5);
+    if(t > 0) this.gate.setThreshold(t);
+    this.calibFrames.length = 0;
+  },
   async toggle(){
     AudioEngine.ensure();
     if(this.active){
       Mic.stop(); this.active=false;
+      this.gate.reset(); this.tracker.reset();
+      this.inTune=false; this.inTuneCount=0; this.shownCents=0;
+      this.lostFrames=0; this.calibFrames.length=0; this.calibDone=false;
       this.resetUI();
       $('#tunerToggleTxt').textContent='开启麦克风调音';
       $('#tunerToggle').classList.remove('btn-danger');
@@ -115,10 +151,13 @@ const Tuner = {
       // BUG-02：开麦成功即作为本轮调音起点，供六弦全准时统计练习时长
       this.sessionStartedAt=Date.now();
       this.tuneStartedAt=this.sessionStartedAt;
+      this.gate.reset(); this.tracker.reset();
+      this.inTune=false; this.inTuneCount=0; this.shownCents=0;
+      this.lostFrames=0; this.calibFrames.length=0; this.calibDone=false;
       $('#tunerToggleTxt').textContent='停止调音';
       $('#tunerToggle').classList.remove('btn-primary');
       $('#tunerToggle').classList.add('btn-danger');
-      $('#tunerSub').textContent='请拨响任意一根弦';
+      $('#tunerSub').textContent='请拨响任意一根弦 · 点弦按钮可锁定目标弦';
     }else{
       $('#tunerToggleTxt').textContent='开启麦克风调音';
     }
@@ -128,91 +167,107 @@ const Tuner = {
     $('#tunerSub').textContent='点击下方按钮开启麦克风';
     $('#tunerFreq').textContent='';
     $('#tunerStatus').textContent='';
+    $('#tunerStatus').style.color='';
     $('#tunerLevel').style.width='0%';
     $('#dialNeedle').style.transform='rotate(0deg)';
     $('#dialGlow').style.opacity='0';
     $('#tunerNote').style.color='';
     $$('.string-btn').forEach(b=>b.classList.remove('heard','tuned'));
   },
+  /* 指针永远连续运动：无信号时缓慢回中，而不是突兀归零或冻住 */
+  glideNeedle(target){
+    const needle=$('#dialNeedle'); if(!needle) return;
+    this.shownCents += (target - this.shownCents) * 0.35;
+    needle.style.transform='rotate('+(this.shownCents*1.8)+'deg)';
+  },
   onPitch(r){
-    // 电平
-    $('#tunerLevel').style.width=clamp(r.rms*900,0,100)+'%';
-    if(r.freq==null){
-      this.smooth(null);
-      this.inTuneCount=0;
-      if(r.rms>0.006){
-        $('#tunerStatus').textContent='环境噪音较大，靠近音孔再试';
-        $('#tunerStatus').style.color='var(--txt-3)';
-      }else{
-        /* V2-BUG-04 修复（P2）：静音（无信号）时不能残留上一根弦的
-           「准 ✓」绿灯——把音名/指针/高亮弦全部复位到无信号态。 */
-        this.shownCents=0;
-        $('#dialNeedle').style.transform='rotate(0deg)';
-        $('#dialGlow').style.opacity='0';
-        $('#tunerNote').textContent='--';
-        $('#tunerNote').style.color='';
-        $('#tunerStatus').textContent='';
+    const level=$('#tunerLevel'), st=$('#tunerStatus');
+    const noteEl=$('#tunerNote'), glow=$('#dialGlow');
+    const rms = Number(r && r.rms) || 0;
+    /* 电平条改用 sqrt 映射：小信号也能看到明显的条长变化
+       （线性 ×900 时，正常弹拨长期贴顶，看不出强弱差别）。 */
+    if(level) level.style.width = clamp(Math.sqrt(Math.max(0,rms))*160, 0, 100) + '%';
+    this.calibrate(rms);
+
+    let f = (r && r.freq) || null;
+    const conf = Number(r && r.clarity) || 0;
+    /* V3.2：放宽 YIN 灵敏度后必须靠噪声门兜住。
+       这里只做「显示/不显示」的决策，不改 r.freq 语义。 */
+    if(f && (!this.gate.above(rms) || conf < 0.25)) f = null;
+    const t = this.tracker.push(f, rms, conf);
+
+    if(!t){
+      this.lostFrames++;
+      this.inTune = false; this.inTuneCount = 0;
+      if(this.lostFrames > 12){
+        if(st){ st.textContent = rms > 0 ? '信号较弱，请靠近音孔再弹一次' : ''; st.style.color='var(--txt-3)'; }
+        if(noteEl){ noteEl.textContent='--'; noteEl.style.color=''; }
+        $('#tunerFreq').textContent='';
+        if(glow) glow.style.opacity='0';
         $$('.string-btn').forEach(b=>b.classList.remove('heard'));
       }
+      this.glideNeedle(0);
       return;
     }
+    this.lostFrames = 0;
+
     // Fix-9: 检测音高统一基于当前 A4 基准（this.a4）计算 MIDI 值
-    let midiFloat=69+12*Math.log2(r.freq/this.a4);
-    const smoothed=this.smooth(midiFloat);
-    if(smoothed==null) return;
+    const midiFloat = 69 + 12*Math.log2(t.freq/this.a4);
     let targetMidi, cents, displayName, sub;
     if(this.mode==='guitar'){
-      // 找最接近的标准弦
-      let best=null,bd=99;
-      this.strings.forEach(s=>{const d=Math.abs(smoothed-s.midi);if(d<bd){bd=d;best=s;}});
-      // Fix-9: 目标音高按报告公式基于当前 A4 基准换算：targetMidi=69+12*log2(targetFreq/this.a4)，
-      // 与 smoothed 保持同一基准（this.freq() 本身以 this.a4 计算，故结果恒等于 best.midi）；
-      // 取整以避免浮点误差破坏后续 === 比较
-      const targetFreq=this.freq(best.midi);
-      targetMidi=Math.round(69+12*Math.log2(targetFreq/this.a4));
-      cents=(smoothed-targetMidi)*100;
-      if(Math.abs(cents)>60){ // 偏差太大，忽略
-        // P2-20 修复：返回前清空残留 UI——V1 只清状态文字，
-        // 指针/音名/频率仍停在上一帧，给人"卡住"的错觉
-        $('#tunerStatus').textContent='';
-        $('#tunerNote').textContent='--';
-        $('#tunerFreq').textContent='';
-        $('#dialNeedle').style.transform='rotate(0deg)';
-        $('#dialGlow').style.opacity='0';
-        return;
+      // V3.2：手动锁定的弦优先；未锁定时才找最接近的标准弦
+      let target = null;
+      if(this.picked!=null) target = this.strings.find(s=>s.midi===this.picked) || null;
+      if(!target){
+        let bd=99;
+        this.strings.forEach(s=>{const d=Math.abs(midiFloat-s.midi); if(d<bd){bd=d; target=s;}});
       }
-      displayName=best.label;
-      sub=best.n+'弦 · 目标 '+(this.freq(best.midi).toFixed(1))+' Hz';
-      this.heardString=best.n;
+      // Fix-9: 目标音高按报告公式基于当前 A4 基准换算：targetMidi=69+12*log2(targetFreq/this.a4)，
+      // 与 midiFloat 保持同一基准（this.freq() 本身以 this.a4 计算，故结果恒等于 target.midi）；
+      // 取整以避免浮点误差破坏后续 === 比较
+      const targetFreq=this.freq(target.midi);
+      targetMidi=Math.round(69+12*Math.log2(targetFreq/this.a4));
+      cents=(midiFloat-targetMidi)*100;
+      displayName=target.label;
+      this.heardString=target.n;
+      sub = (this.picked!=null ? '已锁定 ' : '') + target.n+'弦 · 目标 '+(targetFreq.toFixed(1))+' Hz';
       $$('.string-btn').forEach(b=>{
-        const on=+b.dataset.midi===best.midi;
-        b.classList.toggle('heard',on);
+        const on = (this.picked!=null) ? (+b.dataset.midi===this.picked) : (+b.dataset.midi===target.midi);
+        b.classList.toggle('heard', on);
       });
     }else{
-      // Fix-9: smoothed 已基于当前 A4，直接四舍五入即为目标，两值天然同基准
-      targetMidi=Math.round(smoothed);
-      cents=(smoothed-targetMidi)*100;
+      // Fix-9: midiFloat 已基于当前 A4，直接四舍五入即为目标，两值天然同基准
+      targetMidi=Math.round(midiFloat);
+      cents=(midiFloat-targetMidi)*100;
       displayName=noteNameNoOct(targetMidi)+(Math.floor(targetMidi/12)-1);
       sub='半音阶';
     }
-    cents=clamp(cents,-50,50);
-    // 指针平滑
-    this.shownCents+=(cents-this.shownCents)*0.35;
-    $('#dialNeedle').style.transform='rotate('+(this.shownCents*1.8)+'deg)';
-    $('#tunerNote').textContent=displayName;
-    $('#tunerSub').textContent=sub;
-    $('#tunerFreq').textContent=r.freq.toFixed(1)+' Hz';
-    const st=$('#tunerStatus'), note=$('#tunerNote'), glow=$('#dialGlow');
-    if(Math.abs(cents)<=5){
+
+    /* V3.2 关键修复：删除「|cents| > 60 就清空整个 UI 并 return」的分支。
+       旧实现在稍偏离目标弦时把指针强行 rotate(0)、音名置 '--'，
+       连续帧之间互相覆盖，视觉上就是「指针纹丝不动」。
+       现在：指针始终按夹紧后的偏差连续转动，文字给出真实偏差值。 */
+    const shown = clamp(cents, -50, 50);
+    this.glideNeedle(shown);
+    noteEl.textContent = displayName;
+    $('#tunerSub').textContent = sub;
+    $('#tunerFreq').textContent = t.freq.toFixed(1)+' Hz';
+
+    // 准音判定：进 ≤5¢，出 ≥8¢（参考 pro-tuner 的滞后策略，防临界闪烁）
+    const absC=Math.abs(cents);
+    if(!this.inTune && absC<=5) this.inTune=true;
+    else if(this.inTune && absC>=8) this.inTune=false;
+
+    if(this.inTune){
       this.inTuneCount++;
       st.textContent='准 ✓';
       st.style.color='var(--mint)';
-      note.style.color='var(--mint)';
-      glow.style.opacity='1';
-      if(this.mode==='guitar' && this.heardString){
+      noteEl.style.color='var(--mint)';
+      if(glow) glow.style.opacity='1';
+      if(this.mode==='guitar'){
         const btn=$$('.string-btn').find(b=>+b.dataset.midi===targetMidi);
         if(btn) btn.classList.add('tuned');
-        if(this.inTuneCount>8){
+        if(this.inTuneCount>8 && this.heardString){
           this.tunedSet.add(this.heardString);
           /* BUG-02 修复：六弦全部调准后上报一次练习会话。旧实现只弹 toast，
              从不写入 PracticeStore，导致每日计划里「调音检查」任务的
@@ -229,8 +284,8 @@ const Tuner = {
       const flat=cents<0;
       st.textContent=flat?('偏低 '+(Math.abs(cents).toFixed(0))+' 音分'):('偏高 '+(cents.toFixed(0))+' 音分');
       st.style.color=flat?'var(--blue)':'var(--red)';
-      note.style.color=flat?'var(--blue)':'var(--red)';
-      glow.style.opacity='0';
+      noteEl.style.color=flat?'var(--blue)':'var(--red)';
+      if(glow) glow.style.opacity='0';
       if(this.mode==='guitar'){
         const btn=$$('.string-btn').find(b=>+b.dataset.midi===targetMidi);
         if(btn) btn.classList.remove('tuned');

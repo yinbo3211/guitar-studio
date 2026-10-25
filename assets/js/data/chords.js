@@ -68,7 +68,12 @@ function renderDiagram(chord, opts={}){
      改为引用主题变量（--diag-line / --diag-nut / --diag-num / --dot-bg / --dot-fg），
      每个主题各自定义，深色与浅色都能保证对比度。 */
   const gAt=i=>chord.fingers?(chord.fingers[lh?5-i:i]||0):0;   // V3.1 BUG-7：指法（镜像同步翻转）
-  let out=`<svg viewBox="0 0 ${W} ${H}" class="diagram-svg" xmlns="http://www.w3.org/2000/svg">`;
+  /* V3.2：移动端必须带上 width/height 固有尺寸。
+     原来只有 viewBox，靠 CSS `height:auto` 反推高度——Chrome/桌面可行，
+     但 iOS Safari（WebKit）在部分版本下会把这种无固有尺寸的 SVG 高度算成 0，
+     和弦转换/和弦库页面就只剩空卡片。补上固有宽高后 aspect-ratio 可解，
+     CSS 里的 width:100% 仍会覆盖显示宽度，两种浏览器都正常。 */
+  let out=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="diagram-svg" xmlns="http://www.w3.org/2000/svg">`;
   /* V3.1：defs 前置（先定义后引用，规避前向引用兼容问题） */
   out+=`<defs><linearGradient id="dotGrad${s}" x1="0" y1="0" x2="1" y2="1">
     <stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#f59136"/></linearGradient></defs>`;

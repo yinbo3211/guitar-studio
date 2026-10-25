@@ -37,15 +37,39 @@ document.addEventListener('click', e=>{
   if(t){ closeMoreSheet(); go(t.dataset.route); }
 });
 
-/* 移动端更多菜单 */
-const MORE_ROUTES = [
-  {r:'rhythm',label:'节奏',ic:'<path d="M4 4v16M8 4v16M12 7v10M16 4v16M20 7v10"/>'},
-  {r:'chords',label:'和弦库',ic:'<circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/>'},
-  {r:'scale',label:'音阶',ic:'<path d="M4 19h4v-5h4V9h4V4h4"/>'},
-  {r:'ear',label:'练耳',ic:'<path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/>'},
-  {r:'fret',label:'指板',ic:'<path d="M4 6h16M4 12h16M4 18h16"/>'},
-  {r:'studio',label:'录音',ic:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/>'}
-];
+/* 移动端更多菜单
+   ------------------------------------------------------------
+   V3.2 修复：当视口 ≤860px 时侧边栏 .sidebar 被 display:none，
+   底部 tabbar 只放 4 个页，**这里就是移动端唯一的功能入口**。
+   原列表遗漏了 flow / plan / stats 三个 V3.1 新页面，
+   导致手机上根本点不到「和弦转换」（表现为「手机端无法显示」）——
+   桌面侧边栏有这些项，所以只在 M3 目录重构时漏了这一份清单。
+   现在改为：以 ROUTE_TITLES（去掉 tabbar 已直达的 4 个）为准生成，
+   以后新增页面不会再被漏掉。 */
+const TABBAR_ROUTES = ['home', 'tuner', 'metro', 'game'];
+const MORE_EXTRA_IC = {
+  home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>',
+  tuner:'<path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/>',
+  metro:'<path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/>',
+  game:'<rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/>',
+  rhythm:'<path d="M4 4v16M8 4v16M12 7v10M16 4v16M20 7v10"/>',
+  chords:'<circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/>',
+  scale:'<path d="M4 19h4v-5h4V9h4V4h4"/>',
+  ear:'<path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/>',
+  fret:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+  studio:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/>',
+  flow:'<path d="M4 7h7l-3 10"/><path d="M13 7h7l-3 10"/>',
+  plan:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+  stats:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'
+};
+const MORE_LABEL = {
+  home:'首页', tuner:'调音', metro:'节拍', game:'闯关',
+  rhythm:'节奏', chords:'和弦库', scale:'音阶', ear:'练耳',
+  fret:'指板', studio:'录音', flow:'和弦转换', plan:'计划', stats:'统计'
+};
+const MORE_ROUTES = Object.keys(ROUTE_TITLES)
+  .filter(r => TABBAR_ROUTES.indexOf(r) < 0)
+  .map(r => ({ r, label: MORE_LABEL[r] || ROUTE_TITLES[r], ic: MORE_EXTRA_IC[r] || MORE_EXTRA_IC.stats }));
 $('#moreGrid').innerHTML = MORE_ROUTES.map(m=>`
   <button class="more-item" data-route="${m.r}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);transition:all .2s">
     <span style="width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:rgba(255,180,84,.12);color:var(--amber)">

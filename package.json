@@ -1,6 +1,6 @@
 {
   "name": "guitar-studio",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "private": true,
   "type": "module",
   "description": "六弦工坊 · AI 吉他练习室（V3.0：Tone.js 音频内核 / 目录重构 / 多主题 / 中英日韩）",
