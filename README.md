@@ -15,7 +15,7 @@
 > （Perfect/Good/Off/Miss）、逐词卡拉 OK 歌词、合成伴奏乐队、结算评级横幅。
 > 版本 4.0.0 → **4.1.0**。第三方代码与数据来源见 `NOTICE.md`。
 
-- **演奏视图**：`assets/js/gp/play.js`（移植自 GuitarPicker `src/views/play.js`，MIT），
+- **演奏视图**：`assets/js/gp/play.js`（移植自 GuitarPicker 的 play 视图，MIT，对照表见 NOTICE.md），
   宿主壳 `assets/js/modules/song-play.js`，路由 `songPlay`。
 - **曲库数据**：`assets/js/gp/songs.js` —— 231 首需求手册曲目 + 5 首公有领域旋律；
   歌词为 **QQ 音乐真实抓取**（230 首，含毫秒时间戳），和弦进行为通用和声模板。
