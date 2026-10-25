@@ -13,3 +13,6 @@ nginx-bin/
 
 # 旧单文件备份
 guitar-studio.single-file-backup.html
+
+# OMR 谱面样本（第三方图片谱，仅供本地识别，不入库）
+tools/_omr_samples/

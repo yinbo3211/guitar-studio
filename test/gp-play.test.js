@@ -61,8 +61,12 @@ test('GP-1 provenance 明确标注每类数据的来源（可审计）', () => {
 /* ============================================================
    GP-2 展开：和弦曲目 / 旋律曲目
    ============================================================ */
-test('GP-2 和弦曲目展开出合法音符（每小节 4 个扫弦、和弦音 3-4 个）', () => {
-  const song = cat.findSong('gp-song-001');
+test('GP-2 和弦曲目展开出合法音符（每小节 4 个扫弦、和弦音 3-4 个）', async () => {
+  /* V4.2 起部分曲目走 OMR 真实谱面（无 chord 标记），此处专测纯模板和弦曲目 */
+  const { GP_OMR_NOTES } = await import(pathToFileURL(path.join(ROOT, 'assets/js/gp/omr-notes.js')).href);
+  const def = GP_CHORD_SONGS.find((s) => !GP_OMR_NOTES[s.id]);
+  assert.ok(def, '应仍存在纯模板和弦曲目');
+  const song = cat.findSong(def.id);
   assert.ok(song, '应能按 id 展开');
   assert.ok(song.notes.length > 0);
   assert.ok(song.notes.every((n) => Array.isArray(n.midi) && n.midi.length >= 3 && n.midi.length <= 4));

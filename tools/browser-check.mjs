@@ -109,6 +109,8 @@ try {
 
   await send('Runtime.enable');
   await send('Log.enable');
+  await send('Page.enable');
+  await send('Page.navigate', { url: URL });  // headless 新版首个 target 可能是空白页
   await sleep(7000);                       // 等 ESM 加载 + 视图挂载 + RO 回调
   const r = await send('Runtime.evaluate', { expression: EXPR, returnByValue: true, awaitPromise: true });
   out = JSON.parse((r.result && r.result.result && r.result.result.value) || '{}');

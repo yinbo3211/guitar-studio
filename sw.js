@@ -99,6 +99,7 @@ const CORE = [
   './assets/js/gp/karaoke-render.js',
   './assets/js/gp/karaoke-timeline.js',
   './assets/js/gp/notes.js',
+  './assets/js/gp/omr-notes.js',
   './assets/js/gp/parts.js',
   './assets/js/gp/pitch.js',
   './assets/js/gp/play.js',

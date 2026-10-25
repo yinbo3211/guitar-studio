@@ -141,17 +141,25 @@ def main():
             'background': {'type': 'animated', 'value': m['bg']},
         })
 
+    # V4.2: OMR 真实谱面计数（omr-notes.js 由 build_gp_omr.py 先生成）
+    omr_count = 0
+    omr_js = os.path.join(ROOT, 'assets', 'js', 'gp', 'omr-notes.js')
+    if os.path.exists(omr_js):
+        omr_count = len(re.findall(r'"gp-song-\d+":', io.open(omr_js, encoding='utf-8').read()))
+
     prov = {
         'generatedBy': 'tools/build_gp_songs.py',
         'catalogSource': '需求手册附录 A（231 首）',
         'lyricSource': 'QQ 音乐歌词接口（真实抓取，含毫秒时间戳）',
         'harmonySource': '通用和声模板（不可版权化的和声进行，非原曲编配）',
         'melodySource': '公有领域 / 传统曲目人工记谱',
+        'omrSource': '吉他社图片谱 OMR 光学识别（tools/omr_tab.py，仅供学习使用）' if omr_count else None,
         'bpmSource': '按难度层级估计（QQ 音乐未提供公开 BPM 接口）',
         'counts': {
             'chordSongs': len(chord_songs),
             'melodySongs': len(melody_songs),
             'withRealLyrics': stats['lyrics'],
+            'omrSongs': omr_count,
         },
     }
 

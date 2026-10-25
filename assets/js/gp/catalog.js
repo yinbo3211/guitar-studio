@@ -9,6 +9,7 @@
    ============================================================ */
 'use strict';
 import { GP_CHORD_SONGS, GP_MELODY_SONGS, GP_PROVENANCE } from './songs.js';
+import { GP_OMR_NOTES } from './omr-notes.js';
 import { newSong, parseMelody, ensureMetadata } from './song-format.js';
 import { chordMidis } from './theory.js';
 
@@ -82,6 +83,49 @@ function expandChord(def) {
   });
 }
 
+/* ---------- OMR 真实谱面：识别出的 (拍, 时值, midi) 事件，循环铺满整曲 ---------- */
+function expandOmr(def, omr) {
+  const bpm = def.bpm || 80;
+  let spb = 60 / bpm;
+  const span = omr.span || 16;
+  const want = def.durationSec || 0;
+  /* 谱面一遍比原曲还长：说明估计 BPM 偏慢（或谱含反复），
+     按比例压缩时值让一遍≈整曲，避免后半程无音符 */
+  if (want > 0 && span * spb > want) {
+    spb = (want * 0.985) / span;
+  }
+  const loops = want > 0 ? Math.max(1, Math.ceil((want / spb) / span)) : 1;
+  const cut = want > 0 ? want + spb * 8 : Infinity;  // 超出整曲时长 2 小节的音符裁掉
+  const notes = [];
+  for (let l = 0; l < loops; l++) {
+    const off = l * span * spb;
+    for (const [beat, dur, midi] of omr.n) {
+      const t = off + beat * spb;
+      if (t > cut) break;
+      notes.push({
+        time: +t.toFixed(4),
+        dur: +(dur * spb).toFixed(4),
+        midi,
+      });
+    }
+  }
+  return newSong({
+    id: def.id,
+    title: def.title,
+    artist: def.artist,
+    instrument: 'acoustic-guitar',
+    key: def.key || 'C',
+    bpm,
+    capo: def.capo || 0,
+    difficulty: def.difficulty || 'beginner',
+    genre: def.genre || 'Pop',
+    notes,
+    lyrics: def.lyrics || [],
+    background: def.background || { type: 'solid', value: '' },
+    source: 'omr-tab',
+  });
+}
+
 function expandMelody(def) {
   const bpm = def.bpm || 100;
   return newSong({
@@ -107,7 +151,9 @@ export function findSong(id) {
   if (cache.has(id)) return cache.get(id);
   const def = defById(id);
   if (!def) return null;
-  const song = ensureMetadata(def.melody ? expandMelody(def) : expandChord(def));
+  const omr = GP_OMR_NOTES[def.id] || null;
+  const song = ensureMetadata(
+    def.melody ? expandMelody(def) : (omr ? expandOmr(def, omr) : expandChord(def)));
   cache.set(id, song);
   return song;
 }
