@@ -290,3 +290,10 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
   .sb-head{gap:12px}
   .sp-count-num{font-size:68px}
 }
+
+/* ===== V4.1 弹唱演奏视图：给 GuitarPicker 画布一个确定高度 =====
+   .play-shell 是 height:100%，其祖先必须有确定高度，否则 canvas 高度为 0、
+   highway 完全不显示（GuitarPicker 原站由 #app 网格提供高度，宿主没有）。 */
+#view-songPlay{max-width:1280px}
+#gpPlayRoot{height:calc(100vh - 168px);min-height:420px}
+@media (max-width:900px){#gpPlayRoot{height:calc(100vh - 140px);min-height:360px}}

@@ -153,6 +153,17 @@ const SongPractice = {
     const id = this.pendingSongId || this.hashSongId() || '';
     const song = id ? songById(id) : null;
     this.pendingSongId = '';
+    /* V4.1：旧的「分步计时 + 曲谱外链」页已被 GuitarPicker 式演奏视图取代。
+       这里统一转发，避免任何人再通过旧路由看到只有链接的页面。 */
+    if (song) {
+      try {
+        if (typeof SongPlay !== 'undefined' && SongPlay) {
+          SongPlay.prepare(id);
+          goRoute('songPlay');
+          return;
+        }
+      } catch (e) { /* 演奏模块不可用时退回旧页 */ }
+    }
     if (!id || !song) {                    // E2：无曲目 / 曲目不存在
       this.songId = '';
       this.song = null;

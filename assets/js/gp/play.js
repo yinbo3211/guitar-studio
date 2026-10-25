@@ -54,6 +54,8 @@ export default async function play(ctx) {
   // ----- per-note runtime state -----
   const notes = lead.notes.map((n) => ({
     time: n.time, dur: n.dur || 0.4, midi: n.midi, chord: n.chord || n.midi.length > 1,
+    /* 和弦块在 highway 上显示和弦名（弹唱谱的可读性关键：否则只见色块不知按什么） */
+    label: n.chord || n.midi.length > 1 ? describeMidiSet(n.midi) : "",
     state: "pending", best: 999, frames: 0,
     frets: fretted ? n.midi.map((m) => midiToFret(m, playInst, capoStrings)) : null,
     holes: harp ? n.midi.map(midiToHole) : null,
@@ -150,11 +152,17 @@ export default async function play(ctx) {
   // ----- canvas sizing -----
   const c = canvas.getContext("2d");
   let W = 0, H = 0, dpr = 1;
+  /* 宿主适配：ResizeObserver 的回调在首帧 render() 之后才触发，而给 canvas.width
+     赋值会清空画布；非演奏态又不会重绘，结果就是进入页面看到一块全黑的 highway。
+     这里在尺寸变化后补一次静态重绘（painted 为 false 时短路，避开 playing/clock
+     的 TDZ——它们声明在 resize() 之后）。 */
+  let painted = false;
   function resize() {
     dpr = window.devicePixelRatio || 1;
     W = canvas.clientWidth; H = canvas.clientHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (painted) render(clock);
   }
   const ro = new ResizeObserver(resize); ro.observe(canvas);
   resize();
@@ -381,10 +389,11 @@ export default async function play(ctx) {
       const x = hitX + (n.time - t) * pps;
       const wRect = Math.max(16, n.dur * pps);
       if (x + wRect < -20 || x > W + 40) continue;
-      for (const midi of n.midi) {
+      n.midi.forEach((midi, mi) => {
         const y = yFor(midi);
-        drawNote(x, y, wRect, n.state, midi, n.chord);
-      }
+        // 同一和弦的多个音只在最上面一块标和弦名，避免重复文字糊成一片
+        drawNote(x, y, wRect, n.state, midi, n.chord, mi === n.midi.length - 1 ? n.label : "");
+      });
     }
 
     // live pitch marker (meaningless for unpitched percussion)
@@ -410,7 +419,7 @@ export default async function play(ctx) {
     updateLyric(t);
   }
 
-  function drawNote(x, y, w, state, midi, chord) {
+  function drawNote(x, y, w, state, midi, chord, label) {
     const h = 26;
     const colors = { pending: getVar("--accent"), perfect: getVar("--j-perfect"),
       good: getVar("--j-good"), off: getVar("--j-off"), miss: getVar("--j-miss") };
@@ -423,7 +432,7 @@ export default async function play(ctx) {
     if (state === "pending") { c.shadowColor = col; c.shadowBlur = 10; c.fill(); c.shadowBlur = 0; }
     c.globalAlpha = 1;
     c.fillStyle = "rgba(0,0,0,0.8)"; c.font = "bold 11px var(--font)";
-    const lbl = chord ? "" : midiToName(midi).name;
+    const lbl = label || (chord ? "" : midiToName(midi).name);
     if (lbl && w > 22) c.fillText(lbl, x + 5, y + 4);
   }
   // fretboard strip: dots for the current (or next) note's fingering
@@ -594,6 +603,7 @@ export default async function play(ctx) {
 
   // initial paint
   render(-LEAD_IN); updateHud();
+  painted = true;                 // 之后的 resize 才会触发补绘
 
   // cleanup
   return () => {

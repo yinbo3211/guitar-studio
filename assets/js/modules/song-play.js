@@ -44,6 +44,9 @@ const SongPlay = {
     const root = document.getElementById('gpPlayRoot');
     if (!root) return;
     this.leave();                                   // 先把上一次拆干净
+    /* 关键：GuitarPicker 的 CSS 全部收敛在 .gp-scope 下，根容器必须带这个类，
+       否则演奏界面完全无样式（画布/HUD/控制条全部塌陷）。 */
+    root.className = 'gp-scope';
     const id = this.pendingId || this.hashId() || '';
     this.pendingId = '';
     this.songId = id;
