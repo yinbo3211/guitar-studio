@@ -100,9 +100,30 @@ export function parse(text) {
   return newSong(o); // normalize / fill defaults
 }
 
+/* BUG-11：歌词行缺省时长与 karaoke-timeline.js 的 DEFAULT_LINE_DUR 保持一致 */
+const LYRIC_DEFAULT_DUR = 3;
+
+/**
+ * 整曲时长（统一口径 · BUG-11）：
+ *   max(谱面最后一个音符结束时间, 歌词时间轴最后一个时间点)。
+ * 歌词行结束时间与 karaoke-timeline 同一规则：
+ *   行自带 dur → time + dur；否则取下一行 time；末行缺省 +LYRIC_DEFAULT_DUR。
+ * 这样卡拉 OK 歌词不会在谱面音符结束后被中途截断（8 首越界曲目）。
+ */
 export function songDuration(song) {
-  if (!song.notes.length) return 0;
-  return song.notes.reduce((m, n) => Math.max(m, n.time + (n.dur || 0.4)), 0);
+  const notes = (song && Array.isArray(song.notes)) ? song.notes : [];
+  const noteEnd = notes.reduce((m, n) => Math.max(m, n.time + (n.dur || 0.4)), 0);
+  const raw = (song && Array.isArray(song.lyrics) ? song.lyrics : [])
+    .filter((l) => l && typeof l.time === 'number')
+    .slice()
+    .sort((a, b) => a.time - b.time);
+  const lyricEnd = raw.reduce((m, L, i) => {
+    const next = raw[i + 1];
+    const end = L.dur != null ? L.time + L.dur
+      : (next ? next.time : L.time + LYRIC_DEFAULT_DUR);
+    return Math.max(m, end);
+  }, 0);
+  return Math.max(noteEnd, lyricEnd);
 }
 
 /**

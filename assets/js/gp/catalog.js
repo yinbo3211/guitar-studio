@@ -27,19 +27,44 @@ const OMR_FULLSONG_RATIO = 0.7;
 const OMR_MIN_NOTES = 24;
 const OMR_MIN_DENSITY = 1.2;
 const OMR_MIN_PITCH_KINDS = 4;
+/* BUG-09：单遍时长 vs 展开后谱面时长的比值超出 [0.9, 1.1] → 短片段循环铺满，
+   不是「整曲真实谱」，必须降级（循环遍数容差 ±10%） */
+const OMR_LOOP_RATIO_MIN = 0.9;
+const OMR_LOOP_RATIO_MAX = 1.1;
 
 /**
  * OMR 数据质量评估（纯函数，可直接单测）。
- * @returns {{notes:number, bars:number, density:number, pitchKinds:number, usable:boolean}}
+ * @param {object} omr GP_OMR_NOTES 条目（{b, span, n}）
+ * @param {object} [def] 曲目紧凑定义（可选）；传入后追加 BUG-09 循环遍数判定：
+ *        单遍时长 passSec 与展开后谱面时长的比值超出 [0.9, 1.1] 即 unusable。
+ *        不传 def 时跳过循环判定（无法得知 bpm/durationSec，保持旧行为）。
+ * @returns {{notes:number, bars:number, density:number, pitchKinds:number,
+ *            passSec:number, loops:number, loopRatio:number, usable:boolean}}
  */
-export function omrQuality(omr) {
+export function omrQuality(omr, def) {
   const list = (omr && Array.isArray(omr.n)) ? omr.n : [];
   const bars = (omr && omr.span > 0) ? omr.span / (omr.b || 4) : 0;
   const notes = list.length;
   const density = bars > 0 ? notes / bars : 0;
   const pitchKinds = new Set(list.flatMap((x) => x[2])).size;
-  const usable = notes >= OMR_MIN_NOTES && density >= OMR_MIN_DENSITY && pitchKinds >= OMR_MIN_PITCH_KINDS;
-  return { notes, bars, density, pitchKinds, usable };
+  /* BUG-09 循环遍数判定：与 expandOmr 同一套口径（spb 恒为 60/bpm，不压缩） */
+  let passSec = 0, loops = 1, loopRatio = 1, loopOk = true;
+  if (def && omr && omr.span > 0) {
+    const spb = 60 / (def.bpm || 80);
+    const want = def.durationSec || 0;
+    passSec = omr.span * spb;
+    if (want > 0 && passSec > 0) {
+      const isFullSong = passSec >= want * OMR_FULLSONG_RATIO;
+      loops = isFullSong ? 1 : Math.max(1, Math.ceil(want / passSec));
+      /* 展开后谱面时长 ≈ loops 遍单遍时长（尾部截断容差 1 小节，与 expandOmr 一致） */
+      const expandedSec = Math.min(loops * passSec, want + spb * 4);
+      loopRatio = expandedSec / passSec;
+      loopOk = loopRatio >= OMR_LOOP_RATIO_MIN && loopRatio <= OMR_LOOP_RATIO_MAX;
+    }
+  }
+  const usable = notes >= OMR_MIN_NOTES && density >= OMR_MIN_DENSITY
+    && pitchKinds >= OMR_MIN_PITCH_KINDS && loopOk;
+  return { notes, bars, density, pitchKinds, passSec, loops, loopRatio, usable };
 }
 
 /**
@@ -52,12 +77,39 @@ export function hasRealChart(id) {
   if (!def) return false;
   if (def.melody) return true;
   const omr = GP_OMR_NOTES[def.id] || null;
-  return !!omr && omrQuality(omr).usable;
+  return !!omr && omrQuality(omr, def).usable;
 }
-/** 有 OMR 数据但没过质量门禁 → 识谱不完整，需要 UI 明确告知（BUG-02 Step A） */
+/** 有 OMR 数据但没过质量门禁（密度退化 或 BUG-09 循环铺满）→ 需要 UI 明确告知（BUG-02 Step A） */
 export function isOmrDegraded(defId) {
-  const omr = (typeof GP_OMR_NOTES === 'object' && GP_OMR_NOTES) ? GP_OMR_NOTES[defId] : null;
-  return !!omr && omrQuality(omr).usable === false;
+  const def = defById(defId);
+  const key = def ? def.id : defId;
+  const omr = (typeof GP_OMR_NOTES === 'object' && GP_OMR_NOTES) ? GP_OMR_NOTES[key] : null;
+  if (!omr) return false;
+  return omrQuality(omr, def || undefined).usable === false;
+}
+
+/* ---------- BUG-14：同名曲展示消歧（曲名 · 歌手），不改真实曲名数据 ---------- */
+let dupTitleSet = null;
+/** 曲库内同曲名（不同歌手）的标题集合，惰性构建 */
+function dupTitles() {
+  if (!dupTitleSet) {
+    const byTitle = new Map();
+    for (const d of listDefs()) {
+      const k = String(d.title || '');
+      byTitle.set(k, (byTitle.get(k) || 0) + 1);
+    }
+    dupTitleSet = new Set([...byTitle.entries()].filter(([, n]) => n > 1).map(([k]) => k));
+  }
+  return dupTitleSet;
+}
+/**
+ * 展示层标题：同曲名存在多首时追加「 · 歌手」消歧（BUG-14，如 玫瑰×2）。
+ * @param {{title?:string, artist?:string}} song
+ */
+export function displayTitle(song) {
+  const title = String((song && song.title) || '');
+  const artist = String((song && song.artist) || '');
+  return dupTitles().has(title) && artist ? `${title} · ${artist}` : title;
 }
 const cache = new Map();
 
@@ -213,7 +265,7 @@ export function findSong(id) {
   let song;
   if (def.melody) {
     song = expandMelody(def);
-  } else if (omr && omrQuality(omr).usable) {
+  } else if (omr && omrQuality(omr, def).usable) {
     song = expandOmr(def, omr);                       // 通过质量门禁的真实识谱
   } else {
     /* 无 OMR，或 OMR 未过质量门禁 —— 诚实降级为「自动生成的简易伴奏」，
@@ -229,5 +281,5 @@ export function clearCache() { cache.clear(); }
 
 export default {
   listDefs, defCount, searchDefs, defById, findSong, clearCache,
-  omrQuality, isOmrDegraded, hasRealChart, GP_PROVENANCE,
+  omrQuality, isOmrDegraded, hasRealChart, displayTitle, GP_PROVENANCE,
 };

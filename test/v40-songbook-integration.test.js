@@ -108,8 +108,11 @@ test('V4-5 统计中心存在曲库分区挂载点且 stats.js 已实现渲染',
   assert.ok(/renderSongbook\(\)/.test(STATS), 'stats.js 实现曲库分区渲染');
   assert.ok(/this\.renderSongbook\(\)/.test(STATS), 'render() 中调用');
   assert.ok(/songbookStats\(/.test(STATS), '复用曲库模块纯统计函数');
-  assert.ok(/songbook:[^,]*nav\.songbook/.test(STATS) || /songbook:T\('nav\.songbook'/.test(STATS),
-    '模块对比表把 songbook 纳入（且走 i18n）');
+  /* V4.2.2（BUG-12）：模块名改走 stats.module.* 词条（含 songbook 与历史 songplay） */
+  assert.ok(/stats\.module\.'/.test(STATS), '模块对比表模块名走 stats.module.* 取词');
+  assert.ok(/'stats\.module\.songbook':/.test(read('assets/js/i18n/zh-CN.js'))
+    && /'stats\.module\.songbook':/.test(read('assets/js/i18n/en.js')),
+    'stats.module.songbook 词条存在（模块对比表覆盖 songbook）');
 });
 
 /* ============================================================

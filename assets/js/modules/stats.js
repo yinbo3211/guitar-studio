@@ -14,6 +14,8 @@ const { clamp } = AudioCore;
 /* i18n 取词：t 可能未挂到 window（i18n.js 以 gsI18n 暴露），这里做安全兜底 */
 const T = (typeof t === 'function') ? t
   : ((k, dflt)=> (window.gsI18n && window.gsI18n.t ? window.gsI18n.t(k) : (dflt || k)));
+/* 占位符替换（{n}/{m}/{s}/{msg}），取不到词时回退 key 本身仍可读 */
+const tf = (k, pairs)=>{ let x = T(k, k); for(const p in pairs||{}) x = x.split('{'+p+'}').join(pairs[p]); return x; };
 
 const Stats = {
   rangeDays: 7,
@@ -37,55 +39,66 @@ const Stats = {
     if(imp) imp.onchange = e=>this.importFile(e);
     const clr = $('#statsClear');
     if(clr) clr.onclick = ()=>{
-      if(!confirm(T('stats.clear.confirm', '确定清空全部练习数据？此操作不可恢复。'))) return;
-      PracticeStore.clearAll(); this.render(); toast('练习数据已清空','warn');
+      if(!confirm(T('stats.clear.confirm'))) return;
+      PracticeStore.clearAll(); this.render(); toast(T('stats.toast.cleared'),'warn');
     };
     this.render();
   },
   fmtDur(ms){
     const m = Math.floor((ms||0)/60000), s = Math.floor(((ms||0)%60000)/1000);
-    return m ? `${m} 分 ${s} 秒` : `${s} 秒`;
+    return m ? tf('stats.dur.minSec', { m, s }) : tf('stats.dur.secOnly', { s });
   },
+  /* BUG-12：模块名全部走 i18n（stats.module.*），songplay 为 V4.2 前的历史 module 名（BUG-07） */
   moduleName(m){
-    const map = {tuner:'调音器', metro:'节拍器', rhythm:'节奏型', game:'和弦闯关',
-      chords:'和弦库', scale:'音阶', ear:'练耳', fret:'指板', studio:'录音', flow:'和弦转换',
-      songbook:T('nav.songbook','弹唱曲库')};   // V4.0 T4：弹唱打卡并入模块对比
-    return map[m] || m;
+    return T('stats.module.' + m) !== 'stats.module.' + m ? T('stats.module.' + m) : m;
   },
   /* V4.0 T4：弹唱曲库统计分区（已练曲目 / 累计时长 / 近 7 天 / 分层完成率） */
   renderSongbook(){
     const box = document.getElementById('statSongbookBox');
     if(!box || typeof PracticeStore === 'undefined') return;
     let sessions = [];
-    try { sessions = PracticeStore.listSessions({ module:'songbook' }); }
+    try {
+      /* BUG-07：读取端兼容 V4.2 之前写入的 module='songplay' 历史记录，
+         PracticeStore.listSessions 只支持单 module，合并两次查询并按 endedAt 去重排序 */
+      const cur = PracticeStore.listSessions({ module:'songbook' });
+      const legacy = PracticeStore.listSessions({ module:'songplay' });
+      const seen = new Set();
+      sessions = cur.concat(legacy)
+        .filter((rec) => {
+          const k = `${rec.endedAt}|${(rec.meta && rec.meta.songId) || ''}|${rec.durationMs || 0}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        })
+        .sort((a, b) => (a.endedAt || 0) - (b.endedAt || 0));
+    }
     catch(_){ sessions = []; }
     const s = songbookStats(sessions);
     if(!s.practicedCount){
-      box.innerHTML = `<div class="stat-empty">${T('songbook.stats.empty','还没有弹唱记录，去曲库挑一首开始吧')}</div>`;
+      box.innerHTML = `<div class="stat-empty">${T('songbook.stats.empty')}</div>`;
       return;
     }
-    const tf = (k, pairs)=>{ let x = T(k, k); for(const p in pairs) x = x.replace('{'+p+'}', pairs[p]); return x; };
     const tierRows = [1,2,3].map(t=>{
       const r = s.byTier[t] || { done:0, total:0, rate:0 };
       const pct = Math.round((r.rate||0)*100);
       return `<div class="stat-mod-row">
-        <span class="stat-mod-name">${T('songbook.tier.'+t, '')}</span>
+        <span class="stat-mod-name">${T('songbook.tier.'+t)}</span>
         <span class="stat-mod-bar"><i style="width:${pct}%"></i></span>
         <span class="stat-mod-val">${pct}%</span>
         <span class="stat-mod-dur">${r.done}/${r.total}</span>
       </div>`;
     }).join('');
     box.innerHTML = `
-      <div class="stat-sub-title">${T('songbook.stats.title','弹唱曲库统计')}</div>
+      <div class="stat-sub-title">${T('songbook.stats.title')}</div>
       <div class="stat-sb-grid">
         <div class="stat-sb-cell"><b>${s.practicedCount}/${s.total}</b>
           <span>${tf('songbook.stats.practiced', { done:s.practicedCount, total:s.total })}</span></div>
         <div class="stat-sb-cell"><b>${this.fmtDur(s.totalDurationMs)}</b>
-          <span>${T('songbook.stats.duration','累计弹唱时长')}</span></div>
+          <span>${T('songbook.stats.duration')}</span></div>
         <div class="stat-sb-cell"><b>${this.fmtDur(s.last7DaysMs)}</b>
-          <span>${T('songbook.stats.last7','近 7 天时长')}</span></div>
+          <span>${T('songbook.stats.last7')}</span></div>
       </div>
-      <div class="stat-sub-title" style="margin-top:12px">${T('songbook.stats.tier','分层完成率')}</div>
+      <div class="stat-sub-title" style="margin-top:12px">${T('songbook.stats.tier')}</div>
       ${tierRows}`;
   },
   render(){
@@ -113,7 +126,7 @@ const Stats = {
           <span class="stat-mod-val">${pct==null?'—':pct+'%'}</span>
           <span class="stat-mod-dur">${this.fmtDur(r.durationMs)}</span>
         </div>`;
-      }).join('') : `<div class="stat-empty">${T('stats.empty','还没有练习记录，去练一会儿吧 🎸')}</div>`;
+      }).join('') : `<div class="stat-empty">${T('stats.empty')}</div>`;
     }
     this.renderChart();
     this.renderCalendar();
@@ -141,7 +154,7 @@ const Stats = {
       </svg>
       <div class="stat-chart-foot">
         <span>${series[0] ? series[0].date.slice(5) : ''}</span>
-        <span>${T('stats.chart.hint', `过去 ${this.rangeDays} 天练习时长`)}</span>
+        <span>${tf('stats.chart.hintDays', { n: this.rangeDays })}</span>
         <span>${series.length ? series[series.length-1].date.slice(5) : ''}</span>
       </div>`;
   },
@@ -159,13 +172,13 @@ const Stats = {
     series.forEach(d=>byDate[d.date]=d);
     const pad = n=>String(n).padStart(2,'0');
     let html = `<div class="stat-cal-head">${year}-${pad(month+1)}</div><div class="stat-cal-grid">`;
-    ['日','一','二','三','四','五','六'].forEach(d=>html+=`<span class="stat-cal-dow">${d}</span>`);
+    [0,1,2,3,4,5,6].forEach(i=>html+=`<span class="stat-cal-dow">${T('stats.dow.'+i)}</span>`);
     for(let i=0;i<startDow;i++) html+='<span class="stat-cal-cell empty"></span>';
     for(let d=1; d<=daysInMonth; d++){
       const key = `${year}-${pad(month+1)}-${pad(d)}`;
       const rec = byDate[key];
       const level = !rec || !rec.durationMs ? 0 : rec.durationMs>=900000 ? 3 : rec.durationMs>=300000 ? 2 : 1;
-      html += `<span class="stat-cal-cell lv${level}" title="${key}${rec?` · ${Math.round(rec.durationMs/60000)} 分钟`:''}">${d}</span>`;
+      html += `<span class="stat-cal-cell lv${level}" title="${key}${rec?` · ${tf('stats.cal.minutes',{n:Math.round(rec.durationMs/60000)})}`:''}">${d}</span>`;
     }
     html += '</div>';
     box.innerHTML = html;
@@ -181,11 +194,11 @@ const Stats = {
   },
   exportJSON(){
     this.download(`guitar-studio-practice-${new Date().toISOString().slice(0,10)}.json`, PracticeStore.exportJSON());
-    toast('已导出 JSON 备份','ok');
+    toast(T('stats.toast.exportedJson'),'ok');
   },
   exportCSV(){
     this.download(`guitar-studio-practice-${new Date().toISOString().slice(0,10)}.csv`, PracticeStore.exportCSV(), 'text/csv;charset=utf-8');
-    toast('已导出 CSV 表格','ok');
+    toast(T('stats.toast.exportedCsv'),'ok');
   },
   importFile(e){
     const f = e.target.files && e.target.files[0];
@@ -193,8 +206,8 @@ const Stats = {
     const reader = new FileReader();
     reader.onload = ()=>{
       const r = PracticeStore.importData(String(reader.result||''));
-      if(r.ok){ this.render(); toast(`已导入 ${r.added} 条练习记录`,'ok'); }
-      else toast('导入失败：'+(r.msg||'格式不正确'),'err');
+      if(r.ok){ this.render(); toast(tf('stats.toast.imported',{n:r.added}),'ok'); }
+      else toast(tf('stats.toast.importFail',{msg:r.msg||''}),'err');
       e.target.value='';
     };
     reader.readAsText(f);

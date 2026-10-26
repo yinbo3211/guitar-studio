@@ -460,3 +460,27 @@ journalctl -u guitar-studio -f     # 实时日志
 - **OMR 质量门禁**：56 首 OMR 中 29 首通过门禁可作为真实谱，27 首（含报告中全部 18 首退化曲）降级为「识谱不完整 + 简易伴奏」。
 - **测试**：基线 259 → **293**（新增 32，含 3 个新测试文件），全绿；`node scripts/lint.mjs` 通过。
 - **未完成**：BUG-02 Step B（按真实调号/capo 回填 231 首的逐小节和弦）依赖回源第三方曲谱数据，离线环境无法完成，对应测试 `CHART-4` 以显式 skip 标记待启用。
+
+## V4.2.2 · 弹唱曲库缺陷修复（第二轮 · 按 QA 复验清单）
+
+在 V4.2.1 基础上修复第三方缺陷报告剩余 8 项（BUG 编号按复验清单口径）。版本 4.2.1 → **4.2.2**。
+
+| ID | 级别 | 问题 | 修复 | 回归测试 |
+|---|---|---|---|---|
+| BUG-06 | P1 | 难度名/谱源名被 `TIER_META`/`SOURCE_META` 中文短路，不走 i18n | `assets/js/modules/songbook.js` 新增 `Tk(key, fallback)`：i18n 优先、META 仅兜底；四语补齐 `songbook.source.qq_sheet/qq_chord/jitashe` | `REG-04`（skip 已移除并启用） |
+| BUG-12 | P2 | 统计中心硬编码中文（分/秒、模块名、星期、toast 等） | `assets/js/modules/stats.js` 全部改走 `stats.dur.* / stats.module.* / stats.dow.* / stats.toast.* / stats.cal.minutes` 词条，四语补齐 | `i18n-keys` / `V4-5` 已更新 |
+| BUG-07 | P1 | 统计读取端漏掉 V4.2 前 `module:'songplay'` 历史记录 | 读取端合并 `songbook` + `songplay` 两次查询，按 `endedAt|songId|durationMs` 去重排序（写入端不动） | `REG-02` 保持绿 |
+| BUG-11 | P2 | 8 首歌词时间轴超出谱面时长（+2.4s ~ +41.9s），卡拉 OK 被截断 | 统一 `songDuration` 口径：`max(谱面末音结束, 歌词末行结束)`（`assets/js/gp/song-format.js` + `assets/js/gp/play.js`），歌词时间戳数据未篡改 | `REG-05`（改写口径后启用） |
+| BUG-09 | P2 | 19 首短片段循环铺满仍以「真实谱 omr」展示 | `omrQuality(omr, def)` 增加循环遍数门禁：单遍 vs 展开时长比值 `<0.9 \|\| >1.1` 即 `usable:false`，自动降级 `generated-chords` + 「识谱不完整」提示 | `OMR-7` 改写锁定 19 首名单 |
+| BUG-13 | P3 | 结算金币恒为 0（history entry 无 `coins` 字段） | 补 `coins`：每 100 分兑 1 枚（四舍五入），通过保底 1 枚；未通过/跟唱模式 0 枚（与 BUG-10 不评分口径一致） | `REG-06`（skip 已移除并启用） |
+| BUG-14 | P3 | `gp-song-132/133` 同名《玫瑰》无法区分 | 展示层消歧：同名曲标题渲染为「曲名 · 歌手」（曲库卡片 `songTitle()`、演奏视图 `displayTitle()`），真实曲名数据不变 | 诊断脚本 BUG-14 项 |
+| BUG-15 | P3 | 无歌词曲目卡拉 OK 区域静默空白 | 无歌词时渲染 `play.noLyrics` 提示（四语补齐）；歌词回源仍为数据依赖 | `REG-03b` 键检查覆盖 |
+
+### 关键数据（本次实跑）
+
+- **chartKind 分布**：`omr 29 → 10`、`melody 5 → 5`、`generated-chords 202 → 221`（19 首循环铺满 OMR 经门禁降级）。
+- **OMR 门禁**：56 首 OMR 中 10 首通过（整曲识别），46 首降级（27 首密度退化 + 19 首循环铺满）。
+- **歌词截断**：统一时长口径后 0 首截断；原始歌词时间戳超出谱面末音的 8 首仅作信息项保留（未篡改数据）。
+- **测试**：301 用例，**300 通过 / 0 失败 / 1 skip**（`CHART-4` 逐曲真实和弦回源，数据依赖）；`REG-04/05/06` 由 skip 转为启用。
+- **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
+- **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。

@@ -5,7 +5,7 @@ import { detectPitch, PitchTracker } from "./pitch.js";
 import { Synth } from "./synth.js";
 import { TrackPlayer } from "./player.js";
 import { Band } from "./band.js";
-import { findSong, isOmrDegraded } from "./catalog.js";
+import { findSong, isOmrDegraded, displayTitle } from "./catalog.js";
 import { songById } from "../data/songlist-data.js";
 import { songDuration, pickPart } from "./song-format.js";
 import { autoAccompaniment } from "./accompany.js";
@@ -58,7 +58,8 @@ export default async function play(ctx) {
   // Everything else in the arrangement becomes the synth band.
   const { parts, index: leadIdx, lead } = pickPart(song, s.instrument);
   const playInst = lead.instrument;
-  const duration = songDuration({ notes: lead.notes });
+  /* BUG-11：时长统一口径 max(谱面末音, 歌词末行)，卡拉 OK 歌词不被中途截断 */
+  const duration = songDuration({ notes: lead.notes, lyrics: song.lyrics });
   const capo = song.capo || suggestCapo(((lead.notes[0]?.midi[0] ?? 60) % 12)).capo;
   const inst = INSTRUMENTS[playInst] || INSTRUMENTS["acoustic-guitar"];
   const fretted = inst.kind === "fretted";
@@ -92,7 +93,7 @@ export default async function play(ctx) {
   const metaBits = [TF("play.meta", { artist: song.artist || "", key: song.key ?? "C", bpm: song.bpm })];
   if (capo) metaBits.push(TF("play.capo", { fret: capo }));
   const songBox = el("div.hud-box", {}, [
-    el("div", {}, [el("b", { text: String(song.title || "") })]),
+    el("div", {}, [el("b", { text: displayTitle(song) })]),   // BUG-14：同名曲「曲名 · 歌手」消歧
     el("div.muted", { style: { fontSize: "12px" }, text: metaBits.join(" · ") }),
     chartBadge(song.id, chartKind),
     parts.length > 1 ? el("div.muted", { style: { fontSize: "12px", marginTop: "2px" },
@@ -562,7 +563,14 @@ export default async function play(ctx) {
 
   // lyrics — word-by-word karaoke fill when enabled, else simple current/next
   function updateLyric(t) {
-    if (!lyrics.length) { lyric.innerHTML = ""; return; }
+    /* BUG-15：无歌词曲目不再静默空白，显式提示「暂无歌词」（只渲染一次） */
+    if (!lyrics.length) {
+      if (!lyric.dataset.noLyrics) {
+        lyric.dataset.noLyrics = "1";
+        lyric.innerHTML = `<div style="font-size:14px;opacity:.5">${esc(T("play.noLyrics"))}</div>`;
+      }
+      return;
+    }
     if (karaokeLyrics && lyricTimeline) {
       const a = activeAt(lyricTimeline, t);
       const lines = lyricTimeline.lines;
@@ -605,10 +613,13 @@ export default async function play(ctx) {
     const passed = singalongOnly ? true : (!failed && acc >= 60);
     const grade = singalongOnly ? "" : gradeLetter(acc, failed);
     const entry = {
-      ts: Date.now(), songId: song.id, songTitle: song.title, instrument: playInst,
+      ts: Date.now(), songId: song.id, songTitle: displayTitle(song), instrument: playInst,
       score: singalongOnly ? 0 : score, accuracy: singalongOnly ? null : acc,
       maxStreak: singalongOnly ? 0 : maxStreak, passed, durationSec: Math.round(duration),
       notes: { ...counts }, chartKind,
+      /* BUG-13 金币规则：每 100 分兑换 1 枚（四舍五入），通过保底 1 枚；
+         未通过 0 枚；跟唱模式（占位谱，BUG-10 不评分）不产出金币。 */
+      coins: (singalongOnly || !passed) ? 0 : Math.max(1, Math.round((score || 0) / 100)),
     };
     Store.addHistory(entry);
     showBanner(grade, acc, passed, entry.coins || 0);

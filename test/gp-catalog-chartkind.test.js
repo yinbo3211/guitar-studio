@@ -51,7 +51,7 @@ test('CHART-2 无 OMR 或无 melody 的曲目一律标 generated-chords，不得
       continue;
     }
     const song = cat.findSong(def.id);
-    if (hasOmr && cat.omrQuality(GP_OMR_NOTES[def.id]).usable) {
+    if (hasOmr && cat.omrQuality(GP_OMR_NOTES[def.id], def).usable) {   // BUG-09：含循环遍数判定
       assert.strictEqual(song.chartKind, 'omr', `${def.id} 通过门禁应标 omr`);
     } else {
       assert.strictEqual(song.chartKind, 'generated-chords',
@@ -61,6 +61,8 @@ test('CHART-2 无 OMR 或无 melody 的曲目一律标 generated-chords，不得
     }
   }
   assert.ok(generated >= 175, `至少 175 首标记为简易伴奏，实际 ${generated}`);
+  /* BUG-09：19 首短片段循环铺满的 OMR 降级后，generated-chords 应为 221（202 + 19） */
+  assert.strictEqual(generated, 221, `BUG-09 后 generated-chords 应为 221，实际 ${generated}`);
 });
 
 test('CHART-2b chartKind 非法值必须被 schema 校验拦下', () => {
@@ -112,11 +114,19 @@ test('CHART-4 真实调号/capo 回填（BUG-02 Step B）', { skip: '离线环�
 /* ============================================================
    OMR-Q1 / Q2 / Q3：数据质量门禁
    ============================================================ */
-test('OMR-Q1 质量门禁：正常谱 usable，退化谱 unusable', () => {
-  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-001']).usable, true, '送别应可用');
-  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-011']).usable, true, '简单爱应可用');
-  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-063']).usable, false, '万有引力 10 音全同音高必须不可用');
-  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-117']).usable, false, '月光密度过低必须不可用');
+test('OMR-Q1 质量门禁：整曲谱 usable，退化谱/循环铺满谱 unusable（BUG-05 + BUG-09）', () => {
+  const defOf = (id) => GP_CHORD_SONGS.find((s) => s.id === id);
+  /* 整曲识别（单遍≈整曲时长）→ usable */
+  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-011'], defOf('gp-song-011')).usable, true, '简单爱应可用');
+  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-230'], defOf('gp-song-230')).usable, true, '花海应可用');
+  /* 密度/音高退化（BUG-05） */
+  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-063'], defOf('gp-song-063')).usable, false, '万有引力 10 音全同音高必须不可用');
+  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-117'], defOf('gp-song-117')).usable, false, '月光密度过低必须不可用');
+  /* 短片段循环铺满（BUG-09）：单遍时长 vs 展开时长比值偏离 1 → unusable */
+  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-001'], defOf('gp-song-001')).usable, false, '送别为短片段循环铺满，不得再标真实谱');
+  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-199'], defOf('gp-song-199')).usable, false, '晴天为短片段循环铺满，不得再标真实谱');
+  /* 不传 def 时跳过循环判定（无 bpm/durationSec 可算），保持旧的密度口径 */
+  assert.strictEqual(cat.omrQuality(GP_OMR_NOTES['gp-song-001']).usable, true, '无 def 时循环判定跳过');
 });
 
 test('OMR-Q1b omrQuality 为空/损坏数据返回 usable=false，不抛错', () => {
@@ -132,8 +142,9 @@ test('OMR-Q2 unusable 的 OMR 不再产出 omr 谱面，降级为 generated-chor
   assert.strictEqual(cat.findSong('gp-song-117').chartKind, 'generated-chords');
   assert.notStrictEqual(cat.findSong('gp-song-063').source, 'omr-tab',
     '降级曲不得再标榜 omr-tab 来源');
-  /* 同时确认未被误伤 */
-  assert.strictEqual(cat.findSong('gp-song-001').chartKind, 'omr');
+  /* 同时确认未被误伤：整曲识别的真实谱仍标 omr（gp-song-001 送别为循环铺满，BUG-09 已降级） */
+  assert.strictEqual(cat.findSong('gp-song-230').chartKind, 'omr');
+  assert.strictEqual(cat.findSong('gp-song-011').chartKind, 'omr');
 });
 
 test('OMR-Q3 曲库角标判定 hasRealChart 与展开结果一致', () => {

@@ -21,6 +21,16 @@ export const WARMUP_BPM = 70;        // T2.3：单元热身区推荐 BPM
 export const SEARCH_DEBOUNCE_MS = 200;
 const WEEK_MS = 7 * 864e5;
 
+/* BUG-14：同名曲（如《玫瑰》song-132/song-133）展示层以「曲名 · 歌手」消歧，不改真实曲名数据 */
+const DUP_TITLES = (() => {
+  const cnt = new Map();
+  for (const s of SONGS) cnt.set(s.title, (cnt.get(s.title) || 0) + 1);
+  return new Set([...cnt.entries()].filter(([, n]) => n > 1).map(([k]) => k));
+})();
+function songTitle(s) {
+  return DUP_TITLES.has(s.title) && s.artist ? `${s.title} · ${s.artist}` : s.title;
+}
+
 /* i18n 取词兜底：t 由 core/i18n 挂到 window；Node 单测环境退化为返回 key */
 function T(k) {
   try {
@@ -28,6 +38,11 @@ function T(k) {
     if (typeof t === 'function') return t(k);
   } catch (e) { /* 忽略：无 i18n 环境用 key 兜底 */ }
   return k;
+}
+/* i18n 优先、缺失时用 fallback 兜底（BUG-06：i18n 键存在时不得被中文 name 短路） */
+function Tk(k, fallback) {
+  const v = T(k);
+  return (v && v !== k) ? v : (fallback || '');
 }
 /* 占位符替换（手册约定：{n}/{done}/{total}/{bpm}/{id}） */
 function TF(k, pairs) {
@@ -277,7 +292,7 @@ const Songbook = {
 
     const tabs = [{ k: 0, label: T('songbook.tier.all'), n: total }]
       .concat([1, 2, 3].map((t) => ({
-        k: t, label: (TIER_META[t] && TIER_META[t].name) || T('songbook.tier.' + t), n: tierCount[t] || 0
+        k: t, label: Tk('songbook.tier.' + t, TIER_META[t] ? TIER_META[t].name : ''), n: tierCount[t] || 0
       })));
 
     box.innerHTML = `
@@ -393,20 +408,22 @@ const Songbook = {
   songCard(s, idxInUnit) {
     const done = this._practiced.has(s.id);
     const tierTag = s.tier === 1 ? 'tag tag-mint' : s.tier === 2 ? 'tag tag-amber' : 'tag tag-violet';
-    const tierName = (TIER_META[s.tier] && TIER_META[s.tier].name) || '';
+    const tierName = Tk('songbook.tier.' + s.tier, TIER_META[s.tier] ? TIER_META[s.tier].name : '');   // BUG-06：i18n 优先
     const stars = s.minDifficulty == null ? '—' : String(s.minDifficulty);
     const card = document.createElement('article');
     card.className = 'sb-card' + (done ? ' is-done' : '');
     card.dataset.song = s.id;
 
     const sheets = (s.sheets || []).map((sh) => {
-      const src = SOURCE_META[sh.source] || { name: sh.source };
+      /* BUG-06：谱源名 i18n 优先（songbook.source.*），SOURCE_META 中文名仅作兜底 */
+      const meta = SOURCE_META[sh.source];
+      const srcName = Tk('songbook.source.' + sh.source, meta ? meta.name : sh.source);
       const link = sh.url
         ? `<a class="btn-mini sb-sheet-link" href="${esc(sh.url)}" target="_blank" rel="noopener noreferrer">${esc(T('songbook.sheet.open'))}</a>`
         : '';
       const diff = sh.difficulty == null ? '—' : String(sh.difficulty);
       return `<div class="sb-sheet-row">
-        <span class="sb-sheet-src">${esc(src.name)}</span>
+        <span class="sb-sheet-src">${esc(srcName)}</span>
         <span class="sb-sheet-name">${esc(sh.name)}</span>
         <span class="sb-sheet-diff">${esc(diff)}</span>
         ${link}
@@ -416,7 +433,7 @@ const Songbook = {
     card.innerHTML = `
       <div class="sb-card-top">
         <span class="sb-no">${esc('#' + s.no)}</span>
-        <h3 class="sb-title">${esc(s.title)}</h3>
+        <h3 class="sb-title">${esc(songTitle(s))}</h3>
       </div>
       <div class="sb-meta">${esc(s.artist)} · ${esc(s.duration)} · ${esc(tierName)} ${esc(stars)}★ · ${esc(String(idxInUnit))}</div>
       <div class="sb-badges">
