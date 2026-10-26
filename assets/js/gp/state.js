@@ -9,6 +9,8 @@
    ============================================================ */
 'use strict';
 
+/* 曲库侧权威歌曲字典：用于把 gp-song-xxx 归一并回填真实 unit/tier */
+import { songById } from '../data/songlist-data.js';
 /* 与 GuitarPicker 默认值保持一致；缺失项由这里补齐 */
 const GP_DEFAULTS = {
   a4: 440,
@@ -27,6 +29,14 @@ const GP_DEFAULTS = {
 };
 
 const mem = { gp: { ...GP_DEFAULTS }, history: [] };
+
+/**
+ * id 归一：演奏层用 gp-song-001，曲库/打卡登记用 song-001。
+ * 写库前必须归一，否则曲库 practicedSongIds 匹配不上（BUG-04 根因之一）。
+ */
+export function normSongId(id) {
+  return String(id || '').replace(/^gp-song-/, 'song-');
+}
 
 function readPrefs() {
   try {
@@ -62,27 +72,44 @@ export const Store = {
     mem.gp = gp;
     writePrefs({ gp });
   },
-  /** 成绩入宿主统一练习数据层：module 固定 'songplay'（弹唱曲库） */
+  /**
+   * 成绩入宿主统一练习数据层。
+   * V4.2.1 BUG-04：module 必须是 'songbook'（曲库侧 practicedSongIds /
+   * songbookStats 只认 songbook），songId 必须归一为 song-xxx（去掉 gp- 前缀，
+   * 否则曲卡/单元解锁匹配不上），弹唱 accuracy 恒 null（宿主打卡契约）。
+   * unit/tier 从曲库权威字典回填，保证后续按单元/难度统计可用。
+   */
   addHistory(entry) {
+    const songId = normSongId(entry.songId || '');
+    const src = typeof songById === 'function' ? (songById(songId) || null) : null;
     const rec = {
-      module: 'songplay',
+      module: 'songbook',
       startedAt: Number.isFinite(entry.startedAt) ? entry.startedAt : (Date.now() - (entry.durationSec || 0) * 1000),
       endedAt: entry.ts || Date.now(),
       durationMs: Math.max(0, Math.round((entry.durationSec || 0) * 1000)),
-      accuracy: Number.isFinite(entry.accuracy) ? entry.accuracy / 100 : null,
+      /* 弹唱不做音准评分：占位和弦/跟唱都不产生可比的 accuracy */
+      accuracy: null,
       targetBpm: Number.isFinite(entry.bpm) ? entry.bpm : null,
       detectedBpm: null,
       meta: {
-        songId: entry.songId || '',
-        songTitle: entry.songTitle || '',
-        unit: '',
-        tier: null,
+        songId,
+        songTitle: entry.songTitle || (src && src.title) || '',
+        unit: (src && src.unit) || '',
+        tier: (src && src.tier) != null ? src.tier : null,
         score: entry.score || 0,
         maxStreak: entry.maxStreak || 0,
         passed: !!entry.passed,
         grade: entry.grade || '',
         notes: entry.notes || { perfect: 0, good: 0, off: 0, miss: 0 },
         record: false,
+        source: 'gp-highway',
+        /* 演奏细项保留在 playDetail，供结算/历史展示，不影响 accuracy 契约 */
+        playDetail: {
+          score: entry.score || 0,
+          maxStreak: entry.maxStreak || 0,
+          grade: entry.grade || '',
+          rawAccuracy: Number.isFinite(entry.accuracy) ? entry.accuracy / 100 : null,
+        },
       },
     };
     try {

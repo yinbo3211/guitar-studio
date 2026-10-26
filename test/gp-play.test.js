@@ -200,7 +200,9 @@ test('GP-5 Store 适配层默认设置完整、可写可读', async () => {
   Store.setSetting('noteSpeed', 1);
 });
 
-test('GP-5 成绩写入宿主 PracticeStore（module=songplay，accuracy 归一化）', async () => {
+/* BUG-04：module 必须与曲库读侧契约一致（songbook），
+   songId 必须归一为 song-xxx，accuracy 恒 null（弹唱打卡契约） */
+test('GP-5 成绩写入宿主 PracticeStore（module=songbook，id 归一，accuracy=null）', async () => {
   const { Store } = await imp('assets/js/gp/state.js');
   let captured = null;
   globalThis.PracticeStore = { addSession: (r) => { captured = r; return r; } };
@@ -210,12 +212,15 @@ test('GP-5 成绩写入宿主 PracticeStore（module=songplay，accuracy 归一�
     notes: { perfect: 10, good: 2, off: 1, miss: 0 },
   });
   assert.ok(captured, '应调用 PracticeStore.addSession');
-  assert.strictEqual(captured.module, 'songplay');
-  assert.strictEqual(captured.accuracy, 0.88, 'accuracy 归一化为 0-1');
+  assert.strictEqual(captured.module, 'songbook');
+  assert.strictEqual(captured.accuracy, null, '弹唱 accuracy 恒 null');
   assert.strictEqual(captured.durationMs, 60000);
-  assert.strictEqual(captured.meta.songId, 'gp-song-001');
+  assert.strictEqual(captured.meta.songId, 'song-001', 'songId 必须归一为 song-xxx，不带 gp- 前缀');
+  assert.ok(/^song-\d+$/.test(captured.meta.songId), 'songId 必须归一为 song-xxx，不带 gp- 前缀');
   assert.strictEqual(captured.meta.passed, true);
   assert.strictEqual(captured.meta.notes.perfect, 10);
+  assert.strictEqual(captured.meta.rawAccuracy, undefined, '原始 accuracy 收进 playDetail，不外露为 accuracy');
+  assert.strictEqual(captured.meta.playDetail.rawAccuracy, 0.88, 'playDetail 保留原始 accuracy/100');
   delete globalThis.PracticeStore;
 });
 

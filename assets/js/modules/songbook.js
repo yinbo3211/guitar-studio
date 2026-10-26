@@ -13,6 +13,7 @@
 'use strict';
 
 import { SonglistData, UNITS, SONGS, TIER_META, SOURCE_META, songById, songsOfUnit } from '../data/songlist-data.js';
+import { hasRealChart } from '../gp/catalog.js';   // BUG-02 Step A：真实谱 / 简易伴奏 标识
 
 /* ---------- 具名常量（禁魔法数字） ---------- */
 export const UNLOCK_RATE = 0.4;      // T2.2：上一单元打卡率阈值
@@ -424,6 +425,7 @@ const Songbook = {
         ${s.hasQQChord ? `<span class="tag tag-amber">${esc(T('songbook.badge.official'))}</span>` : ''}
         <span class="tag">${esc(TF('songbook.sheets', { n: s.sheetCount }))}</span>
         ${done ? `<span class="tag tag-mint">${esc(T('songbook.badge.done'))}</span>` : ''}
+        ${hasRealChart(s.id) ? '' : `<span class="tag tag-amber" title="${esc(T('songbook.simpleAccTip'))}">${esc(T('songbook.simpleAcc'))}</span>`}
       </div>
       ${s.tier === 3 && s.note ? `<div class="sb-note">${esc(s.note)}</div>` : ''}
       <div class="sb-actions">

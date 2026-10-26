@@ -16,6 +16,21 @@ import { defById } from '../gp/catalog.js';
 /* GuitarPicker 内部路由 → 宿主路由 */
 const NAV = { '#/library': 'songbook', '#/history': 'stats', '#/locker': 'settings' };
 
+/* i18n 取词兜底：t 由 core/i18n 挂到 window；Node 单测环境退化为返回 key */
+function T(k) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.t === 'function') return window.t(k);
+    if (typeof t === 'function') return t(k);
+  } catch (e) { /* 忽略：无 i18n 环境用 key 兜底 */ }
+  return k;
+}
+/** 占位符替换（{id} 等一律走这里，绝不拼进 HTML 模板 —— BUG-06） */
+function TF(k, pairs) {
+  let s = T(k);
+  for (const a of Object.keys(pairs || {})) s = s.split('{' + a + '}').join(String(pairs[a]));
+  return s;
+}
+
 function goRoute(route) {
   try { if (typeof go === 'function') { go(route); return; } } catch (e) { /* 无路由函数时回退 hash */ }
   if (typeof window !== 'undefined') window.location.hash = '#/' + route;
@@ -77,15 +92,22 @@ const SongPlay = {
     root.innerHTML = '';
     const box = document.createElement('div');
     box.className = 'gp-scope';
-    box.innerHTML = `<div class="panel" style="margin:22px">
-      <h2>Song not found</h2>
-      <p class="muted">No song matches “${String(this.songId || '').replace(/[<>&]/g, '')}”.</p>
-    </div>`;
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.style.margin = '22px';
+    /* BUG-06：id 来自 URL / 深链，必须走 textContent，不再拼进 innerHTML */
+    const h2 = document.createElement('h2');
+    h2.textContent = T('play.notFound.title');
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = TF('play.notFound.detail', { id: String(this.songId || '') });
+    panel.append(h2, p);
     const back = document.createElement('button');
     back.className = 'btn';
-    back.textContent = '← Songs';
+    back.textContent = T('play.backToSongs');
     back.addEventListener('click', () => goRoute('songbook'));
-    box.querySelector('.panel').appendChild(back);
+    panel.appendChild(back);
+    box.appendChild(panel);
     root.appendChild(box);
   },
 
@@ -93,16 +115,33 @@ const SongPlay = {
     root.innerHTML = '';
     const box = document.createElement('div');
     box.className = 'gp-scope';
-    box.innerHTML = `<div class="panel" style="margin:22px">
-      <h3>Play view failed to start</h3>
-      <p class="muted">Check the browser console for details.</p>
-    </div>`;
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.style.margin = '22px';
+    const h3 = document.createElement('h3');
+    h3.textContent = T('play.error.title');
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = T('play.error.detail');
+    panel.append(h3, p);
+    box.appendChild(panel);
     root.appendChild(box);
   },
 };
 
 if (typeof onRouteEnter !== 'undefined' && onRouteEnter) {
   onRouteEnter.songPlay = () => SongPlay.enter();
+}
+/* BUG-07：演奏中切换语言时重建演奏视图。play.js 的静态文案在建视图时取词，
+   不重建就会停留在旧语言；重建会保留当前曲目并从开头重新准备（不影响兜底页）。 */
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('gs:lang', () => {
+    const view = document.getElementById('view-songPlay');
+    if (!view || !view.classList.contains('active')) return;
+    if (!SongPlay.songId) return;
+    SongPlay.pendingId = SongPlay.songId;
+    try { SongPlay.enter(); } catch (e) { console.warn('[song-play] 语言切换后重建失败：', e); }
+  });
 }
 /* 路由切走时停麦停伴奏（与 Metro/Rhythm 等模块同一清理时机） */
 if (typeof cleanupModules !== 'undefined' && typeof cleanupModules === 'function') {

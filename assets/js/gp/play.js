@@ -5,7 +5,8 @@ import { detectPitch, PitchTracker } from "./pitch.js";
 import { Synth } from "./synth.js";
 import { TrackPlayer } from "./player.js";
 import { Band } from "./band.js";
-import { findSong } from "./catalog.js";
+import { findSong, isOmrDegraded } from "./catalog.js";
+import { songById } from "../data/songlist-data.js";
 import { songDuration, pickPart } from "./song-format.js";
 import { autoAccompaniment } from "./accompany.js";
 import { freqToMidiFloat, midiToName, midiToFret, midiToHole, INSTRUMENTS } from "./notes.js";
@@ -20,16 +21,36 @@ const HIT_PAD = 0.16;         // detection window pad around a note
 const PERFECT_CENTS = 28;
 const GOOD_CENTS = 60;
 
+/* ---------- i18n 取词（BUG-03） ----------
+   宿主只全局暴露了 window.t-core/i18n.js），带参替换由各模块本地实现。
+   无 window / 无 t 时回退为返回 key 本身，保证 Node 单测可直接跑。 */
+function T(k) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.t === 'function') return window.t(k);
+    if (typeof t === 'function') return t(k);
+  } catch (e) { /* 无 i18n 环境用 key 兜底 */ }
+  return k;
+}
+/** 占位符替换：{n}/{id}/{bpm}/{key}… 一律走这里，禁止拼进模板 */
+function TF(k, pairs) {
+  let s = T(k);
+  for (const a of Object.keys(pairs || {})) s = s.split('{' + a + '}').join(String(pairs[a]));
+  return s;
+}
+
 export default async function play(ctx) {
   const { el: root, params, navigate } = ctx;
   const song = findSong(params[0]);
   if (!song) {
     root.appendChild(el("div.panel", { style: { margin: "22px" } }, [
-      el("h2", { text: "Song not found" }),
-      el("button.btn", { onclick: () => navigate("#/library") }, ["Back to songs"]),
+      el("h2", { text: T("play.notFound.title") }),
+      el("button.btn", { onclick: () => navigate("#/library") }, [T("play.backToSongs")]),
     ]));
     return;
   }
+  /* BUG-02 Step A：占位/退化谱不得参与音准评分，也不扣血，只作跟唱伴奏 */
+  const chartKind = song.chartKind || "generated-chords";
+  const singalongOnly = chartKind === "generated-chords";
   const s = Store.settings();
   const a4 = s.a4;
   const speed = s.noteSpeed;
@@ -67,14 +88,18 @@ export default async function play(ctx) {
   const canvas = el("canvas#highway-canvas");
   const overlay = el("div.play-overlay");
   const scoreBox = el("div.hud-box", { html: scoreHTML(0, 100, 0, 1) });
+  /* BUG-06：曲名/歌手一律走 textContent，不再用 html: 插值（防范曲名夹带标记） */
+  const metaBits = [TF("play.meta", { artist: song.artist || "", key: song.key ?? "C", bpm: song.bpm })];
+  if (capo) metaBits.push(TF("play.capo", { fret: capo }));
   const songBox = el("div.hud-box", {}, [
-    el("div", { html: `<b>${song.title}</b>` }),
-    el("div.muted", { style: { fontSize: "12px" }, html:
-      `${song.artist} · key ${song.key} · ${song.bpm} BPM` + (capo ? ` · <span class="capo-note" style="padding:2px 8px">🔼 Capo ${capo}</span>` : "") }),
+    el("div", {}, [el("b", { text: String(song.title || "") })]),
+    el("div.muted", { style: { fontSize: "12px" }, text: metaBits.join(" · ") }),
+    chartBadge(song.id, chartKind),
     parts.length > 1 ? el("div.muted", { style: { fontSize: "12px", marginTop: "2px" },
-      text: `🎯 Your part: ${inst.name}` }) : null,
+      text: TF("play.yourPart", { inst: inst.name }) }) : null,
     (song.lyrics && song.lyrics.length)
-      ? el("div.muted", { style: { fontSize: "12px", marginTop: "2px" }, text: `🎤 Singalong${song.genre ? " · " + song.genre : ""}` })
+      ? el("div.muted", { style: { fontSize: "12px", marginTop: "2px" },
+          text: TF("play.part.singalong", { genre: song.genre || "" }) })
       : (song.genre ? el("div.muted", { style: { fontSize: "12px", marginTop: "2px" }, text: song.genre }) : null),
   ]);
   const healthWrap = el("div.healthbar-big", {}, [el("i", { style: { width: "100%" } })]);
@@ -90,9 +115,9 @@ export default async function play(ctx) {
   overlay.append(hud, killfeed, lyric, el("div.play-bottom-fade"), banner);
 
   // controls
-  const playBtn = el("button.btn.primary", { onclick: togglePlay }, ["▶ Start"]);
-  const restartBtn = el("button.btn", { onclick: restart }, ["⟲ Restart"]);
-  const backBtn = el("button.btn.ghost", { onclick: () => navigate("#/library") }, ["← Songs"]);
+  const playBtn = el("button.btn.primary", { onclick: togglePlay }, [T("play.start")]);
+  const restartBtn = el("button.btn", { onclick: restart }, [T("play.restart")]);
+  const backBtn = el("button.btn.ghost", { onclick: () => navigate("#/library") }, [T("play.songs")]);
   const player = new TrackPlayer();
   player.load(song);
 
@@ -104,42 +129,42 @@ export default async function play(ctx) {
   const band = new Band(bandParts, { a4, volume: s.backingVolume });
   let bandOn = !band.empty && !player.backing && (s.band ?? true);
   const bandBtn = band.empty ? null : el("button.btn", {
-    class: bandOn ? "primary" : "", title: "Synthesized accompaniment: " + band.names.join(", "),
+    class: bandOn ? "primary" : "", title: TF("play.band.title", { parts: band.names.join(", ") }),
     onclick: () => {
       bandOn = !bandOn; Store.setSetting("band", bandOn);
       bandBtn.classList.toggle("primary", bandOn);
       if (bandOn) band.seek(Math.max(0, clock)); else band.silence();
     },
-  }, ["🎺 Band"]);
+  }, [T("play.band")]);
 
-  const volB = slider({ label: "Backing", value: s.backingVolume, fmt: (v) => Math.round(v * 100) + "%",
+  const volB = slider({ label: T("play.mixer.backing"), value: s.backingVolume, fmt: (v) => Math.round(v * 100) + "%",
     oninput: (v) => { Store.setSetting("backingVolume", v); player.setBackingVolume(v); band.setVolume(v); } });
-  const volV = slider({ label: "Vocal", value: s.vocalVolume, fmt: (v) => Math.round(v * 100) + "%",
+  const volV = slider({ label: T("play.mixer.vocal"), value: s.vocalVolume, fmt: (v) => Math.round(v * 100) + "%",
     oninput: (v) => { Store.setSetting("vocalVolume", v); player.setVocalVolume(v); } });
-  const metroBtn = el("button.btn", { onclick: () => { metro = !metro; metroBtn.classList.toggle("primary", metro); } }, ["🥁 Metronome"]);
+  const metroBtn = el("button.btn", { onclick: () => { metro = !metro; metroBtn.classList.toggle("primary", metro); } }, [T("play.metronome")]);
   let metro = false;
   let noteSounds = s.noteSounds ?? true;
-  const soundBtn = el("button.btn", { class: noteSounds ? "primary" : "", title: "Sound each note as it reaches the hit line", onclick: () => {
+  const soundBtn = el("button.btn", { class: noteSounds ? "primary" : "", title: T("play.hint.hitLine"), onclick: () => {
     noteSounds = !noteSounds; Store.setSetting("noteSounds", noteSounds);
     soundBtn.classList.toggle("primary", noteSounds);
-  } }, ["🔊 Notes"]);
+  } }, [T("play.notes")]);
   let showFrets = fretted || harp ? (s.showFingering ?? true) : false;
-  const fretBtn = fretted || harp ? el("button.btn", { class: showFrets ? "primary" : "", title: harp ? "Show harmonica hole and breath direction" : "Show finger positions on a fretboard", onclick: () => {
+  const fretBtn = fretted || harp ? el("button.btn", { class: showFrets ? "primary" : "", title: harp ? T("play.hint.harmonica") : T("play.hint.fretboard"), onclick: () => {
     showFrets = !showFrets; Store.setSetting("showFingering", showFrets);
     fretBtn.classList.toggle("primary", showFrets);
     if (!playing) render(clock);
-  } }, [harp ? "🎺 Holes" : "🎸 Frets"]) : null;
-  const karaokeBtn = lyrics.length ? el("button.btn", { class: karaokeLyrics ? "primary" : "", title: "Word-by-word singalong highlight", onclick: () => {
+  } }, [harp ? T("play.holes") : T("play.frets")]) : null;
+  const karaokeBtn = lyrics.length ? el("button.btn", { class: karaokeLyrics ? "primary" : "", title: T("play.hint.karaoke"), onclick: () => {
     karaokeLyrics = !karaokeLyrics; Store.setSetting("karaokeLyrics", karaokeLyrics);
     karaokeBtn.classList.toggle("primary", karaokeLyrics);
     updateLyric(clock);
-  } }, ["🎤 Karaoke"]) : null;
+  } }, [T("play.karaoke")]) : null;
 
   const controls = el("div.play-controls", {}, [
     playBtn, restartBtn,
     el("div.muted", { style: { minWidth: "70px" }, id: "play-clock", text: "0:00" }),
     el("div", { style: { flex: "1" } }),
-    (!player.hasAudio() && band.empty) ? el("span.muted", { style: { fontSize: "12px" }, text: "No backing audio — import one in the Song Editor." }) : null,
+    (!player.hasAudio() && band.empty) ? el("span.muted", { style: { fontSize: "12px" }, text: T("play.noBacking") }) : null,
     (player.backing || !band.empty) ? wrapNarrow(volB) : null,
     player.vocal ? wrapNarrow(volV) : null,
     karaokeBtn, bandBtn, soundBtn, fretBtn, metroBtn, backBtn,
@@ -204,7 +229,7 @@ export default async function play(ctx) {
   async function ensureMic() {
     if (Audio.micLive()) return true;
     try { await Audio.startMic(s.inputDeviceId); return true; }
-    catch (e) { toast("Mic off — notes won't be graded. " + e.message, "bad"); return false; }
+    catch (e) { toast(TF("play.micOff", { err: e && e.message ? e.message : "" }), "bad"); return false; }
   }
 
   async function togglePlay() {
@@ -213,13 +238,13 @@ export default async function play(ctx) {
     await ensureMic();
     await Audio.resume();
     playing = true; started = true;
-    playBtn.textContent = "⏸ Pause";
+    playBtn.textContent = T("play.pause");
     if (clock >= 0) player.play(clock);
     lastTs = performance.now();
     requestAnimationFrame(loop);
   }
   function pause() {
-    playing = false; playBtn.textContent = "▶ Resume";
+    playing = false; playBtn.textContent = T("play.resume");
     player.pause(); band.silence();
   }
   function restart() {
@@ -231,7 +256,7 @@ export default async function play(ctx) {
     notes.forEach((n) => { n.state = "pending"; n.best = 999; n.frames = 0; });
     killfeed.innerHTML = "";
     player.seek(0); band.seek(0);
-    playBtn.textContent = "▶ Start";
+    playBtn.textContent = T("play.start");
     render(0); updateHud();
   }
 
@@ -278,7 +303,10 @@ export default async function play(ctx) {
       detectedMidi = f > 0 ? freqToMidiFloat(f, a4) : -1;
     }
 
-    grade();
+    /* BUG-02 Step A：占位/识谱不完整的伴奏没有可对照的原曲音高，
+       继续判分等于给「假谱」打真分 —— 跟唱模式下不判分、不扣血。 */
+    if (!singalongOnly) grade();
+    else markSingalong(clock);
     render(clock);
     updateHud();
 
@@ -328,6 +356,15 @@ export default async function play(ctx) {
       }
     }
   }
+  /** 跟唱模式：只把已经过去的音符标记为已奏（流水滚动需要状态），不产生判定与扣分 */
+  function markSingalong(t) {
+    for (const n of notes) {
+      if (n.state !== "pending") continue;
+      if (t <= n.time + n.dur + HIT_PAD) break;
+      n.state = "played";
+    }
+  }
+
   function finalize(n) {
     let q;
     if (percussion) {                       // n.best holds seconds off the beat, not cents
@@ -350,12 +387,13 @@ export default async function play(ctx) {
     else { health = Math.max(0, health - 10); streak = 0; }
     maxStreak = Math.max(maxStreak, streak);
     mult = 1 + Math.min(3, Math.floor(streak / 8)) * 0.5;
-    if (health <= 0 && !failed) { failed = true; toast("Healthbar empty — keep going, but this run won't count as a pass.", "bad"); }
+    if (health <= 0 && !failed) { failed = true; toast(T("play.healthEmpty"), "bad"); }
     pushKill(q, n);
   }
   function pushKill(q, n) {
     const label = describeMidiSet(n.midi);
-    const k = el(`div.kill.${q}`, { html: `${q[0].toUpperCase() + q.slice(1)} <span class="muted">${label}</span>` });
+    const killer = el(`div.kill.${q}`, {}, [T(GRADE_KEY[q] || "play.grade.off"), " ", el("span.muted", { text: label })]);
+    const k = killer;
     killfeed.appendChild(k);
     while (killfeed.children.length > 6) killfeed.firstChild.remove();
     setTimeout(() => { k.style.opacity = "0"; k.style.transition = "opacity 500ms"; }, 1400);
@@ -421,7 +459,7 @@ export default async function play(ctx) {
 
   function drawNote(x, y, w, state, midi, chord, label) {
     const h = 26;
-    const colors = { pending: getVar("--accent"), perfect: getVar("--j-perfect"),
+    const colors = { pending: getVar("--accent"), played: getVar("--muted"), perfect: getVar("--j-perfect"),
       good: getVar("--j-good"), off: getVar("--j-off"), miss: getVar("--j-miss") };
     const col = colors[state] || colors.pending;
     c.globalAlpha = state === "miss" ? 0.35 : 1;
@@ -449,7 +487,7 @@ export default async function play(ctx) {
     roundRect(x0 - 10, y0 - 24, fbW + 20, fbH + 44, 10); c.fill();
     c.fillStyle = now ? getVar("--accent") : getVar("--muted");
     c.font = "bold 12px var(--font)";
-    c.fillText((now ? "Now: " : "Next: ") + describeMidiSet(cur.midi) + (capo ? ` · capo ${capo}` : ""), x0, y0 - 8);
+    c.fillText((now ? T("play.now") : T("play.next")) + describeMidiSet(cur.midi) + (capo ? " · " + TF("play.capoShort", { fret: capo }) : ""), x0, y0 - 8);
     const sy = (si) => y0 + fbH - 6 - si * 13;   // string 0 (lowest pitch) at bottom
     c.lineWidth = 1;
     c.strokeStyle = "rgba(255,255,255,0.4)";
@@ -492,11 +530,11 @@ export default async function play(ctx) {
     roundRect(x0 - 10, y0 - 24, fbW + 20, fbH + 34, 10); c.fill();
     const played = cur.holes.filter(Boolean);
     const label = played.length
-      ? played.map((p) => `hole ${p.hole} ${p.draw ? "draw ↓" : "blow ↑"}`).join(" · ")
-      : "not on a C harp";
+      ? played.map((p) => TF("play.harmonica.hole", { hole: p.hole, dir: p.draw ? T("play.harmonica.draw") : T("play.harmonica.blow") })).join(" · ")
+      : T("play.harmonica.na");
     c.fillStyle = now ? getVar("--accent") : getVar("--muted");
     c.font = "bold 12px var(--font)";
-    c.fillText((now ? "Now: " : "Next: ") + describeMidiSet(cur.midi) + " — " + label, x0, y0 - 8);
+    c.fillText((now ? T("play.now") : T("play.next")) + describeMidiSet(cur.midi) + " — " + label, x0, y0 - 8);
     const col = now ? getVar("--accent") : "rgba(255,255,255,0.75)";
     for (let i = 0; i < 10; i++) {
       const x = x0 + i * cell;
@@ -547,7 +585,7 @@ export default async function play(ctx) {
 
   function updateHud() {
     const acc = accuracy();
-    scoreBox.innerHTML = scoreHTML(score, Math.round(health), streak, mult, acc, failed);
+    scoreBox.innerHTML = scoreHTML(score, Math.round(health), streak, mult, acc, failed, singalongOnly);
     healthWrap.firstChild.style.width = health + "%";
     document.getElementById("health-mini")?.classList.remove("hidden");
     const mini = document.getElementById("health-mini");
@@ -561,14 +599,16 @@ export default async function play(ctx) {
 
   function finish() {
     finished = true; playing = false; player.pause(); band.silence();
-    playBtn.textContent = "⟲ Play again";
-    const acc = accuracy();
-    const passed = !failed && acc >= 60;
-    const grade = gradeLetter(acc, failed);
+    playBtn.textContent = T("play.playAgain");
+    /* 跟唱模式：占位和弦不是原曲音高，Accuracy/分数没有意义 —— 只记录「完成」 */
+    const acc = singalongOnly ? null : accuracy();
+    const passed = singalongOnly ? true : (!failed && acc >= 60);
+    const grade = singalongOnly ? "" : gradeLetter(acc, failed);
     const entry = {
       ts: Date.now(), songId: song.id, songTitle: song.title, instrument: playInst,
-      score, accuracy: acc, maxStreak, passed, durationSec: Math.round(duration),
-      notes: { ...counts },
+      score: singalongOnly ? 0 : score, accuracy: singalongOnly ? null : acc,
+      maxStreak: singalongOnly ? 0 : maxStreak, passed, durationSec: Math.round(duration),
+      notes: { ...counts }, chartKind,
     };
     Store.addHistory(entry);
     showBanner(grade, acc, passed, entry.coins || 0);
@@ -576,20 +616,29 @@ export default async function play(ctx) {
 
   function showBanner(grade, acc, passed, coinsEarned) {
     banner.innerHTML = "";
+    const stats = singalongOnly
+      ? [miniStat(T("play.result.completed"), T("play.result.singalongLabel")),
+         miniStat(fmtTime(Math.max(0, Math.round(duration))), T("play.result.duration"))]
+      : [
+          miniStat(acc + "%", T("play.result.accuracy")), miniStat(score, T("play.result.score")),
+          miniStat(maxStreak, T("play.result.bestStreak")),
+          miniStat(counts.perfect, T("play.result.perfect")), miniStat(counts.miss, T("play.result.missed")),
+        ];
+    const title = singalongOnly ? T("play.result.finished")
+      : (passed ? T("play.result.passed") : (failed ? T("play.result.failed") : T("play.result.finished")));
     banner.appendChild(el("div.panel", {}, [
-      el("div.big-grade", { text: grade, style: { color: passed ? getVar("--good") : getVar("--bad") } }),
-      el("h2", { text: passed ? "Song complete — passed!" : (failed ? "Finished (failed — healthbar emptied)" : "Finished") }),
-      coinsEarned ? el("div", { style: { fontSize: "16px", fontWeight: "700", color: "var(--warn)", margin: "2px 0 6px" },
-        html: `🪙 +${coinsEarned} coins earned · <span class="muted" style="font-weight:400">spend them in the Locker</span>` }) : null,
-      el("div.grid.cards", { style: { margin: "14px 0" } }, [
-        miniStat(acc + "%", "Accuracy"), miniStat(score, "Score"), miniStat(maxStreak, "Best streak"),
-        miniStat(counts.perfect, "Perfect"), miniStat(counts.miss, "Missed"),
-      ]),
+      grade ? el("div.big-grade", { text: grade, style: { color: passed ? getVar("--good") : getVar("--bad") } }) : null,
+      el("h2", { text: title }),
+      coinsEarned ? el("div", { style: { fontSize: "16px", fontWeight: "700", color: "var(--warn)", margin: "2px 0 6px" } }, [
+        TF("play.result.coins", { n: coinsEarned }), " ",
+        el("span.muted", { style: { fontWeight: "400" }, text: T("play.result.coinsHint") }),
+      ]) : null,
+      el("div.grid.cards", { style: { margin: "14px 0" } }, stats),
       el("div.row", { style: { justifyContent: "center" } }, [
-        el("button.btn.primary", { onclick: restart }, ["⟲ Play again"]),
-        el("button.btn", { onclick: () => navigate("#/library") }, ["← Songs"]),
-        el("button.btn", { onclick: () => navigate("#/history") }, ["📈 Progress"]),
-        coinsEarned ? el("button.btn", { onclick: () => navigate("#/locker") }, ["🎨 Locker"]) : null,
+        el("button.btn.primary", { onclick: restart }, [T("play.playAgain")]),
+        el("button.btn", { onclick: () => navigate("#/library") }, [T("play.songs")]),
+        el("button.btn", { onclick: () => navigate("#/history") }, [T("play.progress")]),
+        coinsEarned ? el("button.btn", { onclick: () => navigate("#/locker") }, [T("play.locker")]) : null,
       ]),
     ]));
     banner.classList.remove("hidden");
@@ -615,13 +664,55 @@ export default async function play(ctx) {
 
 // ---------- helpers ----------
 function wrapNarrow(node) { node.style.minWidth = "150px"; return node; }
+
+/**
+ * 谱面来源徽章（BUG-02 Step A）。
+ * omr / melody → 真实谱；generated-chords → 明确告知这不是原曲编配，
+ * 并在数据里有外链谱时给出原版吉他谱入口，而不是让人以为 highway 就是原谱。
+ */
+function chartBadge(songId, chartKind) {
+  const key = chartKind === "omr" ? "play.badge.omr"
+    : chartKind === "melody" ? "play.badge.melody"
+      : "play.badge.generated";
+  const extra = (chartKind === "generated-chords" && isOmrDegraded(songId)) ? T("play.badge.incomplete") : "";
+  const row = el("div", { style: { fontSize: "12px", marginTop: "2px" } }, [
+    el("span.capo-note", { style: { padding: "2px 8px" }, text: T(key) + (extra ? " " + extra : "") }),
+  ]);
+  if (chartKind === "generated-chords") {
+    row.appendChild(el("div.muted", { style: { fontSize: "11px", marginTop: "2px" }, text: T("play.singalongNotice") }));
+    const sheet = externalSheet(songId);
+    if (sheet) {
+      row.appendChild(el("a.play-link", { href: sheet, target: "_blank", rel: "noopener noreferrer",
+        style: { display: "inline-block", marginTop: "2px", fontSize: "12px" }, text: T("play.sheetLink") }));
+    }
+  }
+  return row;
+}
+
+/** 曲库权威数据里的第三方外链谱（曲名/歌手/URL 均来自包内静态数据） */
+function externalSheet(songId) {
+  try {
+    const raw = String(songId || "").replace(/^gp-song-/, "song-");
+    const hit = typeof songById === "function" ? songById(raw) : null;
+    const list = (hit && Array.isArray(hit.sheets)) ? hit.sheets : [];
+    for (const s of list) {
+      if (s && typeof s.url === "string" && /^https:\/\//.test(s.url)) return s.url;
+    }
+  } catch (e) { /* 外链缺失不影响演奏 */ }
+  return "";
+}
 function miniStat(num, label) {
   return el("div.stat", {}, [el("div.num", { text: String(num) }), el("div.lbl", { text: label })]);
 }
-function scoreHTML(score, health, streak, mult, acc = 100, failed = false) {
+function scoreHTML(score, health, streak, mult, acc = 100, failed = false, singalong = false) {
+  const line = singalong
+    ? T("play.hud.singalong")
+    : TF("play.hud.line", { acc, streak, mult: String(mult) }) + (failed ? " · " + T("play.failed") : "");
   return `<div style="font-size:22px;font-weight:800">${score.toLocaleString()}</div>
-    <div class="muted" style="font-size:12px">${acc}% · streak ${streak} · ×${mult}${failed ? ' · <span style="color:var(--bad)">FAILED</span>' : ""}</div>`;
+    <div class="muted" style="font-size:12px">${esc(line)}</div>`;
 }
+/* 判定等级 → i18n key */
+const GRADE_KEY = { perfect: "play.grade.perfect", good: "play.grade.good", off: "play.grade.off", miss: "play.grade.miss" };
 function gradeLetter(acc, failed) {
   if (failed) return "F";
   if (acc >= 97) return "S";

@@ -1,5 +1,16 @@
 // Tiny DOM + chart helpers shared across views.
 
+/** i18n 取词兜底：宿主 core/i18n 把 t 挂到 window；无 i18n 环境返回 key 自身 */
+function T(k) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.t === 'function') return window.t(k);
+    if (typeof t === 'function') return t(k);
+  } catch (e) { /* 忽略 */ }
+  return k;
+}
+/** 图表空状态文案（canvas 无法用 DOM 文本节点，取词后当作纯文本绘制） */
+function trendingEmptyText() { return T('play.chart.empty'); }
+
 /** Hyperscript-ish element builder.
  *  el("div.card#x", { onclick }, [children])  */
 export function el(tag, props = {}, children = []) {
@@ -116,7 +127,7 @@ export function lineChart(canvas, series, opts = {}) {
   const all = series.flatMap((s) => s.points);
   if (!all.length) {
     ctx.fillStyle = getVar("--muted"); ctx.font = "13px var(--font)";
-    ctx.fillText("No data yet — play a song to start trending.", pad.l, h / 2);
+    ctx.fillText(trendingEmptyText(), pad.l, h / 2);
     return;
   }
   const xs = all.map((p) => p.x), ys = all.map((p) => p.y);

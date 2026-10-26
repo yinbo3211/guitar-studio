@@ -1,6 +1,16 @@
 /* ============================================================
    六弦工坊 V4.0 · 模块：弹唱练习 song-practice.js（T3）
    ------------------------------------------------------------
+   ⚠ V4.2.1（BUG-08）现状说明：本文件已不再是用户可见的页面。
+     自 V4.1 起，只要宿主存在 SongPlay（演奏视图），enter() 就统一转发到
+     `#/songPlay`，本文件内的「准备页 / 倒计时 / 节拍 HUD / 结算卡」在真实
+     入口下不可达，仅作为无 SongPlay 环境（含单元测试）的兜底实现保留。
+     清理计划：删除本文件 + app.html 的 view-songPractice 容器 +
+     router.js 的 songPractice 路由标题时，必须同步删除依赖它的回归用例
+     （test/songbook-render.test.js R-6/R-7/R-8/R-9），不得为了让 CI 变绿
+     而放宽断言。转发不变量由
+     test/songbook-playback-integration.test.js 的 BUG-08 用例锁定。
+   ------------------------------------------------------------
    流程：准备页 → 3-2-1-GO 倒计时 → 节拍引导练习 HUD → 结算打卡。
    · 状态机与计时为纯函数（nextState / countdownSequence / elapsedMs /
      buildSession / PRACTICE_CONST），可脱离 DOM 单测；

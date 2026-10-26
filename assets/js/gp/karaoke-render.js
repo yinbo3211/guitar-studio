@@ -4,7 +4,8 @@
 // which stays pure data.)
 
 export function escapeHTML(s) {
-  return String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 // Render one timeline line as word <span>s: words before the cursor are `.done`,

@@ -3,6 +3,15 @@ import { nameToMidi } from "./notes.js";
 
 export const SONG_VERSION = 1;
 
+/**
+ * 谱面来源分级（V4.2.1 · BUG-02）。
+ * omr              —— 吉他社图片谱 OMR 识别并通过质量门禁，可作为真实谱呈现与评分
+ * melody           —— 公有领域 / 人工记谱的真实旋律
+ * generated-chords —— 程序生成的占位伴奏（含 OMR 未过门禁的降级），
+ *                     **不是原曲编配**，必须显著标记且不参与音准评分
+ */
+export const CHART_KINDS = ['omr', 'melody', 'generated-chords'];
+
 export function uid() {
   return crypto.randomUUID();
 }
@@ -23,6 +32,7 @@ export function newSong(partial = {}) {
     tags: partial.tags || [],
     background: partial.background || { type: "solid", value: "" },
     audio: partial.audio || { backing: null, vocal: null },
+    chartKind: partial.chartKind || "generated-chords",
     // Other instruments in the arrangement. Whichever part matches the player's
     // instrument becomes the highway; the rest are synthesized as the backing.
     parts: partial.parts || [],
@@ -44,6 +54,10 @@ export function validateSong(o) {
     if (!Array.isArray(n.midi)) errors.push(`note ${i}: midi[]`);
   });
   if (typeof o.bpm !== "number" || o.bpm <= 0) errors.push("bpm");
+  /* chartKind：允许缺省（旧数据），但一旦给了值必须是合法枚举 */
+  if (o.chartKind != null && CHART_KINDS.indexOf(o.chartKind) < 0) {
+    errors.push(`chartKind 非法：${o.chartKind}`);
+  }
   if (o.lyrics != null && !Array.isArray(o.lyrics)) errors.push("lyrics must be an array");
   else if (Array.isArray(o.lyrics)) o.lyrics.forEach((l, i) => {
     if (typeof l.time !== "number") errors.push(`lyric ${i}: time`);

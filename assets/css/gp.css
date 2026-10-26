@@ -594,6 +594,11 @@
  display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px;
   border:1px solid var(--warn); color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); 
 }
+/* V4.2.1 · 谱面来源徽章区（自动生成的简易伴奏 / 原版曲谱外链） */
+.gp-scope .play-link {
+ color: var(--accent); text-decoration:none; border-bottom:1px dashed currentColor; 
+}
+.gp-scope .play-link:hover, .gp-scope .play-link:focus-visible { color: var(--accent-2); }
 /* scrollbars */
 .gp-scope ::-webkit-scrollbar {
  width: 10px; height: 10px; 
