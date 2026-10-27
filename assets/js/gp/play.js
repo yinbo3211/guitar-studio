@@ -7,10 +7,10 @@ import { TrackPlayer } from "./player.js";
 import { Band } from "./band.js";
 import { findSong, isOmrDegraded, displayTitle } from "./catalog.js";
 import { songById } from "../data/songlist-data.js";
-import { songDuration, pickPart } from "./song-format.js";
+import { songDuration, pickPart, pickPromptNote } from "./song-format.js";
 import { autoAccompaniment } from "./accompany.js";
-import { freqToMidiFloat, midiToName, midiToFret, midiToHole, INSTRUMENTS } from "./notes.js";
-import { suggestCapo, describeMidiSet } from "./theory.js";
+import { freqToMidiFloat, midiToName, midiToFret, solveVoicing, midiToHole, INSTRUMENTS } from "./notes.js";
+import { suggestCapo, describeMidiSet, keyToPc, detectKey, prefersFlat } from "./theory.js";
 import { drawBackground } from "./backgrounds.js";
 import { renderAvatar } from "./avatar.js";
 import { buildLyricTimeline, activeAt } from "./karaoke-timeline.js";
@@ -60,7 +60,29 @@ export default async function play(ctx) {
   const playInst = lead.instrument;
   /* BUG-11：时长统一口径 max(谱面末音, 歌词末行)，卡拉 OK 歌词不被中途截断 */
   const duration = songDuration({ notes: lead.notes, lyrics: song.lyrics });
-  const capo = song.capo || suggestCapo(((lead.notes[0]?.midi[0] ?? 60) % 12)).capo;
+  /* V4.2.3：曲库 key/capo 多为占位值。显式 capo 优先，否则先从真实音符检调，
+     最后才回退到曲目 key；keySource 记录本次推断路径，便于后续审计。 */
+  const explicitCapo = Number.isFinite(song.capo) && song.capo > 0 ? Math.floor(song.capo) : 0;
+  const detectedKey = detectKey(lead.notes);
+  const metadataKeyPc = keyToPc(song.key);
+  let keyPc = 0;
+  let capo = explicitCapo;
+  if (explicitCapo > 0) {
+    keyPc = detectedKey ? detectedKey.pc : (metadataKeyPc ?? 0);
+    song.keySource = "capo";
+  } else if (detectedKey) {
+    keyPc = detectedKey.pc;
+    capo = suggestCapo(keyPc).capo;
+    song.keySource = "detected";
+  } else if (metadataKeyPc != null) {
+    keyPc = metadataKeyPc;
+    capo = suggestCapo(keyPc).capo;
+    song.keySource = "metadata";
+  } else {
+    capo = 0;
+    song.keySource = "fallback";
+  }
+  const useFlat = prefersFlat(keyPc);
   const inst = INSTRUMENTS[playInst] || INSTRUMENTS["acoustic-guitar"];
   const fretted = inst.kind === "fretted";
   const harp = playInst === "harmonica";   // hole panel is harmonica-specific, not all winds
@@ -74,15 +96,26 @@ export default async function play(ctx) {
   let karaokeLyrics = lyricTimeline ? (s.karaokeLyrics ?? true) : false;
 
   // ----- per-note runtime state -----
-  const notes = lead.notes.map((n) => ({
-    time: n.time, dur: n.dur || 0.4, midi: n.midi, chord: n.chord || n.midi.length > 1,
-    /* 和弦块在 highway 上显示和弦名（弹唱谱的可读性关键：否则只见色块不知按什么） */
-    label: n.chord || n.midi.length > 1 ? describeMidiSet(n.midi) : "",
-    state: "pending", best: 999, frames: 0,
-    frets: fretted ? n.midi.map((m) => midiToFret(m, playInst, capoStrings)) : null,
-    holes: harp ? n.midi.map(midiToHole) : null,
-  }));
+  const chordOptions = { keyPc, useFlat };
+  const notes = lead.notes.map((n) => {
+    const promptName = describeMidiSet(n.midi, chordOptions);
+    return {
+      time: n.time, dur: n.dur || 0.4, midi: n.midi, chord: n.chord || n.midi.length > 1,
+      /* 和弦名与指法只在建谱时计算一次，渲染帧直接读取缓存。 */
+      label: n.chord || n.midi.length > 1 ? promptName : "",
+      promptName,
+      state: "pending", best: 999, frames: 0,
+      frets: fretted
+        ? (n.midi.length >= 2
+            ? solveVoicing(n.midi, playInst, capo)
+            : n.midi.map((m) => midiToFret(m, playInst, capoStrings)))
+        : null,
+      holes: harp ? n.midi.map(midiToHole) : null,
+    };
+  });
   notes.sort((a, b) => a.time - b.time);
+  const fretPromptNotes = notes.filter((n) => n.frets);
+  const holePromptNotes = notes.filter((n) => n.holes);
 
   // ----- DOM -----
   const shell = el("div.play-shell");
@@ -96,12 +129,6 @@ export default async function play(ctx) {
     el("div", {}, [el("b", { text: displayTitle(song) })]),   // BUG-14：同名曲「曲名 · 歌手」消歧
     el("div.muted", { style: { fontSize: "12px" }, text: metaBits.join(" · ") }),
     chartBadge(song.id, chartKind),
-    parts.length > 1 ? el("div.muted", { style: { fontSize: "12px", marginTop: "2px" },
-      text: TF("play.yourPart", { inst: inst.name }) }) : null,
-    (song.lyrics && song.lyrics.length)
-      ? el("div.muted", { style: { fontSize: "12px", marginTop: "2px" },
-          text: TF("play.part.singalong", { genre: song.genre || "" }) })
-      : (song.genre ? el("div.muted", { style: { fontSize: "12px", marginTop: "2px" }, text: song.genre }) : null),
   ]);
   const healthWrap = el("div.healthbar-big", {}, [el("i", { style: { width: "100%" } })]);
   const killfeed = el("div.killfeed");
@@ -161,9 +188,15 @@ export default async function play(ctx) {
     updateLyric(clock);
   } }, [T("play.karaoke")]) : null;
 
+  const practiceInfo = chartDetails(song.id, chartKind, {
+    partName: parts.length > 1 ? inst.name : "",
+    genre: song.genre || "",
+    hasLyrics: Boolean(song.lyrics && song.lyrics.length),
+  });
   const controls = el("div.play-controls", {}, [
     playBtn, restartBtn,
     el("div.muted", { style: { minWidth: "70px" }, id: "play-clock", text: "0:00" }),
+    practiceInfo,
     el("div", { style: { flex: "1" } }),
     (!player.hasAudio() && band.empty) ? el("span.muted", { style: { fontSize: "12px" }, text: T("play.noBacking") }) : null,
     (player.backing || !band.empty) ? wrapNarrow(volB) : null,
@@ -392,7 +425,7 @@ export default async function play(ctx) {
     pushKill(q, n);
   }
   function pushKill(q, n) {
-    const label = describeMidiSet(n.midi);
+    const label = n.promptName;
     const killer = el(`div.kill.${q}`, {}, [T(GRADE_KEY[q] || "play.grade.off"), " ", el("span.muted", { text: label })]);
     const k = killer;
     killfeed.appendChild(k);
@@ -476,11 +509,14 @@ export default async function play(ctx) {
   }
   // fretboard strip: dots for the current (or next) note's fingering
   function drawFretboard(t) {
-    const cur = notes.find((n) => n.frets && t <= n.time + n.dur);
-    if (!cur) return;
-    const now = t >= cur.time - 0.05;
+    const hit = pickPromptNote(fretPromptNotes, t, beatLen);
+    if (!hit) return;
+    const cur = hit.note;
+    const now = hit.now;
     const nStr = inst.strings.length;
     const FRETS = 12;
+    const unreachable = cur.frets.reduce(
+      (count, pos) => count + (!pos || pos.fret < 0 || pos.fret > FRETS ? 1 : 0), 0);
     const fbW = Math.min(340, W * 0.42), fbH = 6 + nStr * 13;
     const x0 = 22, y0 = H - fbH - 44;
     const nutX = x0 + 22, cell = (fbW - 30) / FRETS;
@@ -488,7 +524,9 @@ export default async function play(ctx) {
     roundRect(x0 - 10, y0 - 24, fbW + 20, fbH + 44, 10); c.fill();
     c.fillStyle = now ? getVar("--accent") : getVar("--muted");
     c.font = "bold 12px var(--font)";
-    c.fillText((now ? T("play.now") : T("play.next")) + describeMidiSet(cur.midi) + (capo ? " · " + TF("play.capoShort", { fret: capo }) : ""), x0, y0 - 8);
+    const unreachableText = unreachable > 0 ? " · " + TF("play.prompt.unreachable", { n: unreachable }) : "";
+    c.fillText((now ? T("play.now") : T("play.next")) + cur.promptName
+      + (capo ? " · " + TF("play.capoShort", { fret: capo }) : "") + unreachableText, x0, y0 - 8);
     const sy = (si) => y0 + fbH - 6 - si * 13;   // string 0 (lowest pitch) at bottom
     c.lineWidth = 1;
     c.strokeStyle = "rgba(255,255,255,0.4)";
@@ -505,7 +543,7 @@ export default async function play(ctx) {
     for (const f of [3, 5, 7, 9, 12]) c.fillText(String(f + capo), nutX + (f - 0.5) * cell - 3, sy(0) + 14);
     const col = now ? getVar("--accent") : "rgba(255,255,255,0.75)";
     for (const pos of cur.frets) {
-      if (!pos) continue;                        // note unreachable on this instrument
+      if (!pos || pos.fret < 0 || pos.fret > FRETS) continue;
       const y = sy(pos.string);
       if (pos.fret === 0) {                      // open string: ring left of the nut
         c.strokeStyle = col; c.lineWidth = 2;
@@ -522,9 +560,10 @@ export default async function play(ctx) {
 
   // harmonica strip: which hole to play and whether to blow (↑) or draw (↓)
   function drawHoles(t) {
-    const cur = notes.find((n) => n.holes && t <= n.time + n.dur);
-    if (!cur) return;
-    const now = t >= cur.time - 0.05;
+    const hit = pickPromptNote(holePromptNotes, t, beatLen);
+    if (!hit) return;
+    const cur = hit.note;
+    const now = hit.now;
     const cell = 28, x0 = 22, fbW = 10 * cell + 4, fbH = 56;
     const y0 = H - fbH - 44;
     c.fillStyle = "rgba(0,0,0,0.55)";
@@ -535,7 +574,7 @@ export default async function play(ctx) {
       : T("play.harmonica.na");
     c.fillStyle = now ? getVar("--accent") : getVar("--muted");
     c.font = "bold 12px var(--font)";
-    c.fillText((now ? T("play.now") : T("play.next")) + describeMidiSet(cur.midi) + " — " + label, x0, y0 - 8);
+    c.fillText((now ? T("play.now") : T("play.next")) + cur.promptName + " — " + label, x0, y0 - 8);
     const col = now ? getVar("--accent") : "rgba(255,255,255,0.75)";
     for (let i = 0; i < 10; i++) {
       const x = x0 + i * cell;
@@ -670,34 +709,43 @@ export default async function play(ctx) {
     playing = false; ro.disconnect(); player.stop(); band.stop(); Audio.stopMic();
     window.removeEventListener("keydown", onKey);
     document.getElementById("health-mini")?.classList.add("hidden");
+    if (shell.parentNode) shell.parentNode.removeChild(shell);
   };
 }
 
 // ---------- helpers ----------
 function wrapNarrow(node) { node.style.minWidth = "150px"; return node; }
 
-/**
- * 谱面来源徽章（BUG-02 Step A）。
- * omr / melody → 真实谱；generated-chords → 明确告知这不是原曲编配，
- * 并在数据里有外链谱时给出原版吉他谱入口，而不是让人以为 highway 就是原谱。
- */
+/** 谱面来源徽章。HUD 中只保留单行来源，避免遮挡画布上的演奏提示。 */
 function chartBadge(songId, chartKind) {
   const key = chartKind === "omr" ? "play.badge.omr"
     : chartKind === "melody" ? "play.badge.melody"
       : "play.badge.generated";
   const extra = (chartKind === "generated-chords" && isOmrDegraded(songId)) ? T("play.badge.incomplete") : "";
-  const row = el("div", { style: { fontSize: "12px", marginTop: "2px" } }, [
+  return el("div", { style: { fontSize: "12px", marginTop: "2px", whiteSpace: "nowrap" } }, [
     el("span.capo-note", { style: { padding: "2px 8px" }, text: T(key) + (extra ? " " + extra : "") }),
   ]);
+}
+
+/** 次要练习信息放进控制栏，避免扩张左上 HUD。 */
+function chartDetails(songId, chartKind, { partName = "", genre = "", hasLyrics = false } = {}) {
+  const row = el("div.muted", { style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "11px" } });
+  if (partName) row.appendChild(el("span", { text: TF("play.yourPart", { inst: partName }) }));
+  if (hasLyrics) row.appendChild(el("span", { text: TF("play.part.singalong", { genre }) }));
+  else if (genre) row.appendChild(el("span", { text: genre }));
   if (chartKind === "generated-chords") {
-    row.appendChild(el("div.muted", { style: { fontSize: "11px", marginTop: "2px" }, text: T("play.singalongNotice") }));
+    row.appendChild(el("span", { text: T("play.singalongNotice") }));
     const sheet = externalSheet(songId);
     if (sheet) {
-      row.appendChild(el("a.play-link", { href: sheet, target: "_blank", rel: "noopener noreferrer",
-        style: { display: "inline-block", marginTop: "2px", fontSize: "12px" }, text: T("play.sheetLink") }));
+      row.appendChild(el("a.play-link", {
+        href: sheet,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        text: T("play.sheetLink"),
+      }));
     }
   }
-  return row;
+  return row.children.length ? row : null;
 }
 
 /** 曲库权威数据里的第三方外链谱（曲名/歌手/URL 均来自包内静态数据） */

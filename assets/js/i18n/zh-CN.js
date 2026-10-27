@@ -183,6 +183,9 @@ export const DICT = {
   'play.badge.melody':'谱面来源：公有领域记谱',
   'play.badge.generated':'⚠ 自动生成的简易伴奏（非原曲编配）',
   'play.badge.incomplete':'· 识谱不完整',
+  'play.badge.looped':'· 片段循环',
+  'play.badge.truncated':'· 谱面截断',
+  'play.prompt.unreachable':'（{n} 个音超出指板）',
   'play.singalongNotice':'仅供跟唱练习，不参与音准评分，也不扣血',
   'play.sheetLink':'查看原版吉他谱 →',
   'play.start':'▶ 开始',
@@ -238,6 +241,7 @@ export const DICT = {
   'play.result.singalongLabel':'跟唱完成',
   'play.result.duration':'时长',
   'songbook.simpleAcc':'简易伴奏',  'songbook.simpleAccTip':'这首曲目暂无真实识谱，演奏页提供的是程序生成的简易伴奏，仅供跟唱练习',
+  'songbook.filter.realChart':'只看真实谱面',  'songbook.filter.realChartTip':'只显示曲库中有真实识谱的 24 首（演奏目录另有 5 首公有领域旋律曲，共 29 首），隐藏自动生成的简易伴奏',
 
 };
 export default DICT;

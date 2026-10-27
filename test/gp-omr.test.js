@@ -167,8 +167,9 @@ function minGap(song) {
 }
 
 test('OMR-6 整曲识别曲目 tempo 由 bpm 决定，不得被压缩（花海 BUG-01 回归）', () => {
-  /* V4.2.2（BUG-09）：原锚点 gp-song-199《晴天》为短片段循环铺满，已按循环门禁降级；
-     改用 gp-song-230《花海》（整曲识别，loops=1）作整曲锚点 */
+  /* V4.2.2（BUG-09）：原锚点 gp-song-199《晴天》为短片段循环铺满，曾按循环门禁降级；
+     V4.2.3（T03）门禁放宽后已恢复为 omr（带 loopInfo），但本锚点仍用
+     gp-song-230《花海》（整曲识别，loops=1）作整曲锚点 */
   const def = GP_CHORD_SONGS.find((s) => s.id === 'gp-song-230');
   const song = cat.findSong('gp-song-230');
   assert.ok(def && song, '花海应有 OMR 数据');
@@ -218,19 +219,33 @@ test('OMR-6 曾受压缩且通过门禁的曲目均已恢复到 1.0 倍速', () 
   }
 });
 
-test('OMR-7 短片段循环铺满的 OMR 一律降级为 generated-chords（BUG-09 回归）', () => {
-  /* V4.2.2：短片段循环铺满（单遍时长 vs 展开时长比值 <0.9 或 >1.1）不再是
-     「真实谱」，由 omrQuality 循环门禁降级；QA 实测 19 首名单全部锁定 */
-  const LOOP19 = ['gp-song-001','gp-song-014','gp-song-015','gp-song-018','gp-song-035',
-    'gp-song-093','gp-song-099','gp-song-102','gp-song-129','gp-song-140','gp-song-142',
-    'gp-song-171','gp-song-188','gp-song-189','gp-song-194','gp-song-195','gp-song-199',
-    'gp-song-200','gp-song-208'];
-  for (const id of LOOP19) {
+test('OMR-7 循环/截断门禁（T03 放宽 [0.55,4.0]）：14 首恢复真实谱 + 5 首超限仍降级', () => {
+  /* V4.2.3（T03）：旧 [0.9,1.1] 门禁把 19 首「片段循环 / 尾部截断」的真实识谱一律误杀。
+     放宽后实测拆分两组（名单与实跑一致，勿凭印象改）：
+       · 恢复为 omr 的 14 首（循环 ≤4 遍或截断 ≥0.55，须带 loopInfo 标注）；
+       · 仍降级的 5 首（loopRatio > 4，循环过多失去「真实谱」意义）。 */
+  const RESTORED14 = ['gp-song-001','gp-song-014','gp-song-015','gp-song-018','gp-song-035',
+    'gp-song-099','gp-song-140','gp-song-142','gp-song-189','gp-song-194','gp-song-195',
+    'gp-song-199','gp-song-200','gp-song-208'];
+  const STILL5 = ['gp-song-093','gp-song-102','gp-song-129','gp-song-171','gp-song-188'];
+  for (const id of RESTORED14) {
     const def = GP_CHORD_SONGS.find((s) => s.id === id);
     assert.ok(def && GP_OMR_NOTES[id], `${id} 应有定义与 OMR 数据`);
     const q = cat.omrQuality(GP_OMR_NOTES[id], def);
-    assert.strictEqual(q.usable, false, `${id}《${def.title}》循环铺满必须判不可用（loopRatio=${q.loopRatio.toFixed(2)}）`);
-    assert.ok(q.loopRatio < 0.9 || q.loopRatio > 1.1, `${id} 循环比值应偏离 1，实际 ${q.loopRatio}`);
+    assert.strictEqual(q.usable, true, `${id}《${def.title}》T03 后应恢复可用（loopRatio=${q.loopRatio.toFixed(2)}）`);
+    assert.ok(q.loopRatio >= 0.55 && q.loopRatio <= 4.0, `${id} 循环比值应在门禁内，实际 ${q.loopRatio}`);
+    const song = cat.findSong(id);
+    assert.strictEqual(song.chartKind, 'omr', `${id} 应恢复为 omr 真实谱`);
+    assert.ok(song.loopInfo && song.loopInfo.passes >= 1, `${id} 应带 loopInfo 标注`);
+    assert.strictEqual(song.loopInfo.truncated, song.loopInfo.ratio < 0.98, `${id} truncated 与 ratio 一致`);
+    assert.strictEqual(song.loopInfo.looped, song.loopInfo.ratio > 1.02, `${id} looped 与 ratio 一致`);
+  }
+  for (const id of STILL5) {
+    const def = GP_CHORD_SONGS.find((s) => s.id === id);
+    assert.ok(def && GP_OMR_NOTES[id], `${id} 应有定义与 OMR 数据`);
+    const q = cat.omrQuality(GP_OMR_NOTES[id], def);
+    assert.strictEqual(q.usable, false, `${id}《${def.title}》循环超限必须判不可用（loopRatio=${q.loopRatio.toFixed(2)}）`);
+    assert.ok(q.loopRatio > 4.0 || q.density < 1.2, `${id} 应有超限/退化理由，实际 ratio=${q.loopRatio}`);
     assert.strictEqual(cat.findSong(id).chartKind, 'generated-chords', `${id} 必须降级`);
     assert.ok(cat.isOmrDegraded(id), `${id} 应标记为「识谱不完整」`);
   }

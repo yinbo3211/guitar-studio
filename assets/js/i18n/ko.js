@@ -183,6 +183,9 @@ export const DICT = {
   'play.badge.melody':'악보 출처: 퍼블릭 도메인 채보',
   'play.badge.generated':'⚠ 자동 생성된 간단 반주(원곡 편곡 아님)',
   'play.badge.incomplete':'· 인식 불완전',
+  'play.badge.looped':'· 구간 반복',
+  'play.badge.truncated':'· 악보 잘림',
+  'play.prompt.unreachable':'(지판 범위 밖 음 {n}개)',
   'play.singalongNotice':'노래 연습용입니다. 채점과 체력 감소가 없습니다',
   'play.sheetLink':'원본 기타 악보 보기 →',
   'play.start':'▶ 시작',
@@ -238,6 +241,7 @@ export const DICT = {
   'play.result.singalongLabel':'노래 완료',
   'play.result.duration':'연주 시간',
   'songbook.simpleAcc':'간단 반주',  'songbook.simpleAccTip':'이 곡은 아직 신뢰할 수 있는 채보가 없어, 연주 화면에서는 노래 연습용 자동 생성 간단 반주를 제공합니다',
+  'songbook.filter.realChart':'실제 악보만 보기',  'songbook.filter.realChartTip':'실제 채보가 있는 24곡만 표시(연주 카탈로그에는 퍼블릭 도메인 멜로디 5곡이 있어 총 29곡). 자동 생성된 간단 반주는 숨김',
 
 };
 export default DICT;

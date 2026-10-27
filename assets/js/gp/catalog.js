@@ -11,7 +11,8 @@
 import { GP_CHORD_SONGS, GP_MELODY_SONGS, GP_PROVENANCE } from './songs.js';
 import { GP_OMR_NOTES } from './omr-notes.js';
 import { newSong, parseMelody, ensureMetadata } from './song-format.js';
-import { chordMidis } from './theory.js';
+import { chordMidis, keyToPc } from './theory.js';
+import { deriveHarmony } from './harmony.js';
 
 const ROOT_MIDI = 48;            // C3 —— 吉他常用把位区间
 const MAX_BARS = 160;            // 占位伴奏最多铺到目标时长（最长曲约需 144 小节）
@@ -27,19 +28,59 @@ const OMR_FULLSONG_RATIO = 0.7;
 const OMR_MIN_NOTES = 24;
 const OMR_MIN_DENSITY = 1.2;
 const OMR_MIN_PITCH_KINDS = 4;
-/* BUG-09：单遍时长 vs 展开后谱面时长的比值超出 [0.9, 1.1] → 短片段循环铺满，
-   不是「整曲真实谱」，必须降级（循环遍数容差 ±10%） */
-const OMR_LOOP_RATIO_MIN = 0.9;
-const OMR_LOOP_RATIO_MAX = 1.1;
+/* T03（V4.2.3 · P-2/P-3）：loopRatio 门禁放宽并导出（tools/diagnose-songbook.mjs 依赖）。
+   旧口径 [0.9, 1.1] 把 19 首「片段循环 / 尾部截断」的真实识谱一律误杀降级；
+   放宽后：
+     ratio < 1 → 片段比整曲长 → 尾部截断使用（≥0.55 即保留，截断处由 loopInfo.truncated 标注）；
+     ratio > 1 → 片段比整曲短 → 循环 ≤4 遍使用（由 loopInfo.looped 标注）。 */
+export const OMR_LOOP_RATIO_MIN = 0.55;
+export const OMR_LOOP_RATIO_MAX = 4.0;
+
+/**
+ * T03 · BPM 反推（P-3，严防循环论证）。
+ * ------------------------------------------------------------
+ * `bpm_real = span / (durationSec/60)` 隐含「OMR 片段 = 整曲」假设，
+ * 而该前提正是 loopRatio 要判定的东西；若用反推 bpm 再算 loopRatio，
+ * 门禁恒等于 1、完全失效。因此：
+ *   · 门禁始终用 tier bpm 计算 loopRatio，本函数结果**不得回灌门禁**；
+ *   · 仅当三者同时满足才采纳反推值（实测约 13 首候选）：
+ *       ① tier-bpm 下 loopRatio ∈ [0.9, 1.1]（单遍≈整曲，假设成立）；
+ *       ② |dev| ≤ 15%；③ 60 ≤ bpm ≤ 200。
+ *   · 回滚开关：本函数返回 { bpm: def.bpm, bpmSource: 'fallback-tier' }
+ *     即回到旧行为，无需改数据。
+ * @returns {{bpm:number, bpmSource:'tier-estimate'|'derived-omr'|'fallback-tier'}}
+ */
+export function deriveBpm(def, omr) {
+  const tierBpm = (def && def.bpm) || 80;
+  if (!def || !omr || !(omr.span > 0) || !(def.durationSec > 0)) {
+    return { bpm: tierBpm, bpmSource: 'tier-estimate' };
+  }
+  /* 与 omrQuality 同一口径的 tier-bpm loopRatio（循环论证防火墙） */
+  const spb = 60 / tierBpm;
+  const want = def.durationSec;
+  const passSec = omr.span * spb;
+  const isFullSong = passSec >= want * OMR_FULLSONG_RATIO;
+  const loops = isFullSong ? 1 : Math.max(1, Math.ceil(want / passSec));
+  const expandedSec = Math.min(loops * passSec, want + spb * 4);
+  const ratio = expandedSec / passSec;
+  if (ratio < 0.9 || ratio > 1.1) return { bpm: tierBpm, bpmSource: 'fallback-tier' };
+  const real = omr.span / (want / 60);
+  const dev = Math.abs(real - tierBpm) / tierBpm;
+  if (dev <= 0.15 && real >= 60 && real <= 200) {
+    return { bpm: +real.toFixed(1), bpmSource: 'derived-omr' };
+  }
+  return { bpm: tierBpm, bpmSource: 'fallback-tier' };
+}
 
 /**
  * OMR 数据质量评估（纯函数，可直接单测）。
  * @param {object} omr GP_OMR_NOTES 条目（{b, span, n}）
- * @param {object} [def] 曲目紧凑定义（可选）；传入后追加 BUG-09 循环遍数判定：
- *        单遍时长 passSec 与展开后谱面时长的比值超出 [0.9, 1.1] 即 unusable。
- *        不传 def 时跳过循环判定（无法得知 bpm/durationSec，保持旧行为）。
+ * @param {object} [def] 曲目紧凑定义（可选）；传入后追加循环遍数判定（T03 放宽至
+ *        [OMR_LOOP_RATIO_MIN, OMR_LOOP_RATIO_MAX]），并追加 loopInfo / bpmSource /
+ *        bpmEffective 元数据。不传 def 时跳过循环判定（保持旧行为，不含追加字段）。
  * @returns {{notes:number, bars:number, density:number, pitchKinds:number,
- *            passSec:number, loops:number, loopRatio:number, usable:boolean}}
+ *            passSec:number, loops:number, loopRatio:number, usable:boolean,
+ *            loopInfo?:object, bpmSource?:string, bpmEffective?:number}}
  */
 export function omrQuality(omr, def) {
   const list = (omr && Array.isArray(omr.n)) ? omr.n : [];
@@ -47,7 +88,8 @@ export function omrQuality(omr, def) {
   const notes = list.length;
   const density = bars > 0 ? notes / bars : 0;
   const pitchKinds = new Set(list.flatMap((x) => x[2])).size;
-  /* BUG-09 循环遍数判定：与 expandOmr 同一套口径（spb 恒为 60/bpm，不压缩） */
+  /* 循环遍数判定：与 expandOmr 同一套口径（spb 恒为 60/bpm，不压缩）。
+     T03 防火墙：永远用 tier bpm，deriveBpm 的反推值不回灌此门禁。 */
   let passSec = 0, loops = 1, loopRatio = 1, loopOk = true;
   if (def && omr && omr.span > 0) {
     const spb = 60 / (def.bpm || 80);
@@ -64,7 +106,20 @@ export function omrQuality(omr, def) {
   }
   const usable = notes >= OMR_MIN_NOTES && density >= OMR_MIN_DENSITY
     && pitchKinds >= OMR_MIN_PITCH_KINDS && loopOk;
-  return { notes, bars, density, pitchKinds, passSec, loops, loopRatio, usable };
+  const out = { notes, bars, density, pitchKinds, passSec, loops, loopRatio, usable };
+  if (def) {
+    out.loopInfo = {
+      passes: loops,
+      ratio: loopRatio,
+      truncated: loopRatio < 0.98,
+      looped: loopRatio > 1.02,
+      passSec,
+    };
+    const b = deriveBpm(def, omr);
+    out.bpmSource = b.bpmSource;
+    out.bpmEffective = b.bpm;
+  }
+  return out;
 }
 
 /**
@@ -140,28 +195,93 @@ export function defById(id) {
     || null;
 }
 
+/* ---------- P-5 节奏型多样化（V4.2.3） ----------
+   硬约束：不得产出单音音符 —— GP-2 要求每个 note 3–4 音、CHART-2 要求
+   降级曲 notes.every(n => n.chord === true)。因此 PATTERNS 只改
+   onset / dur / 力度 / 和弦音排列顺序，每个事件仍是完整和弦。
+   · b    小节内 onset（拍，0.25 拍的整数倍，保证落在 OMR-3b 网格上）
+   · d    时值（拍）
+   · vel  力度 0–1
+   · rot  和弦音排列右旋位数（分解和弦的拨弦顺序，音集不变） */
+export const PATTERNS = {
+  'strum-4': {
+    events: [
+      { b: 0, d: 0.85, vel: 0.95 }, { b: 1, d: 0.85, vel: 0.8 },
+      { b: 2, d: 0.85, vel: 0.9 }, { b: 3, d: 0.85, vel: 0.8 },
+    ],
+  },
+  'strum-folk': {
+    events: [
+      { b: 0, d: 1.6, vel: 0.95 }, { b: 1.5, d: 0.4, vel: 0.7 },
+      { b: 2, d: 0.85, vel: 0.9 }, { b: 3, d: 0.85, vel: 0.8 },
+    ],
+  },
+  'arp-5321': {
+    events: [
+      { b: 0, d: 0.9, vel: 0.95, rot: 0 }, { b: 1, d: 0.9, vel: 0.75, rot: 2 },
+      { b: 2, d: 0.9, vel: 0.8, rot: 1 }, { b: 3, d: 0.9, vel: 0.7, rot: 3 },
+    ],
+  },
+  'syncopate': {
+    events: [
+      { b: 0, d: 0.85, vel: 0.95 }, { b: 1.5, d: 0.6, vel: 0.75 },
+      { b: 2, d: 0.85, vel: 0.9 }, { b: 3.5, d: 0.45, vel: 0.8 },
+    ],
+  },
+};
+/* 缺省按难度层级分配（数据层 def.pattern 恒为 '4-per-bar' 占位，不入表时走层级）。
+   F-5：tier 2 按曲号奇偶在 民谣扫弦 / 分解 5321 间交替（慢板叙事曲用分解更自然），
+   保证 PATTERNS 定义的 4 种节奏型全部有可达路径、无死配置。 */
+const TIER_PATTERN = { 1: 'strum-4', 2: 'strum-folk', 3: 'syncopate' };
+export function pickPattern(def) {
+  const byDef = def && PATTERNS[def.pattern];
+  if (byDef) return byDef;
+  const tier = (def && def.tier) || 1;
+  let name = TIER_PATTERN[tier] || 'strum-4';
+  if (tier === 2 && def && def.no % 2 === 0) name = 'arp-5321';
+  return PATTERNS[name];
+}
+
 /* ---------- 展开：紧凑定义 -> GuitarPicker 歌曲对象 ---------- */
 function expandChord(def) {
   const bpm = def.bpm || 80;
   const spb = 60 / bpm;
   const bar = spb * 4;
-  const chords = (def.harmony && def.harmony.chords) || [[0, 'maj']];
+  /* P-4 运行时派生：该曲有 OMR 数据（含未过门禁的退化识谱）时，
+     按小节聚合识别真实和弦进行替换模板；全部识别失败则回退模板（零数据风险） */
+  let harmony = {
+    source: 'template',
+    chords: (def.harmony && def.harmony.chords) || [[0, 'maj']],
+    uncertainBars: [],
+  };
+  const omr = GP_OMR_NOTES[def.id] || null;
+  if (omr) {
+    const derived = deriveHarmony(omr, omr.b || 4, { keyPc: keyToPc(def.key || 'C') ?? 0 });
+    if (derived.chords.length) {
+      harmony = { source: 'derived-omr', chords: derived.chords, uncertainBars: derived.uncertainBars };
+    }
+  }
+  const chords = harmony.chords;
+  const pattern = pickPattern(def);
   const want = Math.ceil((def.durationSec || 120) / bar);
   const bars = Math.max(MIN_BARS, Math.min(MAX_BARS, want));
   const notes = [];
   for (let b = 0; b < bars; b++) {
     const [pc, type] = chords[b % chords.length];
     const midi = chordMidis(ROOT_MIDI + ((pc % 12) + 12) % 12, type);
-    for (let s = 0; s < 4; s++) {
+    for (const ev of pattern.events) {
+      /* rot：分解和弦改拨弦顺序（音集不变，仍是 3–4 音完整和弦） */
+      const voiced = ev.rot ? midi.map((_, i) => midi[(i + ev.rot) % midi.length]) : midi;
       notes.push({
-        time: +(b * bar + s * spb).toFixed(4),
-        dur: +(spb * 0.85).toFixed(4),
-        midi,
+        time: +(b * bar + ev.b * spb).toFixed(4),
+        dur: +(ev.d * spb).toFixed(4),
+        midi: voiced,
         chord: true,
+        vel: ev.vel,
       });
     }
   }
-  return newSong({
+  const song = newSong({
     id: def.id,
     title: def.title,
     artist: def.artist,
@@ -178,6 +298,9 @@ function expandChord(def) {
     /* BUG-02：占位扫弦不是原曲编配，必须显式标记为自动生成的伴奏 */
     chartKind: 'generated-chords',
   });
+  /* P-4：派生来源标记（derived-omr / template），供徽章与 provenance 审计 */
+  song.harmony = harmony;
+  return song;
 }
 
 /* ---------- OMR 真实谱面：识别出的 (拍, 时值, midi) 事件，循环铺满整曲 ---------- */
@@ -217,7 +340,7 @@ function expandOmr(def, omr) {
       });
     }
   }
-  return newSong({
+  const song = newSong({
     id: def.id,
     title: def.title,
     artist: def.artist,
@@ -233,6 +356,12 @@ function expandOmr(def, omr) {
     source: 'omr-tab',
     chartKind: 'omr',
   });
+  /* T03 元数据写回：循环/截断标注 + BPM 反推来源（门禁仍用 tier bpm，不回灌） */
+  const q = omrQuality(omr, def);
+  song.loopInfo = q.loopInfo;
+  song.bpmSource = q.bpmSource;
+  song.bpmEffective = q.bpmEffective;
+  return song;
 }
 
 function expandMelody(def) {
@@ -282,4 +411,5 @@ export function clearCache() { cache.clear(); }
 export default {
   listDefs, defCount, searchDefs, defById, findSong, clearCache,
   omrQuality, isOmrDegraded, hasRealChart, displayTitle, GP_PROVENANCE,
+  deriveBpm, PATTERNS, pickPattern, OMR_LOOP_RATIO_MIN, OMR_LOOP_RATIO_MAX,
 };

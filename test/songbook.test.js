@@ -152,6 +152,26 @@ test('SB-4 无命中返回空数组，不抛错', () => {
   assert.deepStrictEqual(filterSongs(null, { tier: 2 }), SONGS.filter((s) => s.tier === 2));
 });
 
+/* V4.2.3 方案 D：chart:'real' 只看有真实谱面（omr/melody）的曲目 */
+test('SB-4 chart:"real" 只保留真实谱面曲目，且与 tier/kw 组合生效', async () => {
+  const cat = await imp('assets/js/gp/catalog.js');
+  const { hasRealChart } = cat;
+  const real = filterSongs(SONGS, { tier: 0, chart: 'real' });
+  const expected = SONGS.filter((s) => hasRealChart(s.id));
+  assert.strictEqual(real.length, expected.length, '应恰好覆盖全部真实谱面曲目');
+  /* F-1 双口径锁定（勿改产品数据）：曲库页走 SONGS（231 首）→ 24 首 omr；
+     演奏目录 listDefs()（236 首，含 5 首公有领域旋律）→ 29 首。两个口径都对。 */
+  assert.strictEqual(real.length, 24, '曲库页口径（SONGS）应为 24 首真实谱面');
+  const catalogReal = cat.listDefs().filter((d) => hasRealChart(d.id));
+  assert.strictEqual(catalogReal.length, 29, '演奏目录口径（listDefs，含 5 首旋律）应为 29 首');
+  assert.ok(real.length < SONGS.length, '应为真子集');
+  assert.ok(real.every((s) => hasRealChart(s.id)), '结果必须全部有真实谱面');
+  const combined = filterSongs(SONGS, { tier: 1, chart: 'real' });
+  assert.ok(combined.every((s) => s.tier === 1 && hasRealChart(s.id)), '与 tier 组合');
+  const noOpt = filterSongs(SONGS, { tier: 0 });
+  assert.strictEqual(noOpt.length, SONGS.length, '不传 chart 不过滤（向后兼容）');
+});
+
 /* ============================================================
    SB-6 曲库聚合统计
    ============================================================ */

@@ -243,6 +243,77 @@ export function midiToFret(midi, instrumentId = "acoustic-guitar", tuning) {
   return best;
 }
 
+/**
+ * Find a physically playable fingering for a set of simultaneous notes.
+ * Each string may carry at most one note; among valid fingerings, the result
+ * minimizes the sum of relative fret numbers while respecting `maxSpan`.
+ *
+ * @param {number[]} midis MIDI notes in caller order.
+ * @param {string} instrumentId Fretted instrument id.
+ * @param {number} capo Capo fret; returned frets are relative to the capo.
+ * @param {number} maxSpan Maximum allowed fret span.
+ * @returns {Array<{string:number, fret:number}|null>} Positions in input order.
+ */
+export function solveVoicing(midis, instrumentId = "acoustic-guitar", capo = 0, maxSpan = 4) {
+  if (!Array.isArray(midis)) return [];
+  const empty = midis.map(() => null);
+  const inst = INSTRUMENTS[instrumentId] || {};
+  const capoFret = Number.isFinite(capo) ? Math.max(0, Math.floor(capo)) : 0;
+  const strings = Array.isArray(inst.strings) ? inst.strings.map((midi) => midi + capoFret) : [];
+  const fretCount = Number.isFinite(inst.frets) ? Math.max(0, inst.frets) : 0;
+  if (!strings.length || fretCount <= 0 || !midis.length) return empty;
+
+  const options = midis.map((midi) => {
+    if (!Number.isFinite(midi)) return [];
+    const positions = [];
+    for (let string = 0; string < strings.length; string++) {
+      const fret = midi - strings[string];
+      if (fret >= 0 && fret <= fretCount) positions.push({ string, fret });
+    }
+    return positions;
+  });
+  const playable = options
+    .map((positions, index) => ({ index, positions }))
+    .filter(({ positions }) => positions.length > 0)
+    .sort((a, b) => a.positions.length - b.positions.length || a.index - b.index);
+  if (!playable.length) return empty;
+
+  const search = (span) => {
+    let best = null;
+    const usedStrings = new Set();
+    const current = new Array(midis.length).fill(null);
+
+    const visit = (depth, minFret, maxFret, cost) => {
+      if (best && cost >= best.cost) return;
+      if (depth === playable.length) {
+        best = { cost, positions: current.slice() };
+        return;
+      }
+      const { index, positions } = playable[depth];
+      for (const position of positions) {
+        if (usedStrings.has(position.string)) continue;
+        const nextMin = Math.min(minFret, position.fret);
+        const nextMax = Math.max(maxFret, position.fret);
+        if (nextMax - nextMin > span) continue;
+        usedStrings.add(position.string);
+        current[index] = position;
+        visit(depth + 1, nextMin, nextMax, cost + position.fret);
+        current[index] = null;
+        usedStrings.delete(position.string);
+      }
+    };
+
+    visit(0, Infinity, -Infinity, 0);
+    return best ? best.positions : null;
+  };
+
+  const requestedSpan = Number.isFinite(maxSpan) ? Math.max(0, maxSpan) : 4;
+  const result = search(requestedSpan);
+  if (result) return result;
+  if (requestedSpan < 12) return search(12) || empty;
+  return empty;
+}
+
 export function fretToMidi(string, fret, instrumentId = "acoustic-guitar", tuning) {
   const strings = tuning || (INSTRUMENTS[instrumentId] || {}).strings || [];
   return strings[string] + fret;

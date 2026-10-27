@@ -183,6 +183,9 @@ export const DICT = {
   'play.badge.melody':'譜面の出典：パブリックドメインの採譜',
   'play.badge.generated':'⚠ 自動生成の簡易伴奏（原曲のアレンジではありません）',
   'play.badge.incomplete':'· 認識不完全',
+  'play.badge.looped':'· セクションをループ',
+  'play.badge.truncated':'· 譜面を短縮',
+  'play.prompt.unreachable':'（{n} 音は指板外）',
   'play.singalongNotice':'歌唱練習専用です。採点もライフ減少もありません',
   'play.sheetLink':'元のギターコード譜を見る →',
   'play.start':'▶ スタート',
@@ -238,6 +241,7 @@ export const DICT = {
   'play.result.singalongLabel':'歌唱完了',
   'play.result.duration':'演奏時間',
   'songbook.simpleAcc':'簡易伴奏',  'songbook.simpleAccTip':'この曲には信頼できる採譜がないため、演奏画面では自動生成の簡易伴奏（歌唱練習用）を表示します',
+  'songbook.filter.realChart':'実譜のみ表示',  'songbook.filter.realChartTip':'実際の採譜がある 24 曲のみ表示（演奏カタログには公有領域メロディ 5 曲があり計 29 曲）。自動生成の簡易伴奏は非表示',
 
 };
 export default DICT;

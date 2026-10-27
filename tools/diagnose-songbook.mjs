@@ -33,7 +33,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { GP_CHORD_SONGS } = await import(join(ROOT, 'assets/js/gp/songs.js'));
 const { GP_OMR_NOTES } = await import(join(ROOT, 'assets/js/gp/omr-notes.js'));
 const cat = await import(join(ROOT, 'assets/js/gp/catalog.js'));
-const { findSong, hasRealChart, isOmrDegraded } = cat;
+const { findSong, hasRealChart, isOmrDegraded, OMR_LOOP_RATIO_MIN, OMR_LOOP_RATIO_MAX } = cat;
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 
 const results = [];
@@ -169,7 +169,11 @@ check('BUG-15', '每首歌都有歌词',
   noLyr.length === 0, noLyr.map(d => `${d.id} ${d.title}`).join(' | ') || '无', '无缺失',
   noLyr.length ? '歌词为数据依赖；未回源前演奏视图应显式提示「暂无歌词」而非空白' : '', noLyr.length > 0);
 
-/* --- BUG-09 OMR 谱面循环：tempo 已修复，循环为短片段降级策略 --- */
+/* --- BUG-09 OMR 谱面循环：tempo 已修复，循环/截断谱面须显式标注（V4.2.3 口径） ---
+   V4.2.3（T03）：loopRatio 门禁放宽至 [OMR_LOOP_RATIO_MIN, OMR_LOOP_RATIO_MAX]
+   （0.55~4.0，自 catalog.js 导入，单一口径）。判定改为：
+   循环/截断曲目「要么超出门禁降级为 generated-chords，要么保留为 omr 但必须带
+   loopInfo 标注（passes/truncated/looped）」——不再要求比值≈1。 */
 const loops = [];
 for (const gid of omrIds) {
   const d = GP_CHORD_SONGS.find(x => x.id === gid); if (!d) continue;
@@ -177,15 +181,18 @@ for (const gid of omrIds) {
   if (!song.notes.length) continue;
   const noteEnd = Math.max(...song.notes.map(n => n.time + n.dur));
   const onePass = (GP_OMR_NOTES[gid].span || 0) * (60 / d.bpm);
-  if (onePass > 0) loops.push({ id: gid, ratio: noteEnd / onePass, degraded: isOmrDegraded(gid) });
+  if (onePass > 0) loops.push({ id: gid, ratio: noteEnd / onePass, degraded: isOmrDegraded(gid), song });
 }
-const badLoops = loops.filter(x => x.ratio < 0.9 || x.ratio > 1.1);
-const badUnmarked = badLoops.filter(x => !x.degraded && findSong(x.id).chartKind === 'omr');
-check('BUG-09', '短片段循环铺满的谱面已被显式降级标记（tempo 不再压缩）',
-  badUnmarked.length === 0,
-  `${badLoops.length}/${loops.length} 首循环遍数偏离 1 (范围 ${Math.min(...loops.map(x => x.ratio)).toFixed(2)}~${Math.max(...loops.map(x => x.ratio)).toFixed(2)})；其中未降级标记 ${badUnmarked.length} 首`,
-  '循环曲目全部经 omrQuality 门禁降级或标注',
-  badUnmarked.length ? `未标记：${badUnmarked.map(x => x.id).join(',')}` : 'spb 恒为 60/bpm，tempo 错乱已修复；整曲识别为数据依赖',
+const badLoops = loops.filter(x => x.ratio < OMR_LOOP_RATIO_MIN || x.ratio > OMR_LOOP_RATIO_MAX);
+const badUnmarked = badLoops.filter(x => !x.degraded && x.song.chartKind === 'omr');
+const noLoopInfo = loops.filter(x => !x.degraded && !x.song.loopInfo);
+check('BUG-09', '循环/截断谱面：超门禁的已降级，保留的均带 loopInfo 标注（tempo 不压缩）',
+  badUnmarked.length === 0 && noLoopInfo.length === 0,
+  `门禁 [${OMR_LOOP_RATIO_MIN}, ${OMR_LOOP_RATIO_MAX}] 外 ${badLoops.length}/${loops.length} 首（范围 ${Math.min(...loops.map(x => x.ratio)).toFixed(2)}~${Math.max(...loops.map(x => x.ratio)).toFixed(2)})；未降级 ${badUnmarked.length} 首；缺 loopInfo ${noLoopInfo.length} 首`,
+  '循环曲目要么降级为 generated-chords，要么带 loopInfo 标注（passes/truncated/looped）',
+  (badUnmarked.length ? `未标记：${badUnmarked.map(x => x.id).join(',')}` : '')
+    + (noLoopInfo.length ? `缺 loopInfo：${noLoopInfo.map(x => x.id).join(',')}` : '')
+    || 'spb 恒为 60/bpm；14 首循环/截断谱面恢复为真实谱并带 loopInfo（T03）',
   true);
 
 /* --- 汇总 --- */

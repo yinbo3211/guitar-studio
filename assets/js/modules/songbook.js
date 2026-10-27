@@ -93,13 +93,15 @@ export function isUnitUnlocked(unitId, practiced, opts) {
   return unitProgress(UNITS[idx - 1].id, practiced).rate >= UNLOCK_RATE;
 }
 
-/** SB-4：筛选（tier=0 全部；kw 在已选层级内再过滤，空关键词不减少） */
+/** SB-4：筛选（tier=0 全部；kw 在已选层级内再过滤，空关键词不减少；
+ *  chart:'real' 时只保留有真实谱面（omr/melody）的曲目 —— 方案 D 曲库筛选器） */
 export function filterSongs(list, opts) {
   const o = opts || {};
   const tier = Number(o.tier) || 0;
   const kw = String(o.kw == null ? '' : o.kw).trim().toLowerCase();
   let out = (Array.isArray(list) ? list : SONGS).slice();
   if (tier) out = out.filter((s) => s.tier === tier);
+  if (o.chart === 'real') out = out.filter((s) => hasRealChart(s.id));
   if (kw) {
     out = out.filter((s) => String(s.title).toLowerCase().includes(kw) ||
       String(s.artist).toLowerCase().includes(kw));
@@ -174,6 +176,7 @@ function goRoute(route) {
 const Songbook = {
   tier: 0,
   kw: '',
+  onlyReal: false,        // 方案 D：只看有真实谱面的曲目
   inited: false,
   expanded: new Set(),      // 已展开曲谱区的曲目 id
   freeMode: false,
@@ -184,6 +187,7 @@ const Songbook = {
   enter() {
     this.init();
     this.freeMode = !!readPrefs().songbookFreeMode;
+    this.onlyReal = !!readPrefs().songbookRealChart;
     this._practiced = practicedSongIds(readSessions());
     this.render();
   },
@@ -220,6 +224,13 @@ const Songbook = {
     writePrefs({ songbookFreeMode: !!on });
     this.freeMode = !!on;
     this.render();          // 切换即时生效，无需刷新
+  },
+
+  /* 方案 D：只看有真实谱面（omr/melody）的曲目 */
+  setOnlyReal(on) {
+    writePrefs({ songbookRealChart: !!on });
+    this.onlyReal = !!on;
+    this.renderList();      // 顶部不变，仅重渲曲卡列表
   },
 
   /* 单元热身：携带推荐 BPM 跳转；节拍器经 gs.prefs.metro.bpm 预填（§7.6） */
@@ -309,6 +320,7 @@ const Songbook = {
           <div class="sb-head-title">${esc(T('songbook.progress'))}</div>
           <div class="sb-head-sub">${esc(TF('songbook.stats.practiced', { done: practiced, total }))}</div>
           <label class="sb-free"><input type="checkbox" id="sbFree" ${this.freeMode ? 'checked' : ''}><span>${esc(T('songbook.freeMode'))}</span></label>
+          <label class="sb-free"><input type="checkbox" id="sbReal" ${this.onlyReal ? 'checked' : ''}><span title="${esc(T('songbook.filter.realChartTip'))}">${esc(T('songbook.filter.realChart'))}</span></label>
         </div>
       </div>
       <div class="sb-tabs" id="sbTabs" role="tablist">${tabs.map((t) => `
@@ -338,6 +350,11 @@ const Songbook = {
         this.render();                    // 切 tab 保留搜索词
       });
     }
+    /* 方案 D：「只看真实谱面」开关（在 sbTop 内，需在此单独接线） */
+    const realBox = box.querySelector('#sbReal');
+    if (realBox) {
+      realBox.addEventListener('change', () => this.setOnlyReal(realBox.checked));
+    }
   },
 
   renderList() {
@@ -354,15 +371,15 @@ const Songbook = {
         frag.appendChild(this.lockedCard(unit));
         continue;
       }
-      const songs = filterSongs(songsOfUnit(unit.id), { tier: 0, kw: this.kw });
+      const songs = filterSongs(songsOfUnit(unit.id), { tier: 0, kw: this.kw, chart: this.onlyReal ? 'real' : '' });
       hit += songs.length;
-      if (!songs.length && this.kw) continue;            // 本单元无命中：不渲染空组
+      if (!songs.length && (this.kw || this.onlyReal)) continue;   // 本单元无命中：不渲染空组
       frag.appendChild(this.unitBlock(unit, prog, songs));
     }
-    if (!hit && this.kw) {
+    if (!hit && (this.kw || this.onlyReal)) {
       const empty = document.createElement('div');
       empty.className = 'card sb-empty';
-      empty.textContent = T('songbook.empty');           // E10：搜索无结果空态
+      empty.textContent = T('songbook.empty');           // E10：无结果空态
       frag.appendChild(empty);
     }
     box.innerHTML = '';

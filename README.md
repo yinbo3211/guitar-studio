@@ -484,3 +484,51 @@ journalctl -u guitar-studio -f     # 实时日志
 - **测试**：301 用例，**300 通过 / 0 失败 / 1 skip**（`CHART-4` 逐曲真实和弦回源，数据依赖）；`REG-04/05/06` 由 skip 转为启用。
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
+
+## V4.2.3 · 谱面与和弦提示精确性
+
+修复「谱面精确性」专项缺陷报告（BUG-17/18/19 + H-1~H-8 + P-2~P-5）。版本 4.2.2 → **4.2.3**。
+
+| ID | 级别 | 问题 | 修复 |
+|---|---|---|---|
+| BUG-17 | P1 | 演奏视图 teardown 后残留 DOM/定时器，重复进入叠影 | teardown 自摘 DOM + `root.innerHTML=''` + `_gen` 会话令牌，重入安全 |
+| BUG-18 | P1 | HUD 信息过载 | `assets/css/gp.css` 尾部宿主补丁 + HUD 瘦身 |
+| BUG-19 | P2 | 歌词层级/阴影被宿主样式覆盖 | 歌词行 clip-text + 层级/阴影收敛进 `.gp-scope` |
+| H-1 | P1 | 同弦音高冲突（同一弦同时两个音） | `assets/js/gp/theory.js` `solveVoicing` 重写：冲突清零。QA 在 T03/T05 数据口径下实测新基线为 **211 首 / 20,620 个冲突和弦（和弦总数 65,451）**，修复后 **0 / 0 已达成**（旧文档的 226 首 / 22,728 为修复前旧基线，勿再用于对比） |
+| H-2 | P1 | capo 建议优先级反转 | capo 优先用 `def.capo`；本仓 231 首 `def.key` 全为 `'C'` 占位是数据事实，反推 key 仅作兜底，不得覆盖显式 capo |
+| H-3 | P2 | 调号解析缺失 | 新增 `keyToPc`（支持 #/b/♯/♭/Am 等） |
+| H-4 | P2 | 无法从音符推调 | 新增 `detectKey`（Krumhansl 加权直方图） |
+| H-5 | P2 | 和弦识别不区分升降号、评分粗糙 | `identifyChord` 评分优选 + 按调性选升降号拼写 |
+| H-6 | P2 | 提示音无提前量 | `pickPromptNote` 支持 beat 提前量窗口 |
+| H-7/H-8 | P2 | 派生链路无审计标记 | 展开产物带 `harmony.source` / `loopInfo` / `bpmSource` 元数据 |
+| P-2 | P1 | 循环门禁 [0.9,1.1] 误杀 19 首真实识谱 | `assets/js/gp/catalog.js` 门禁放宽并导出 `OMR_LOOP_RATIO_MIN/MAX` = 0.55/4.0：真实谱 10 → **24 首 omr**（含 5 首 melody 共 29 首有真实谱面）。**双口径**：演奏目录 `listDefs()`（236 首，含 5 首公有领域旋律）有真实谱面 **29 首**；曲库页走 `assets/js/data/songlist-data.js` 的 SONGS（231 首，不含旋律曲）「只看真实谱面」筛选结果为 **24 首**——两个口径都正确，不改产品数据。恢复 14 首：gp-song-001/014/015/018/035/099/140/142/189/194/195/199/200/208；仍降级 5 首：gp-song-093/102/129/171/188（循环 >4 遍） |
+| P-3 | P1 | BPM 反推存在循环论证风险 | 见下方「P-3 适用边界」 |
+| P-4 | P2 | 175+ 首占位曲共用 12 种模板和弦 | 运行时派生：`assets/js/gp/harmony.js` `deriveHarmony` 按小节聚合 OMR 音符 → `identifyChord` → 沿用/去重，替换模板并标 `harmony.source='derived-omr'`（实测 9 首生效，含 `uncertainBars`）；`tools/derive-harmony.mjs` 为离线核查入口；**不写回**数据文件 |
+| P-5 | P2 | 占位谱节奏型单一 | `PATTERNS` 表（strum-4 / strum-folk / arp-5321 / syncopate）按层级分配；只改 onset/dur/力度/和弦音排列，**每个音符仍是 3–4 音完整和弦**（GP-2 硬约束不破坏） |
+| 方案D | P3 | 无法筛选有真实谱面的曲目 | `assets/js/modules/songbook.js` `filterSongs` 增 `chart:'real'` + 曲库页「只看真实谱面」开关（四语 `songbook.filter.realChart`） |
+
+### P-3 适用边界与循环论证说明（重要，勿误用）
+
+`deriveBpm(def, omr)` 的反推公式 `bpm_real = span / (durationSec/60)` **隐含「OMR 片段 = 整曲」这一前提**，而判断该前提是否成立正是 loopRatio 门禁的职责。若用反推 bpm 回头重算 loopRatio，门禁恒等于 1、完全失效。因此本仓约定：
+
+1. **门禁永远用 tier bpm** 计算 loopRatio，`deriveBpm` 的结果不回灌门禁；
+2. 仅当三者同时满足才采纳反推值：① tier-bpm 下 loopRatio ∈ [0.9,1.1]（单遍≈整曲，前提成立，实测 13 首候选）② 偏差 ≤15% ③ 60≤bpm≤200（实测 **10 首**采纳反推）；
+3. 其余一律 `fallback-tier` 保持硬编码 tier 值；`bpmEffective` 仅作元数据展示，**播放拍速仍由 `def.bpm` 决定**；
+4. 回滚开关：`deriveBpm` 直接返回 `{ bpm: def.bpm, bpmSource: 'fallback-tier' }` 即恢复旧行为，无需改数据。
+
+反推采纳 10 首，其中 **7 首落于真实谱**（`song.bpmSource === 'derived-omr'`）；另外 3 首（gp-song-006/207/227）虽满足反推三条件，但其 OMR 未过质量门禁、渲染为 `generated-chords`，而 `bpmSource`/`bpmEffective` 只由 `expandOmr()` 写回到真实谱上，故这 3 首的校正仅计入 `GP_PROVENANCE.counts.bpmDerived`，不落 song 元数据。
+
+### 关键数据（本次实跑）
+
+- **chartKind 分布**：`omr 10 → 24`、`melody 5`、`generated-chords 221 → 207`。
+- **BPM**：10 首经 OMR 反推校正（`GP_PROVENANCE.counts.bpmDerived`）；全库 song.bpm ∈ [60,200]。
+- **和声派生**：9 首降级曲用 OMR 派生和弦替换模板（`counts.harmonyDerived`），派生失败自动回退模板，零数据风险。
+- **测试**：**337 用例 / 336 pass / 0 fail / 1 skip**；新增 `test/gp-omr-coverage.test.js`（C-1~C-6）与 `test/gp-harmony.test.js`（H-1~H-6）。
+- **lint / 诊断**：`node scripts/lint.mjs` 无告警；`node tools/diagnose-songbook.mjs` 退出码 0。
+
+### 未完成（数据依赖，保持显式降级，严禁造假数据）
+
+- **P-1**：207 首仍无真实谱面（即全部 `generated-chords`；需回源第三方曲谱，离线不可解），继续以 `generated-chords` + 「简易伴奏」角标/徽章诚实呈现。
+- **BUG-15**：gp-song-227 缺歌词（数据依赖），演奏页显示「暂无歌词」提示而非空白。
+- **BUG-08**：逐曲真实 BPM（QQ 音乐无公开接口），tier 估计值 + 10 首反推校正是当前上限。
+- **CHART-4**：逐曲真实调号/capo 回填测试保持显式 skip，待回源后启用。

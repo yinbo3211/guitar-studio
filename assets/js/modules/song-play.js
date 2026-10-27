@@ -41,6 +41,7 @@ const SongPlay = {
   songId: '',
   teardown: null,
   busy: false,
+  _gen: 0,              // 会话代次：离开/重进时使在途初始化失效
 
   /** 曲卡主路径：prepare(id) → go('songPlay') */
   prepare(id) { this.pendingId = id || ''; },
@@ -56,9 +57,10 @@ const SongPlay = {
   },
 
   enter() {
+    this.leave();                                   // 停止旧实例并使在途初始化失效
     const root = document.getElementById('gpPlayRoot');
     if (!root) return;
-    this.leave();                                   // 先把上一次拆干净
+    root.innerHTML = '';                            // 兜住 teardown 尚未就绪的竞态窗口
     /* 关键：GuitarPicker 的 CSS 全部收敛在 .gp-scope 下，根容器必须带这个类，
        否则演奏界面完全无样式（画布/HUD/控制条全部塌陷）。 */
     root.className = 'gp-scope';
@@ -69,6 +71,7 @@ const SongPlay = {
     if (!def) { this.renderNotFound(root); return; }
 
     const self = this;
+    const gen = ++this._gen;
     const ctx = {
       el: root,
       params: [id],
@@ -76,16 +79,34 @@ const SongPlay = {
     };
     this.busy = true;
     Promise.resolve(playView(ctx))
-      .then((fn) => { self.teardown = typeof fn === 'function' ? fn : null; })
-      .catch((err) => { console.warn('[song-play] 演奏视图初始化失败：', err); self.renderError(root); })
-      .finally(() => { self.busy = false; });
+      .then((fn) => {
+        if (gen !== self._gen) {
+          if (typeof fn === 'function') {
+            try { fn(); } catch (e) { console.warn('[song-play] 过期实例 teardown 异常：', e); }
+          }
+          return;
+        }
+        self.teardown = typeof fn === 'function' ? fn : null;
+      })
+      .catch((err) => {
+        if (gen !== self._gen) return;
+        console.warn('[song-play] 演奏视图初始化失败：', err);
+        self.renderError(root);
+      })
+      .finally(() => {
+        if (gen === self._gen) self.busy = false;
+      });
   },
 
   leave() {
+    this._gen++;                                    // 使在途 Promise 立即过期
     if (typeof this.teardown === 'function') {
       try { this.teardown(); } catch (e) { console.warn('[song-play] teardown 异常：', e); }
     }
     this.teardown = null;
+    this.busy = false;
+    const root = document.getElementById('gpPlayRoot');
+    if (root) root.innerHTML = '';
   },
 
   renderNotFound(root) {

@@ -127,6 +127,29 @@ export function songDuration(song) {
 }
 
 /**
+ * Select the current prompt note, or the nearest future note inside a beat-based
+ * look-ahead window. Overlapping active notes prefer the latest start time.
+ */
+export function pickPromptNote(notes, t, spb, lead = 1.5) {
+  if (!Array.isArray(notes) || !notes.length || !Number.isFinite(t) || t < 0
+      || !Number.isFinite(spb) || spb <= 0 || !Number.isFinite(lead) || lead < 0) return null;
+  let active = null;
+  let future = null;
+  for (const note of notes) {
+    if (!note || !Number.isFinite(note.time)) continue;
+    const duration = Number.isFinite(note.dur) ? Math.max(0, note.dur) : 0;
+    if (note.time <= t && t <= note.time + duration) {
+      if (!active || note.time > active.time) active = note;
+    } else if (note.time > t && (!future || note.time < future.time)) {
+      future = note;
+    }
+  }
+  if (active) return { note: active, now: true };
+  if (future && future.time - t <= lead * spb) return { note: future, now: false };
+  return null;
+}
+
+/**
  * Compact authoring notation -> notes[].
  * Tokens separated by spaces. Each token is PITCHES:beats
  *   - PITCHES: a note like "E4", a chord "C4+E4+G4", or "r" for rest

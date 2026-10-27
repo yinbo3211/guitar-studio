@@ -2,6 +2,7 @@
    六弦工坊 V4.1 · 弹唱演奏视图样式（移植自 GuitarPicker，MIT）
    ------------------------------------------------------------
    由 tools/build_gp_css.py 生成，请勿手工编辑。
+   V4.2.3 宿主补丁在文件末尾，若日后重新生成本文件需一并迁移。
 
    收敛规则：全部选择器带 `.gp-scope ` 前缀，变量定义挂在 .gp-scope 上，
    与宿主 --bg / --text / --accent 等令牌隔离；默认使用 GuitarPicker 的
@@ -782,4 +783,28 @@
 {
  100%  opacity: 0; 
 }
+}
+
+/* ---------- 宿主补丁 V4.2.3（重新生成本文件时必须迁移） ---------- */
+.gp-scope .hud-box {
+  max-width: min(46vw, 320px);
+  max-height: 84px;
+  overflow: auto;
+  background: rgba(0,0,0,.28);
+  backdrop-filter: blur(2px);
+}
+.gp-scope .play-bottom-fade {
+  z-index: 1;
+}
+.gp-scope .lyric-line {
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0,0,0,.85), 0 0 1px rgba(0,0,0,.9);
+}
+.gp-scope .banner {
+  z-index: 3;
+}
+.gp-scope .lyric-line .kw.cur,
+.gp-scope .kara-cur .kw.cur {
+  text-shadow: none;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.8));
 }

@@ -96,6 +96,7 @@ const CORE = [
   './assets/js/gp/components.js',
   './assets/js/gp/engine.js',
   './assets/js/gp/grader.js',
+  './assets/js/gp/harmony.js',
   './assets/js/gp/karaoke-render.js',
   './assets/js/gp/karaoke-timeline.js',
   './assets/js/gp/notes.js',

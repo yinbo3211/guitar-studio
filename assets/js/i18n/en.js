@@ -183,6 +183,9 @@ export const DICT = {
   'play.badge.melody':'Chart source: public-domain transcription',
   'play.badge.generated':'⚠ Auto-generated simple accompaniment (not the original arrangement)',
   'play.badge.incomplete':'· incomplete transcription',
+  'play.badge.looped':'· looped section',
+  'play.badge.truncated':'· truncated chart',
+  'play.prompt.unreachable':'({n} note(s) outside the fretboard)',
   'play.singalongNotice':'For sing-along practice only — not scored and no health loss',
   'play.sheetLink':'View the original guitar tab →',
   'play.start':'▶ Start',
@@ -238,6 +241,7 @@ export const DICT = {
   'play.result.singalongLabel':'Sing-along finished',
   'play.result.duration':'Duration',
   'songbook.simpleAcc':'Simple acc.',  'songbook.simpleAccTip':'No reliable transcription for this song yet — the play view provides a generated simple accompaniment for sing-along only',
+  'songbook.filter.realChart':'Real charts only',  'songbook.filter.realChartTip':'Show the 24 songs with real transcriptions (the play catalog also has 5 public-domain melodies, 29 in total); hide generated simple accompaniments',
 
 };
 export default DICT;
