@@ -3,6 +3,20 @@
 // word-by-word fill looks identical in both. (Kept separate from timeline.js,
 // which stays pure data.)
 
+const CJK_RE = /[一-鿿぀-ヿ가-힯]/;
+
+/**
+ * 该行是否需要在词之间插入空格。
+ * N-5：CJK 词间插空格会把「长亭外」渲染成「长 亭 外」，必须按语种条件化。
+ * @param {{words?:Array<{text?:string}>}} line
+ * @returns {boolean}
+ */
+function needsSpace(line) {
+  const words = line && line.words;
+  if (!words || !words.length) return true;
+  return !words.some((w) => CJK_RE.test(String((w && w.text) || "")));
+}
+
 export function escapeHTML(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -21,5 +35,5 @@ export function lineFillHTML(line, wordIdx, wordProgress) {
       return `<span class="kw cur" style="background:linear-gradient(90deg,var(--accent) ${p}%,var(--kw-future) ${p}%)">${escapeHTML(w.text)}</span>`;
     }
     return `<span class="kw">${escapeHTML(w.text)}</span>`;
-  }).join(" ");
+  }).join(needsSpace(line) ? " " : "");   // N-5：CJK 词间不插空格
 }

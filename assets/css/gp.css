@@ -808,3 +808,11 @@
   text-shadow: none;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.8));
 }
+.gp-scope .gp-bar-chord {
+  /* N-3 消费端追加的宿主补丁（V4.2.4）：演奏页左下角「当前小节和弦」。
+     重新生成 gp.css 时必须迁移本规则。绝对定位与配色写在 play.js 的行内样式里
+     （随组件走、不依赖本文件），这里只补行内样式给不了的层叠规则：
+     z-index 需高于 .play-bottom-fade(1)，否则和弦行会被底部渐变压住看不见。 */
+  z-index: 2;
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace;
+}

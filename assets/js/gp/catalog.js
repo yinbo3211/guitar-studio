@@ -13,6 +13,7 @@ import { GP_OMR_NOTES } from './omr-notes.js';
 import { newSong, parseMelody, ensureMetadata } from './song-format.js';
 import { chordMidis, keyToPc } from './theory.js';
 import { deriveHarmony } from './harmony.js';
+import { harmonizeOmr } from './harmonize.js';
 
 const ROOT_MIDI = 48;            // C3 —— 吉他常用把位区间
 const MAX_BARS = 160;            // 占位伴奏最多铺到目标时长（最长曲约需 144 小节）
@@ -74,6 +75,14 @@ export function deriveBpm(def, omr) {
 
 /**
  * OMR 数据质量评估（纯函数，可直接单测）。
+ *
+ * ⚠️ 门禁——锁死不得放宽（防 R-1 循环论证）：
+ *   本函数**只允许**用 notes / density / pitchKinds / loopRatio 四项原始统计判定谱面质量，
+ *   **禁止**引入 resolveHarmony() 的任何产物（song.harmony.chords.length / source 等）。
+ *   理由：harmonizeOmr() 对任何输入都能产出和弦（含「10 个音全是 G4」的退化谱），
+ *   一旦用它反证「有 harmony ⇒ 谱面合格」，门禁恒真、完全失效。
+ *   对应守卫断言见 test/gp-omr-coverage.test.js。
+ *
  * @param {object} omr GP_OMR_NOTES 条目（{b, span, n}）
  * @param {object} [def] 曲目紧凑定义（可选）；传入后追加循环遍数判定（T03 放宽至
  *        [OMR_LOOP_RATIO_MIN, OMR_LOOP_RATIO_MAX]），并追加 loopInfo / bpmSource /
@@ -233,6 +242,47 @@ export const PATTERNS = {
    F-5：tier 2 按曲号奇偶在 民谣扫弦 / 分解 5321 间交替（慢板叙事曲用分解更自然），
    保证 PATTERNS 定义的 4 种节奏型全部有可达路径、无死配置。 */
 const TIER_PATTERN = { 1: 'strum-4', 2: 'strum-folk', 3: 'syncopate' };
+/* ---------- N-3/N-4：和声单一入口 ----------
+   所有和声必须经本函数产出，禁止 expandOmr/expandChord 各自写一套 fallback 链。
+   优先级固定不可交换（见 assets/js/gp/harmonize.js 顶部注释）：
+     derived-omr（OMR 音簇识别，有真实音簇证据）
+       > harmonized-melody（单音旋律按调内三和弦推算，弱证据）
+         > template（占位模板，无证据）
+   source 必须原样透传给 song.harmony.source，UI/审计据此区分证据强度。
+   @param {object|null} omr GP_OMR_NOTES 条目
+   @param {object} def 紧凑定义
+   @param {{harmonize?:boolean}} [opts] harmonize=false 时关闭「单音旋律推算」分支
+          —— 占位谱/退化识谱（Generated chords）不得混入推算和声，
+             既守 chartKind 诚实模型，也保持 gp-harmony.test.js H-5 的既有契约。
+   @returns {{source:string, chords:Array, barChords:Array|null,
+              beatsPerBar:number, uncertainBars:number[]}}
+ */
+function resolveHarmony(omr, def, opts = {}) {
+  const keyPc = keyToPc((def && def.key) || 'C') ?? 0;
+  const bpb = (omr && omr.b) || 4;
+  let harmony = null;
+  if (omr) {
+    harmony = deriveHarmony(omr, bpb, { keyPc });
+    if (!harmony.chords.length && opts.harmonize !== false) {
+      /* 音簇识别失败（多为单音旋律）→ 退化为旋律配和弦 */
+      harmony = harmonizeOmr(omr, bpb, { keyPc });
+    }
+  }
+  if (!harmony || !harmony.chords.length) {
+    const fallback = (def && def.harmony && Array.isArray(def.harmony.chords) && def.harmony.chords.length)
+      ? def.harmony.chords
+      : [[keyPc, 'maj']];
+    return { source: 'template', chords: fallback, barChords: null, beatsPerBar: bpb, uncertainBars: [] };
+  }
+  return {
+    source: harmony.source,
+    chords: harmony.chords,
+    barChords: harmony.barChords || null,
+    beatsPerBar: bpb,
+    uncertainBars: harmony.uncertainBars || [],
+  };
+}
+
 export function pickPattern(def) {
   const byDef = def && PATTERNS[def.pattern];
   if (byDef) return byDef;
@@ -249,18 +299,9 @@ function expandChord(def) {
   const bar = spb * 4;
   /* P-4 运行时派生：该曲有 OMR 数据（含未过门禁的退化识谱）时，
      按小节聚合识别真实和弦进行替换模板；全部识别失败则回退模板（零数据风险） */
-  let harmony = {
-    source: 'template',
-    chords: (def.harmony && def.harmony.chords) || [[0, 'maj']],
-    uncertainBars: [],
-  };
   const omr = GP_OMR_NOTES[def.id] || null;
-  if (omr) {
-    const derived = deriveHarmony(omr, omr.b || 4, { keyPc: keyToPc(def.key || 'C') ?? 0 });
-    if (derived.chords.length) {
-      harmony = { source: 'derived-omr', chords: derived.chords, uncertainBars: derived.uncertainBars };
-    }
-  }
+  /* N-4：占位/退化谱不启用「单音旋律推算」分支 —— 见 resolveHarmony 的 opts 说明 */
+  const harmony = resolveHarmony(omr, def, { harmonize: false });
   const chords = harmony.chords;
   const pattern = pickPattern(def);
   const want = Math.ceil((def.durationSec || 120) / bar);
@@ -300,6 +341,10 @@ function expandChord(def) {
   });
   /* P-4：派生来源标记（derived-omr / template），供徽章与 provenance 审计 */
   song.harmony = harmony;
+  /* N-7：无有效 OMR 可反推 → 明确标注「按难度层级估计」，
+     绝不能与 deriveBpm 的 'fallback-tier'（反推过但偏差超限）混为一谈。 */
+  song.bpmSource = 'tier-estimate';
+  song.bpmEffective = bpm;
   return song;
 }
 
@@ -356,6 +401,10 @@ function expandOmr(def, omr) {
     source: 'omr-tab',
     chartKind: 'omr',
   });
+  /* N-3/N-4：真实谱同样需要和弦进行 —— 否则弹唱时左下角只能显示单音音名（G3/B3）。
+     优先用「音簇识别」（有真实音簇证据）；单音旋律退化为「旋律配和弦」（推算）。
+     两者 source 不同，UI/审计可据此区分证据强度（严禁混为一谈）。 */
+  song.harmony = resolveHarmony(omr, def);
   /* T03 元数据写回：循环/截断标注 + BPM 反推来源（门禁仍用 tier bpm，不回灌） */
   const q = omrQuality(omr, def);
   song.loopInfo = q.loopInfo;
@@ -366,7 +415,7 @@ function expandOmr(def, omr) {
 
 function expandMelody(def) {
   const bpm = def.bpm || 100;
-  return newSong({
+  const song = newSong({
     id: def.id,
     title: def.title,
     artist: def.artist,
@@ -382,6 +431,10 @@ function expandMelody(def) {
     source: 'builtin',
     chartKind: 'melody',
   });
+  /* N-7：同 expandChord —— 公有领域旋律的 BPM 来自曲谱约定值，不是 OMR 反推 */
+  song.bpmSource = 'tier-estimate';
+  song.bpmEffective = bpm;
+  return song;
 }
 
 /** 惰性展开并缓存；重复演奏同一首不再重建音符数组 */

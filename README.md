@@ -485,6 +485,43 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.2.4 · 弹唱评分与歌词/和弦盲区治理
+
+依据《弹唱曲库 · 全量测试手册与优化清单》（`docs/SONGBOOK_TEST_MANUAL.md`）修复 8 项盲区缺陷（N-1..N-8）+ 落地单音旋律配和弦。版本 4.2.3 → **4.2.4**。设计冲突分析见 `docs/V4.2.4_INCREMENTAL_DESIGN.md`。
+
+| ID | 级别 | 问题 | 修复 |
+|---|---|---|---|
+| N-1 | P0 | `assets/js/gp/grader.js` 的 `observe()` 用 `goodCents(60)` 兜门，与 `classify` 的 `off` 分支逻辑互斥 → `off` 永不可达，60–100 cents 输入被误判 miss（-10 血） | 观察窗口放宽到 1 个半音（`observeCents:100`），分级交给 `classify()` |
+| N-2 | P0 | `assets/js/gp/play.js` 内联评分同源缺陷（`off` 不可达） | 阈值/倍率/`gradeLetter` 全部从 `assets/js/gp/grader.js` 收编单点定义（`GRADE_DEFAULTS`/`comboMult`），消灭双实现；打击乐/旋律分支差异加注释说明（量纲不同，有意不对齐） |
+| N-3 | P0 | `assets/js/gp/catalog.js` 的 `expandOmr()` 从不写 `song.harmony` → 24 首真实谱左下角只能显示单音音名（G3/B3） | 抽出单一入口 `resolveHarmony()`（优先级 `derived-omr > harmonized-melody > template`，固定不可交换）；真实谱 **0/24 → 24/24** 有和弦；演奏视图新增「当前小节和弦」消费端（读 `barChords`，不改任何音符） |
+| N-4 | P1 | `deriveHarmony` 要求每小节 ≥2 音，单音旋律 24/56 派生失败 | 新增 `assets/js/gp/harmonize.js`：按调内自然三和弦与旋律音重合度打分 + 功能权重 + 延续倾向 + 相邻去重（4 项加固：断引用/`barChords`/前导空小节回填/全空兜底）；有 OMR 的 **56 首全部有和弦** |
+| N-5 | P1 | `assets/js/gp/karaoke-timeline.js` 用 `split(/\s+/)` 分词，中文整行只有 1 个 token → 230 首逐字高亮全部失效 | 新增 `tokenizeLine()`（CJK 逐字、丢标点、拉丁保持原样）+ `allocate()` 时长夹紧 `[0.12s,1.20s]` 且 Σ≡行长；`assets/js/gp/karaoke-render.js` 词间空格按语种条件化（否则渲染成「长 亭 外」）；**改前后逐曲 `songDuration` 零变化** |
+| N-6 | P2 | 连击倍率上限实为 2.5（`Math.min(3,…)`），文档未写明 | 保持 2.5（改 3.0 属经济系统变更，需单独评审），抽成 `comboMult()` 单点定义并注释上限 |
+| N-7 | P2 | `expandChord` 路径下 `bpmSource` 为 undefined（207 首），审计口径混淆 | 补 `bpmSource='tier-estimate'`（无 OMR 未跑反推；区别于「反推失败回退」的 `fallback-tier`） |
+| N-8 | P1 | 28 个模块（约 3,600 行）无专项测试 | 新增 6 个补测文件（metronome/mic-manager/recorder/chord-lib/scales/store）+ `test/_gp-stubs.mjs` 共享桩；**覆盖盲区 C 类 28 → 18** |
+
+### 诚实性与防循环论证（本轮硬约束）
+
+- **推算和弦必须可辨**：231 首 `def.key` 全为占位 `'C'`，`harmonized-melody` 和弦是「假设 C 大调」推算结果，**不是原曲编配**。演奏视图按 `(G)` 括号标记推算和弦、直接显示 `derived-omr` 结果，并写 `data-harmony-source` 供审计；**严禁无标记冒充原曲和弦**。零新增 i18n key（四本字典 key 集合保持全等）。
+- **门禁防火墙**：`omrQuality()` 只用 notes/density/pitchKinds/loopRatio 四项原始统计，**明令禁止**引入 `harmony`——否则等于用推算和弦反证谱面质量，门禁恒真失效。
+- **生成产物零改动**：`assets/js/gp/songs.js` 未手改；`assets/css/gp.css` 仅末尾追加 `.gp-bar-chord` 宿主补丁；`sw.js` 预缓存清单同步插入 `assets/js/gp/harmonize.js`（否则 GP-6 红）。
+
+### 关键数据（本次实跑）
+
+- **测试**：**410 用例 / 409 pass / 0 fail / 1 skip**（基线 337 → +73，新增 4 个缺陷验收文件 + 6 个覆盖补测文件）；`node --test test/songplay-reentry.test.js` 2 项全绿。
+- **lint / 诊断**：`node scripts/lint.mjs` 112 文件 0 告警（F9 硬编码中文 303 ≤ 基线 420）；`node tools/diagnose-songbook.mjs` exit 0（9 PASS / 0 FAIL / 2 DATA）。
+- **覆盖矩阵**：源文件 63 个，无专项测试 C 类 **28 → 18**（目标 ≤20 达成）。
+- **harmony 分布**：全库 `{derived-omr:32, harmonized-melody:1, template:198}`；24 首真实谱 `source ∈ {derived-omr:23, harmonized-melody:1}`。
+- **bpmSource 分布**：`{tier-estimate:207, derived-omr:7, fallback-tier:17}`（231 首口径），无 undefined。
+
+### 未完成（数据依赖，显式降级/登记，严禁造假数据）
+
+- **KV-1**（登记）：`GP_PROVENANCE.counts.bpmDerived=10` 与实测 `derived-omr=7` 不符（口径：10 首采纳反推，3 首 OMR 未过门禁未落 song 元数据）；`assets/js/gp/songs.js` 是生成产物，需走构建脚本重生成，本轮不动。
+- **KV-2**（登记）：歌词残留约 327 行制作信息（`OP(...)` 等形态绕过 `GP-1` 过滤正则），属歌词数据层问题，本轮不改数据。
+- **mic-manager 10s 超时定时器未清理**（登记于 `test/core-mic-manager.test.js` 头部注释，随 V4.3 整改）。
+- **P-1 / BUG-08 / BUG-15 / CHART-4**：真实谱回源、逐曲 BPM、缺歌词、逐曲调号/capo 回填仍为数据依赖，保持显式降级与 skip 标注。
+- **V4.3 计划**：play.js 评分闭包提纯为可导入 `gradeNote()` 纯函数（与 `assets/js/gp/grader.js` 合并）。
+
 ## V4.2.3 · 谱面与和弦提示精确性
 
 修复「谱面精确性」专项缺陷报告（BUG-17/18/19 + H-1~H-8 + P-2~P-5）。版本 4.2.2 → **4.2.3**。

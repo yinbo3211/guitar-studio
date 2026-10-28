@@ -16,6 +16,7 @@ export class El {
   constructor(tag = "div") {
     this.tagName = String(tag).toUpperCase(); this.id = ""; this.className = "";
     this.children = []; this.attributes = {}; this.style = {}; this.dataset = {};
+    this._listeners = {};
     this._html = ""; this._text = ""; this.parentNode = null;
     const set = new Set();
     this.classList = {
@@ -37,11 +38,22 @@ export class El {
   get textContent() { return this._text; }
   setAttribute(k, v) { this.attributes[k] = v; if (k === "id") this.id = v; }
   getAttribute(k) { return this.attributes[k]; }
-  addEventListener() {} removeEventListener() {}
+  addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); }
+  removeEventListener(type, fn) {
+    const list = this._listeners[type] || [];
+    const i = list.indexOf(fn);
+    if (i >= 0) list.splice(i, 1);
+  }
+  /* 测试驱动用：同步派发已注册的事件（el() 的 onclick 走 addEventListener） */
+  dispatch(type, ev = {}) {
+    for (const fn of (this._listeners[type] || []).slice()) fn({ target: this, preventDefault() {}, ...ev });
+    return true;
+  }
+  click() { return this.dispatch("click"); }
   getContext() { return ctx2d; }
   getBoundingClientRect() { return { left: 0, top: 0, right: 300, bottom: 150, width: 300, height: 150 }; }
   get clientWidth() { return 800; } get clientHeight() { return 400; }
-  focus() {} click() {} play() { return Promise.resolve(); } pause() {} load() {}
+  focus() {} play() { return Promise.resolve(); } pause() {} load() {}
   querySelector(sel) { return search(this, sel, false); }
   querySelectorAll(sel) { return search(this, sel, true) || []; }
 }
@@ -95,11 +107,24 @@ Object.defineProperty(globalThis, "navigator", {
     },
   },
 });
-const audioNode = new Proxy({ gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, cancelScheduledValues() {} }, frequency: { value: 0 } },
-  { get(t, p) { return p in t ? t[p] : () => {}; } });
+/* AudioParam 桩：够用的调度方法集合。
+   N-2 行为测试会真实驱动 play.js 主循环 → band.schedule → voices.playVoice，
+   因此 frequency / detune / Q 必须与 gain 一样具备完整调度接口。 */
+const audioParam = () => ({
+  value: 0,
+  setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {},
+  setTargetAtTime() {}, setValueCurveAtTime() {}, cancelScheduledValues() {}, cancelAndHoldAtTime() {},
+});
+const audioNodeTarget = {
+  gain: audioParam(), frequency: audioParam(), detune: audioParam(),
+  Q: audioParam(), pan: audioParam(), playbackRate: audioParam(), delayTime: audioParam(),
+};
+const audioNode = new Proxy(audioNodeTarget, { get(t, p) { return p in t ? t[p] : () => {}; } });
 globalThis.AudioContext = class {
   constructor() { this.currentTime = 0; this.state = "running"; this.destination = {}; this.sampleRate = 44100; }
   resume() { return Promise.resolve(); }
+  suspend() { return Promise.resolve(); }
+  close() { return Promise.resolve(); }
   createGain() { return audioNode; } createOscillator() { return audioNode; }
   createAnalyser() { return new Proxy({ fftSize: 2048, smoothingTimeConstant: 0 }, { get(t, p) { return p in t ? t[p] : () => {}; }, set(t, p, v) { t[p] = v; return true; } }); }
   createMediaStreamSource() { return audioNode; } createMediaElementSource() { return audioNode; }

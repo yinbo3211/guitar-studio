@@ -8,6 +8,10 @@
 export const GRADE_DEFAULTS = {
   perfectCents: 28,
   goodCents: 60,
+  /* N-1：观察窗口 = 1 个半音。与 classify() 的 off 上界同源，勿单独调。
+     旧实现用 goodCents(60) 当门槛，导致 frames>=1 ⟹ best<=60，
+     与 classify() 的 off 分支（要求 best>60）逻辑互斥，off 永远不可达。 */
+  observeCents: 100,
   health: { start: 100, max: 100, perfect: +6, good: +3, off: -7, miss: -10 },
   score: { perfect: 100, good: 60, off: 10 },
 };
@@ -28,6 +32,19 @@ export function classify(frames, bestCents, opt = GRADE_DEFAULTS) {
   if (frames >= 1 && bestCents <= opt.goodCents) return "good";
   if (frames >= 1) return "off";
   return "miss";
+}
+
+/**
+ * N-6：连击倍率（guitar-studio 与 grader.js 的单点定义，play.js 必须引用本函数）。
+ * ⚠️ 上限为 **2.5x**（不是 3.0x）：
+ *   streak 8→1.5x、16→2.0x、24→2.5x、≥32 恒 2.5x（Math.min(3, …) 把档位封在 3 级）。
+ * 改此公式会同步影响 score 与 coins = round(score/100)（金币经济），
+ * 属经济系统变更，须独立走产品评审，不得随缺陷修复顺手调整。
+ * @param {number} streak 当前连击数
+ * @returns {number} 分数倍率，恒 ∈ [1, 2.5]
+ */
+export function comboMult(streak) {
+  return 1 + Math.min(3, Math.floor((streak || 0) / 8)) * 0.5;
 }
 
 export class Grader {
@@ -55,7 +72,10 @@ export class Grader {
   observe(note, detectedMidi) {
     if (!(detectedMidi > 0)) return;
     const cents = centsOff(detectedMidi, note.midi);
-    if (cents < this.opt.goodCents) {
+    /* N-1：半音（100 cents）以内都算「有输入」，分级交给 classify()。
+       旧实现用 goodCents(60) 兜门，导致 frames>=1 ⟹ best<=60，
+       与 classify 的 off 分支（要求 best>60）逻辑互斥，off 永不可达。 */
+    if (cents < this.opt.observeCents) {
       note.frames = (note.frames || 0) + 1;
       if (cents < (note.best ?? Infinity)) note.best = cents;
     }
@@ -77,7 +97,7 @@ export class Grader {
     else if (q === "off") { this.health = Math.max(0, this.health + H.off); this.streak = 0; this.score += S.off; }
     else { this.health = Math.max(0, this.health + H.miss); this.streak = 0; }
     this.maxStreak = Math.max(this.maxStreak, this.streak);
-    this.mult = 1 + Math.min(3, Math.floor(this.streak / 8)) * 0.5;
+    this.mult = comboMult(this.streak);
     if (this.health <= 0) this.failed = true;
     return q;
   }

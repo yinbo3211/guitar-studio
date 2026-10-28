@@ -15,11 +15,17 @@ import { drawBackground } from "./backgrounds.js";
 import { renderAvatar } from "./avatar.js";
 import { buildLyricTimeline, activeAt } from "./karaoke-timeline.js";
 import { lineFillHTML, escapeHTML as esc } from "./karaoke-render.js";
+import { chordName } from "./theory.js";
+import { GRADE_DEFAULTS, comboMult, gradeLetter as gradeLetterOf } from "./grader.js";
 
 const LEAD_IN = 3.0;          // count-in seconds before notes start
 const HIT_PAD = 0.16;         // detection window pad around a note
-const PERFECT_CENTS = 28;
-const GOOD_CENTS = 60;
+/* N-1/N-2：判定阈值收敛到 grader.js 的 GRADE_DEFAULTS（单点定义）。
+   OFF_CENTS 是「观察窗口」上界（不是 lax-zeroes 判定阈值），半音外的输入仍判 miss。
+   禁止在此处再写魔数，改判定口径请改 grader.js。 */
+const PERFECT_CENTS = GRADE_DEFAULTS.perfectCents;   // 28
+const GOOD_CENTS = GRADE_DEFAULTS.goodCents;         // 60
+const OFF_CENTS = GRADE_DEFAULTS.observeCents;       // 100
 
 /* ---------- i18n 取词（BUG-03） ----------
    宿主只全局暴露了 window.t-core/i18n.js），带参替换由各模块本地实现。
@@ -134,13 +140,30 @@ export default async function play(ctx) {
   const killfeed = el("div.killfeed");
   const lyric = el("div.lyric-line");
   const banner = el("div.banner.hidden");
+  /* N-3 消费端：当前小节和弦（读 song.harmony.barChords，按当前小节下标取）。
+     ⚠️ R-2 诚实标注：231 首 def.key 全是占位 'C'，harmonized-melody 的和弦是按
+        假设调性推算出来的，不是真实编配 —— 故：
+          source === 'derived-omr'        → 直接显示（有真实音簇证据）
+          source === 'harmonized-melody'  → 加括号标记推算值，如 (G)
+        绝不允许无标记显示成原曲和弦。标记用括号而非文案 → 零 i18n key。
+     同时写 data-harmony-source 供审计与测试读取。 */
+  const harmony = (song.harmony && Array.isArray(song.harmony.chords) && song.harmony.chords.length)
+    ? song.harmony : null;
+  const barChordEl = el("div.gp-bar-chord", {
+    style: {
+      position: "absolute", left: "16px", bottom: "14px", fontSize: "18px", fontWeight: "800",
+      color: "var(--accent)", opacity: ".92", textShadow: "0 1px 4px rgba(0,0,0,.65)",
+      letterSpacing: ".5px", pointerEvents: "none",
+    },
+  });
+  if (harmony) barChordEl.setAttribute("data-harmony-source", harmony.source);
 
   const avatarBadge = el("div.play-avatar", { html: renderAvatar() });
   const hud = el("div.play-hud", {}, [
     el("div.row", { style: { gap: "10px", alignItems: "flex-start" } }, [avatarBadge, songBox]),
     el("div.col", { style: { alignItems: "flex-end", gap: "8px" } }, [scoreBox, healthWrap]),
   ]);
-  overlay.append(hud, killfeed, lyric, el("div.play-bottom-fade"), banner);
+  overlay.append(hud, barChordEl, killfeed, lyric, el("div.play-bottom-fade"), banner);
 
   // controls
   const playBtn = el("button.btn.primary", { onclick: togglePlay }, [T("play.start")]);
@@ -351,6 +374,11 @@ export default async function play(ctx) {
   }
 
   // ----- grading -----
+  /* 分支语义差异（有意保留，勿对齐）：
+     · 打击乐：onset 落在窗口内即计帧，n.best 单位=秒，用 0.07/0.15 分级；
+     · 旋律  ：需 bestCents < OFF_CENTS 才计帧，n.best 单位=cents，用 28/60 分级。
+     两者量纲不同，阈值不可互换；旋律若照抄「无条件计帧」，任何环境噪声都会
+     把 miss 抬成 off，等于变相削弱 miss 惩罚。 */
   function grade() {
     if (percussion) {
       // a hit credits the nearest active note; quality = timing offset, any drum voice counts
@@ -386,7 +414,8 @@ export default async function play(ctx) {
           const cents = Math.abs((diff - Math.round(diff / 12) * 12) * 100);
           if (cents < bestCents) bestCents = cents;
         }
-        if (bestCents < GOOD_CENTS) { n.frames++; if (bestCents < n.best) n.best = bestCents; }
+        /* N-2：同 N-1，观察窗口放宽到 1 个半音，off 才可达（半音外仍算 miss） */
+        if (bestCents < OFF_CENTS) { n.frames++; if (bestCents < n.best) n.best = bestCents; }
       }
     }
   }
@@ -420,7 +449,7 @@ export default async function play(ctx) {
     else if (q === "off") { health = Math.max(0, health - 7); streak = 0; score += 10; }
     else { health = Math.max(0, health - 10); streak = 0; }
     maxStreak = Math.max(maxStreak, streak);
-    mult = 1 + Math.min(3, Math.floor(streak / 8)) * 0.5;
+    mult = comboMult(streak);
     if (health <= 0 && !failed) { failed = true; toast(T("play.healthEmpty"), "bad"); }
     pushKill(q, n);
   }
@@ -489,6 +518,8 @@ export default async function play(ctx) {
 
     // lyrics
     updateLyric(t);
+    /* N-3：当前小节和弦 */
+    updateBarChord(t);
   }
 
   function drawNote(x, y, w, state, midi, chord, label) {
@@ -628,6 +659,24 @@ export default async function play(ctx) {
     lyric.innerHTML =
       `<div style="font-size:26px;line-height:1.2">${esc(cur)}</div>` +
       (next ? `<div style="font-size:15px;opacity:.55;margin-top:2px">${esc(next)}</div>` : "");
+  }
+
+  /**
+   * N-3 消费端：把当前小节的和弦名写到 overlay 左上角提示区。
+   * barChords 长度恒 === bars（chords 是去重后的进行，按下标取会错拍）。
+   * @param {number} t 当前演奏时刻（秒）
+   */
+  function updateBarChord(t) {
+    if (!harmony) return;
+    const bars = harmony.barChords && harmony.barChords.length
+      ? harmony.barChords : harmony.chords;
+    const secPerBar = beatLen * (harmony.beatsPerBar || 4);
+    const idx = secPerBar > 0 ? Math.max(0, Math.floor(Math.max(0, t) / secPerBar)) : 0;
+    const cur = bars[idx % bars.length];
+    if (!cur) { barChordEl.textContent = ""; return; }
+    const name = chordName(cur[0], cur[1], { keyPc, useFlat });
+    /* 推算和弦加括号，避免与识别得出的真实和弦混淆（见上方 R-2 说明） */
+    barChordEl.textContent = `${T("play.now")} ${harmony.source === "harmonized-melody" ? `(${name})` : name}`;
   }
 
   function updateHud() {
@@ -772,15 +821,8 @@ function scoreHTML(score, health, streak, mult, acc = 100, failed = false, singa
 }
 /* 判定等级 → i18n key */
 const GRADE_KEY = { perfect: "play.grade.perfect", good: "play.grade.good", off: "play.grade.off", miss: "play.grade.miss" };
-function gradeLetter(acc, failed) {
-  if (failed) return "F";
-  if (acc >= 97) return "S";
-  if (acc >= 92) return "A";
-  if (acc >= 82) return "B";
-  if (acc >= 70) return "C";
-  if (acc >= 60) return "D";
-  return "F";
-}
+/* N-1：与 grader.js 的 gradeLetter 曾逐字节重复 → 统一为单一实现 */
+const gradeLetter = gradeLetterOf;
 function shade(hex, amt) {
   hex = (hex || "#6ea8fe").trim();
   if (!hex.startsWith("#") || hex.length < 7) return hex;

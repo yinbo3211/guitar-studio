@@ -8,6 +8,80 @@
 
 const DEFAULT_LINE_DUR = 3;
 
+/* N-5 中文逐字高亮：
+   · CJK（汉/日/韩）无空格，原本 split(/\s+/) 只切出 1 个 token → 整行一次性填充；
+   · 拉丁/数字连续段仍作为整体词处理，不做逐字符切（否则 "Warner" 会被拆成 6 个 token）；
+   · 纯标点段不占时间片（如歌词里残留的版权元数据行不会把时长稀释到 0.001s/字）。 */
+const CJK_RE = /[一-鿿぀-ヿ가-힯]/;
+const PUNCT_ONLY = /^[\p{P}\p{S}\s]+$/u;
+const MIN_WORD_DUR = 0.12;   // 低于此值的字肉眼不可见（实测最短 0.001s/字）
+const MAX_WORD_DUR = 1.20;   // 实测最长 14.77s/字，单字独占半天会破坏跟唱观感
+
+/**
+ * 歌词行分词：含 CJK 时逐字切分（丢空白与纯标点），否则按空白切词。
+ * @param {string} text 原始歌词行
+ * @returns {string[]} token 列表
+ */
+export function tokenizeLine(text) {
+  const s = String(text == null ? "" : text).trim();
+  if (!s) return [];
+  /* 纯标点/符号行（含残留的版权元数据行）不占任何时间片 */
+  if (PUNCT_ONLY.test(s)) return [];
+  /* 纯拉丁：保持 V4.2.3 及以前的行为，兼容欧洲歌词的按空格分词 */
+  if (!CJK_RE.test(s)) return s.split(/\s+/).filter(Boolean);
+  const out = [];
+  for (const ch of s) {
+    if (/\s/.test(ch)) continue;
+    if (PUNCT_ONLY.test(ch)) continue;
+    out.push(ch);
+  }
+  return out;
+}
+
+/**
+ * 把 span 秒按权重分配给 n 个词，并夹紧到 [MIN_WORD_DUR, MAX_WORD_DUR]。
+ * 硬约束：**Σdur === span** —— activeAt() 的 wordProgress 与下一行起点依赖它，
+ * 一旦总和不闭合，逐字高亮与行切换就会错位（KT-2 护栏）。
+ * @param {number[]} weights 每词权重（≥0）
+ * @param {number} span 待分配总时长（秒，>0）
+ * @returns {number[]} 每词时长，长度 === weights.length
+ */
+export function allocate(weights, span) {
+  const n = weights.length;
+  if (!n) return [];
+  /* 区间外无法夹紧：整行均分，宁可放弃夹紧也要保住 Σ=span */
+  if (span < n * MIN_WORD_DUR || span > n * MAX_WORD_DUR) return new Array(n).fill(span / n);
+
+  const total = weights.reduce((a, b) => a + b, 0) || n;
+  const durs = weights.map((w) => (span * w) / total);
+  /* 迭代：夹紧 → 把余量按自由项权重比例重分配 */
+  for (let pass = 0; pass < 16; pass++) {
+    let sum = 0;
+    const freeIdx = [];
+    for (let i = 0; i < n; i++) {
+      durs[i] = Math.min(MAX_WORD_DUR, Math.max(MIN_WORD_DUR, durs[i]));
+      sum += durs[i];
+      if (durs[i] > MIN_WORD_DUR + 1e-9 && durs[i] < MAX_WORD_DUR - 1e-9) freeIdx.push(i);
+    }
+    const drift = span - sum;
+    if (Math.abs(drift) < 1e-9 || !freeIdx.length) break;
+    const localTotal = freeIdx.reduce((a, i) => a + (weights[i] || 0), 0) || freeIdx.length;
+    for (const i of freeIdx) durs[i] += (drift * (weights[i] || 0)) / localTotal;
+  }
+  /* 收尾吸收残差：优先摊到仍有余量的词；余量不足（极端长行）则均摊，保 Σ=span */
+  const rest = span - durs.reduce((a, b) => a + b, 0);
+  if (Math.abs(rest) > 1e-9) {
+    const rooms = durs.map((d) => (rest > 0 ? MAX_WORD_DUR - d : d - MIN_WORD_DUR));
+    const roomSum = rooms.reduce((a, r) => a + Math.max(0, r), 0);
+    if (roomSum >= Math.abs(rest) - 1e-12) {
+      for (let i = 0; i < n; i++) durs[i] += (rest * Math.max(0, rooms[i])) / roomSum;
+    } else {
+      for (let i = 0; i < n; i++) durs[i] += rest / n;
+    }
+  }
+  return durs;
+}
+
 function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
 
 function normalizeWords(line, start, end) {
@@ -23,13 +97,15 @@ function normalizeWords(line, start, end) {
       return { t: +w.t.toFixed(3), end: +(w.t + dur).toFixed(3), dur: +dur.toFixed(3), text: w.text };
     });
   }
-  const tokens = String(line.text || "").trim().split(/\s+/).filter(Boolean);
+  /* N-5：CJK 逐字切分，否则中文歌词整行只有一个 token（无逐字高亮） */
+  const tokens = tokenizeLine(line.text);
   if (!tokens.length) return [];
   const weights = tokens.map((t) => Math.max(1, t.replace(/[^\p{L}\p{N}]/gu, "").length));
-  const total = weights.reduce((a, b) => a + b, 0);
+  /* N-5：中文单字权重恒为 1 → 需 [0.12s,1.20s] 夹紧 + 迭代重分配，且 Σdur === span */
+  const durs = allocate(weights, span);
   let t = start;
   return tokens.map((tok, i) => {
-    const dur = span * (weights[i] / total);
+    const dur = durs[i];
     const w = { t: +t.toFixed(3), end: +(t + dur).toFixed(3), dur: +dur.toFixed(3), text: tok };
     t += dur;
     return w;

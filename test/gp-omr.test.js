@@ -134,6 +134,16 @@ test('OMR-3b 任意相邻音符间隔都必须是四分拍的整数分数（spb=
 
 /* ============================================================
    OMR-4 / OMR-5 来源与资源一致性
+   ------------------------------------------------------------
+   【已知偏差 KV-1（V4.2.4 登记，本轮不修）】
+     GP_PROVENANCE.counts.bpmDerived = 10，但实测全库 bpmSource ===
+     'derived-omr' 的只有 7 首（另 3 首在 T03 循环/截断门禁中被降级，
+     BPM 回落到 tier 值，却在生成产物里仍被计入 bpmDerived）。
+     songs.js 是 tools/build_gp_songs.py 的生成产物，本轮禁止手改，
+     故只在测试中登记口径差异，不新增断言去「钉死」错误数字；
+     修它需要同时改生成脚本与 provenance 文案，已单独立项。
+     当前有效的正确性断言在 test/gp-play.test.js 的 GP-9（枚举实测
+     bpmSource 取值集合），两者不一致时以 GP-9 的实测值为准。
    ============================================================ */
 test('OMR-4 provenance 标注 OMR 识别来源与覆盖数', () => {
   assert.ok(/OMR|光学识别/.test(String(GP_PROVENANCE.omrSource || '')),

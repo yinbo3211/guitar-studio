@@ -17,9 +17,12 @@ import { identifyChord, CHORD_TYPES } from './theory.js';
  * @param {number} [bpb=4] 每小节拍数（beats per bar）
  * @param {object} [opts] { keyPc } 调性音级（识别评分证据之一）
  * @returns {{chords: Array<[number,string]>, bars: number,
- *            uncertainBars: number[], source: 'derived-omr'}}
+ *            uncertainBars: number[], barChords: Array<[number,string]>|null,
+ *            source: 'derived-omr'}}
  *   chords 为相邻去重后的 [rootPc, type] 序列；全部识别失败时 chords 为空，
  *   调用方应回退模板和声。
+ *   barChords 为逐小节和弦（长度 === bars）——N-3 新增，供演奏视图按小节下标取
+ *   （chords 去重后长度 ≠ bars，按下标直接取会错拍）。
  */
 export function deriveHarmony(omr, bpb = 4, opts = {}) {
   const events = (omr && Array.isArray(omr.n)) ? omr.n : [];
@@ -54,7 +57,7 @@ export function deriveHarmony(omr, bpb = 4, opts = {}) {
   }
   /* 开头连续失败：用首个识别成功的和弦回填，保证进行非空 */
   const first = raw.find((c) => c);
-  if (!first) return { chords: [], bars, uncertainBars, source: 'derived-omr' };
+  if (!first) return { chords: [], bars, uncertainBars, barChords: null, source: 'derived-omr' };
   for (let b = 0; b < bars; b++) if (!raw[b]) raw[b] = first;
 
   /* 相邻去重：同一和弦连续多小节只保留一次（进行序列，非逐小节铺排） */
@@ -65,7 +68,7 @@ export function deriveHarmony(omr, bpb = 4, opts = {}) {
     if (last && last[0] === pc && last[1] === type) continue;
     chords.push([pc, type]);
   }
-  return { chords, bars, uncertainBars, source: 'derived-omr' };
+  return { chords, bars, uncertainBars, barChords: raw, source: 'derived-omr' };
 }
 
 export default { deriveHarmony };
