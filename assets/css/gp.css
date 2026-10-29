@@ -816,3 +816,43 @@
   z-index: 2;
   font-family: JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+
+.gp-scope {
+  --bg: var(--gp-host-bg, #0b0f1a);
+  --bg-2: var(--gp-host-bg-2, #111726);
+  --line: var(--gp-host-line, #26324f);
+  --panel: var(--card, #151d30);
+  --text: var(--txt, #e8eefc);
+  --muted: var(--txt-2, #9aa9c7);
+  --accent: var(--blue, #6ea8fe);
+  --accent-ink: var(--gp-host-bg-2, #07101f);
+  --highway: #0a0e18;
+  --gp-canvas-accent: #8ab4ff;
+  --gp-canvas-accent-2: #21d07a;
+  --gp-canvas-muted: #adc0e0;
+  --gp-canvas-text: #eef3ff;
+}
+.gp-scope .gp-lyric-bar {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  min-height: clamp(38px, 11vw, 46px); padding: 2px clamp(10px, 3vw, 16px);
+  background: var(--bg-2); border-top: 1px solid var(--line);
+}
+.gp-scope .gp-lyric-bar .gp-bar-chord {
+  flex: none; max-width: 34%; font-size: clamp(14px, 4vw, 17px); font-weight: 800;
+}
+.gp-scope .lyric-line {
+  position: static; flex: 1; min-width: 0; font-weight: 700;
+  font-size: clamp(16px, 4.6vw, 21px); line-height: 1.2; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  z-index: 2; text-shadow: 0 1px 2px rgba(0,0,0,.85), 0 0 1px rgba(0,0,0,.9);
+}
+.gp-scope .lyric-line[data-no-lyrics] { font-size: 14px; opacity: .5; font-weight: 400; }
+.gp-scope .play-controls {
+  gap: clamp(6px, 2vw, 12px);
+  padding: 8px clamp(8px, 2.5vw, 16px) calc(8px + env(safe-area-inset-bottom, 0px));
+}
+.gp-scope .play-controls .btn {
+  padding: 7px clamp(8px, 2.5vw, 14px); min-height: 38px;
+  font-size: clamp(12px, 3.2vw, 14px);
+}
+.gp-scope .play-controls label.field { min-width: clamp(96px, 24vw, 150px); font-size: 11px; }

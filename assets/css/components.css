@@ -297,3 +297,15 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 #view-songPlay{max-width:1280px}
 #gpPlayRoot{height:calc(100vh - 168px);min-height:420px}
 @media (max-width:900px){#gpPlayRoot{height:calc(100vh - 140px);min-height:360px}}
+
+/* ===== V4.2.5 P2-01：宿主主题令牌别名（供 assets/css/gp.css 尾部补丁接管） =====
+   必须定义在 .gp-scope 的**祖先**元素上：gp.css 的 .gp-scope 自身定义了
+   --bg / --bg-2 / --line，若在同元素内写 `--bg: var(--bg)` 会构成自引用循环
+   （CSS 变量循环依赖 → guaranteed-invalid，整条声明作废），只能靠异名别名绕开。
+   定义在 html 上：主题令牌由 html[data-theme="x"] 提供，同元素可读，无循环。
+   未定义这些别名时，gp.css 补丁全部回退到 midnight 现值（灰度安全，可分步上线）。 */
+html {
+  --gp-host-bg: var(--bg);
+  --gp-host-bg-2: var(--bg-2);
+  --gp-host-line: var(--line);
+}

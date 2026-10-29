@@ -485,6 +485,42 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.2.5 · 弹唱页体验整改（歌词单行 / 去按钮表情 / 和弦提示音 / 主题与排版）
+
+依据《V4.2.4 全量测试报告》（`docs/V4.2.4_TEST_REPORT.md`）第五节 7 条缺陷与第六节 6.1–6.6 落地方案，完成弹唱页 9 项诉求。版本 4.2.4 → **4.2.5**。设计与冲突分析见 `docs/V4.2.5_INCREMENTAL_DESIGN.md`（含对需求源 5 处实测纠正）。
+
+| ID | 级别 | 问题 | 修复 |
+|---|---|---|---|
+| P1-01 | P1 | 歌词逐字高亮 + 当前行/下一行两行，中文长句 span 密集 | `assets/js/gp/play.js` 的 `updateLyric()` 改为**单行纯文本**（`textContent`，同文本不重排）；删 `karaokeBtn` 与 `karaokeLyrics` 开关；`assets/js/gp/karaoke-render.js` 删词级渲染 `lineFillHTML`；`assets/js/gp/state.js` 删 `karaokeLyrics` 默认值 |
+| P1-02 | P1 | 弹唱页 8 个按钮带贴纸符号（▶/⟲/🎤/🎺/🔊/🎸/🥁/←），字体缺字形时变形 | 四语 `assets/js/i18n/zh-CN.js` / `assets/js/i18n/en.js` / `assets/js/i18n/ja.js` / `assets/js/i18n/ko.js` 的 10 个按钮键纯文字化；删 `play.notes` / `play.karaoke` / `play.hint.hitLine` / `play.hint.karaoke`；新增 `play.chordHint` / `play.hint.chordHint`。**非按钮键**（`play.capo 🔼`、`play.result.coins 🪙` 等）按拍板登记不改 |
+| P1-03 | P1 | 提示音为单音合成音色，不像吉他 | 删 `soundBtn` 与 `Synth.playMidi` 单音循环；新增**和弦提示音**按钮，判定线处对 ≥2 音音符调 `AudioEngine.strum(freqs,'down',vol)`（与和弦库「听扫弦」同源）；音量随伴奏滑杆联动（0→1 映射 0.12~0.30，默认 0.22） |
+| — | P1 | 覆盖缺口：236 首中 6 首（`gp-song-001` + 5 首 `pd-*` 旋律）无任何 ≥2 音音符 | 按拍板取「**隐藏**」：`hasChordNotes` 门控，无和弦音的曲目**不渲染按钮**，不给「亮着却不响」的假承诺 |
+| P2-01 | P2 | 弹唱页恒 midnight 配色，浅色主题下整页突变 | `assets/css/gp.css` 末尾追加令牌接管：`.gp-scope` 的 `--bg/--bg-2/--line/--text/--muted/--accent` 改取宿主令牌；同名令牌自引用循环用**祖先别名**绕开（`assets/css/components.css` 在 `html` 上定义 `--gp-host-*`）；画布保留 `--gp-canvas-*` 专用高对比色（判定线/音符不随主题变灰） |
+| P2-02 | P2 | 歌词行与左下指板面板恒重叠 17px（需求源写 26/44px 为口径误差，实测与分辨率无关） | 歌词与「当前小节和弦」移出画布 overlay，进独立 `.gp-lyric-bar`（`clamp(38px,11vw,46px)`，单行 + `nowrap/ellipsis`）；`gp-bar-chord` 配色从 `--accent` 改 `--text`（dawn 下 4.26 → 13.2~16.7） |
+| P2-03 | P2 | 和弦指型非真实编配（C 给横按而非开放 C） | **只固化观测、不改产品代码**：实测 C[48,52,55] 现状已选中含空弦解 `s5f3 s4f2 s3f0`；G/F 在 `span≤4` 下**数学上不存在含空弦解**（穷举复核已写成用例）；加权打分在 `span≤4` 下 0 个音集变化 → 新增 V-8 形状固化 + V-9 含空弦占比观测（当前 46.5%，断言 ≥40% 只防劣化）；穷举结论写进 `assets/js/gp/notes.js` 注释 |
+| P2-04 | P2 | iPhone 16 Pro 控制区 306px 占屏 36%，舞台被压缩 | `assets/css/gp.css` 补丁无条件紧凑化（`clamp()` + `min-height:38px` + `env(safe-area-inset-bottom)`），**不使用断点**（既有 6 个 `@media` 在 CSSOM 中为空规则，生成器缺陷，本轮不修） |
+
+### 关键数据（本次实跑）
+
+- **测试**：**430 用例 / 429 pass / 0 fail / 1 skip**（基线 410 → 409 删 KT-6 → +21 新增：`test/gp-play-v425.test.js` 18 项 + `test/gp-voicing-shape.test.js` 3 项）；`node --test test/songplay-reentry.test.js` 2 项全绿。
+- **lint / 诊断**：`node scripts/lint.mjs` **114 文件 0 告警**（F9 硬编码中文 **303** ≤ 基线 420，C7 README 路径引用均存在）；`node tools/diagnose-songbook.mjs` exit 0（9 PASS / 0 FAIL / 2 DATA）。
+- **移动端几何（本仓无头 Chromium 393×852 实测）**：控制区 **306 → 187px**（目标 ≤240px）、舞台 **406 → 482px**、歌词栏 43px、歌词↔指板重叠 **17 → 0px**、无横向溢出。（架构原型等价实现曾测 147px/522px，以本仓实测为准。）
+- **主题对比度（七主题精算）**：主文字 `--txt` on `--bg-2` **14.08~16.68**（≥4.5）；primary 按钮文字 `--bg-2` on `--blue` 最差 **4.47**（cyber，见 KV-3）；画布 `--gp-canvas-accent` on `--highway` **9.23**（恒深色，可玩性不受主题影响）。
+- **i18n**：四语 key 集合**完全相等**；10 个按钮键四语均无贴纸符号；`assets/js/gp/play.js` 中 `T("play.*")` 唯一键 45（GP-I18N-1b 要求 ≥40），zh-CN `play.*` 键 69（GP-I18N-2 要求 ≥60）。
+- **指型观测**：全库 65,451 个和弦事件中**含空弦 30,417（46.5%）**；最低品直方图 `{0:30417, 1:14671, 2:3311, 3:16852, 4:14, 5:183, 6:2, 7:1}`。
+
+### 关于「这不是 N-5 的回退」（重要，勿误判）
+
+P1-01 退役的是**词级渲染**（`assets/js/gp/karaoke-render.js` 的逐字 span 填色 + 下一行弱化预览），**不是** N-5 的切词能力：`assets/js/gp/karaoke-timeline.js` 的 `tokenizeLine` / `allocate` / `buildLyricTimeline` / `activeAt` / `timelineDuration` **一个都没删**，`assets/js/gp/play.js` 仍用 `activeAt(lyricTimeline, t)` 做「当前行」定位。配套测试只删了唯一依赖被删函数的 **KT-6**（属「测试锁死被删功能」），KT-1/2/3/4/5/7 全部保留。三处注释（`assets/js/gp/play.js`、`assets/js/gp/karaoke-render.js`、本表下方 N-5 行）已写明该定性。
+
+### 未完成（登记为已知问题，严禁造假数据）
+
+- **KV-3**：cyber 主题 `--accent-ink` 对比 4.47（AA 4.5 差 0.03）。单值无法全主题达标（dawn 需更暗、cyber 需更亮，方向相反），主理人拍板接受，测试阈值写 **4.4**。
+- **KV-4**：`assets/css/gp.css` 的 6 个 `@media` + 2 个 `@keyframes` 在 CSSOM 中 `cssRules.length === 0`（`tools/build_gp_css.py` 把选择器生成成了裸 `{`），既有移动端断点全部失效。属生成区，本轮补丁一律用无断点写法绕过，单独立项修生成器。
+- **KV-5**：`.gp-scope .lyric-line .kw.cur` 规则随词级渲染退役成为无生产者的死规则，但 `gp-css-contract` CSS-3 断言其存在，故保留，列入 V4.2.6 清理。
+- **P2-03 数据层**：231 首的真实调性/BPM/和弦进行与标准开放指型白名单仍待回源（第七节三期路线），本轮不做；yopu.co 级数模型只登记路线，未实现。
+- **人工验收项**（无法自动化，见设计 §4.2）：R-03e 真机听感（吉他扫弦音色）、R-04c 双分辨率截图、R-05c 7 主题 × 4 语言截图、R-06c iPhone 16 Pro 真机安全区。
+
 ## V4.2.4 · 弹唱评分与歌词/和弦盲区治理
 
 依据《弹唱曲库 · 全量测试手册与优化清单》（`docs/SONGBOOK_TEST_MANUAL.md`）修复 8 项盲区缺陷（N-1..N-8）+ 落地单音旋律配和弦。版本 4.2.3 → **4.2.4**。设计冲突分析见 `docs/V4.2.4_INCREMENTAL_DESIGN.md`。
@@ -495,7 +531,7 @@ journalctl -u guitar-studio -f     # 实时日志
 | N-2 | P0 | `assets/js/gp/play.js` 内联评分同源缺陷（`off` 不可达） | 阈值/倍率/`gradeLetter` 全部从 `assets/js/gp/grader.js` 收编单点定义（`GRADE_DEFAULTS`/`comboMult`），消灭双实现；打击乐/旋律分支差异加注释说明（量纲不同，有意不对齐） |
 | N-3 | P0 | `assets/js/gp/catalog.js` 的 `expandOmr()` 从不写 `song.harmony` → 24 首真实谱左下角只能显示单音音名（G3/B3） | 抽出单一入口 `resolveHarmony()`（优先级 `derived-omr > harmonized-melody > template`，固定不可交换）；真实谱 **0/24 → 24/24** 有和弦；演奏视图新增「当前小节和弦」消费端（读 `barChords`，不改任何音符） |
 | N-4 | P1 | `deriveHarmony` 要求每小节 ≥2 音，单音旋律 24/56 派生失败 | 新增 `assets/js/gp/harmonize.js`：按调内自然三和弦与旋律音重合度打分 + 功能权重 + 延续倾向 + 相邻去重（4 项加固：断引用/`barChords`/前导空小节回填/全空兜底）；有 OMR 的 **56 首全部有和弦** |
-| N-5 | P1 | `assets/js/gp/karaoke-timeline.js` 用 `split(/\s+/)` 分词，中文整行只有 1 个 token → 230 首逐字高亮全部失效 | 新增 `tokenizeLine()`（CJK 逐字、丢标点、拉丁保持原样）+ `allocate()` 时长夹紧 `[0.12s,1.20s]` 且 Σ≡行长；`assets/js/gp/karaoke-render.js` 词间空格按语种条件化（否则渲染成「长 亭 外」）；**改前后逐曲 `songDuration` 零变化** |
+| N-5 | P1 | `assets/js/gp/karaoke-timeline.js` 用 `split(/\s+/)` 分词，中文整行只有 1 个 token → 230 首逐字高亮全部失效 | 新增 `tokenizeLine()`（CJK 逐字、丢标点、拉丁保持原样）+ `allocate()` 时长夹紧 `[0.12s,1.20s]` 且 Σ≡行长；`assets/js/gp/karaoke-render.js` 词间空格按语种条件化（否则渲染成「长 亭 外」）；**改前后逐曲 `songDuration` 零变化**。<br>→ **V4.2.5 补充**：演奏视图按产品决策「不再消费**词级渲染**」（删 `lineFillHTML` 与 KT-6），但 `tokenizeLine`/`allocate`/`buildLyricTimeline`/`activeAt` 及其 KT-1/2/3/4/5/7 **全部保留**，`assets/js/gp/play.js` 仍用 `activeAt()` 做行级定位。**这是产品取舍，不是 N-5 回退** |
 | N-6 | P2 | 连击倍率上限实为 2.5（`Math.min(3,…)`），文档未写明 | 保持 2.5（改 3.0 属经济系统变更，需单独评审），抽成 `comboMult()` 单点定义并注释上限 |
 | N-7 | P2 | `expandChord` 路径下 `bpmSource` 为 undefined（207 首），审计口径混淆 | 补 `bpmSource='tier-estimate'`（无 OMR 未跑反推；区别于「反推失败回退」的 `fallback-tier`） |
 | N-8 | P1 | 28 个模块（约 3,600 行）无专项测试 | 新增 6 个补测文件（metronome/mic-manager/recorder/chord-lib/scales/store）+ `test/_gp-stubs.mjs` 共享桩；**覆盖盲区 C 类 28 → 18** |

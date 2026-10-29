@@ -248,6 +248,19 @@ export function midiToFret(midi, instrumentId = "acoustic-guitar", tuning) {
  * Each string may carry at most one note; among valid fingerings, the result
  * minimizes the sum of relative fret numbers while respecting `maxSpan`.
  *
+ * V4.2.5 P2-03 穷举结论（勿重复踩坑，改打分前必读）：
+ *   需求方曾要求「为 G/C/F 增加开放把位权重，产出 x32010 之类的开放指型」。
+ *   穷举验证结果 —— 在 maxSpan=4（现状）下：
+ *     G[55,59,62]：3 个解，含空弦解 **0 个**（最大空弦数 0）→ 数学上不可能有「开放 G」
+ *     F[53,57,60]：3 个解，含空弦解 **0 个**；放宽到 span≤7 仍为 0 个
+ *     C[48,52,55]：2 个解，含空弦解 1 个 → **现状已选中它**，即 s5f3 s4f2 s3f0
+ *   原因：每个音符只携带 3 个音（GP-2 硬约束），真实「开放 G（320003）」有 6 个音，
+ *   装不进 span≤4；若强行凑 1 个空弦（span=7 时 G → s4f5 s2f0 s3f7），跨度反而变宽、
+ *   更难弹，且会打破 V-2/V-3/V-6/V-7 的 assertPlayable(maxSpan=4) 与 GP-2。
+ *   实测「开放把位加权打分」在 maxSpan=4 下 **0 个音集发生变化**（零收益）。
+ *   → 本轮（V4.2.5）只固化现状（V-8）与观测指标（V-9），不改打分、不改 maxSpan；
+ *     真正的标准开放指型只能在**数据层**解决（补齐真实调性/和弦/指法白名单）。
+ *
  * @param {number[]} midis MIDI notes in caller order.
  * @param {string} instrumentId Fretted instrument id.
  * @param {number} capo Capo fret; returned frets are relative to the capo.

@@ -13,8 +13,11 @@ import { freqToMidiFloat, midiToName, midiToFret, solveVoicing, midiToHole, INST
 import { suggestCapo, describeMidiSet, keyToPc, detectKey, prefersFlat } from "./theory.js";
 import { drawBackground } from "./backgrounds.js";
 import { renderAvatar } from "./avatar.js";
+/* V4.2.5 P1-01：行级时间轴保留并继续消费 —— activeAt() 是「当前行」的唯一口径。
+   词级渲染（karaoke-render.js 的逐字填色函数）已退役，不再 import，
+   见下方 updateLyric 注释。 */
 import { buildLyricTimeline, activeAt } from "./karaoke-timeline.js";
-import { lineFillHTML, escapeHTML as esc } from "./karaoke-render.js";
+import { escapeHTML as esc } from "./karaoke-render.js";
 import { chordName } from "./theory.js";
 import { GRADE_DEFAULTS, comboMult, gradeLetter as gradeLetterOf } from "./grader.js";
 
@@ -98,8 +101,12 @@ export default async function play(ctx) {
 
   // ----- lyrics / karaoke overlay -----
   const lyrics = (song.lyrics || []).slice().sort((a, b) => a.time - b.time);
+  /* V4.2.5 P1-01：歌词改为单行。行级时间轴（buildLyricTimeline/activeAt）保留并继续
+     消费 —— 它仍然是「当前行定位」的唯一口径，被产品决策退役的只是**词级渲染**
+     （karaoke-render.js 的逐字填色：逐字 span 填色 + 下一行弱化预览）。
+     ⚠️ 这不是 N-5 的回退：N-5 的 tokenizeLine/allocate 与其 KT-1/2/3/4/5/7 全部保留，
+        本文件仍在用 activeAt() 定位当前行。这是产品取舍，不是 bug 修复的反复。 */
   const lyricTimeline = lyrics.length ? buildLyricTimeline(song) : null;
-  let karaokeLyrics = lyricTimeline ? (s.karaokeLyrics ?? true) : false;
 
   // ----- per-note runtime state -----
   const chordOptions = { keyPc, useFlat };
@@ -149,10 +156,14 @@ export default async function play(ctx) {
      同时写 data-harmony-source 供审计与测试读取。 */
   const harmony = (song.harmony && Array.isArray(song.harmony.chords) && song.harmony.chords.length)
     ? song.harmony : null;
+  /* V4.2.5 P2-02：和弦行随歌词一起迁出画布，进入独立歌词栏（.gp-lyric-bar）左侧槽位，
+     不再绝对定位压在指板面板上。配色从 --accent 改为 --text：
+     浅色主题（dawn）下 --accent=#2f6fd0 落在 --bg-2 上对比仅约 4.26（<4.5），
+     而 --text 在七套主题下实测 13.2~16.7，靠 font-weight:800 区分层级。 */
   const barChordEl = el("div.gp-bar-chord", {
     style: {
-      position: "absolute", left: "16px", bottom: "14px", fontSize: "18px", fontWeight: "800",
-      color: "var(--accent)", opacity: ".92", textShadow: "0 1px 4px rgba(0,0,0,.65)",
+      flex: "none", fontSize: "16px", fontWeight: "800",
+      color: "var(--text)", opacity: ".92",
       letterSpacing: ".5px", pointerEvents: "none",
     },
   });
@@ -163,7 +174,9 @@ export default async function play(ctx) {
     el("div.row", { style: { gap: "10px", alignItems: "flex-start" } }, [avatarBadge, songBox]),
     el("div.col", { style: { alignItems: "flex-end", gap: "8px" } }, [scoreBox, healthWrap]),
   ]);
-  overlay.append(hud, barChordEl, killfeed, lyric, el("div.play-bottom-fade"), banner);
+  /* P2-02：歌词与和弦行移出 overlay（原先 absolute 定位在画布内，与左下指板面板
+     恒重叠 17px）；overlay 只留 HUD / 判定流水 / 底部渐变 / 结算横幅。 */
+  overlay.append(hud, killfeed, el("div.play-bottom-fade"), banner);
 
   // controls
   const playBtn = el("button.btn.primary", { onclick: togglePlay }, [T("play.start")]);
@@ -194,22 +207,25 @@ export default async function play(ctx) {
     oninput: (v) => { Store.setSetting("vocalVolume", v); player.setVocalVolume(v); } });
   const metroBtn = el("button.btn", { onclick: () => { metro = !metro; metroBtn.classList.toggle("primary", metro); } }, [T("play.metronome")]);
   let metro = false;
-  let noteSounds = s.noteSounds ?? true;
-  const soundBtn = el("button.btn", { class: noteSounds ? "primary" : "", title: T("play.hint.hitLine"), onclick: () => {
-    noteSounds = !noteSounds; Store.setSetting("noteSounds", noteSounds);
-    soundBtn.classList.toggle("primary", noteSounds);
-  } }, [T("play.notes")]);
+  /* V4.2.5 P1-03：单音提示音退役，改为「和弦提示音」——复用宿主 AudioEngine.strum 的
+     拨弦音色（与和弦库「听扫弦」同源，assets/js/modules/chord-lib.js）。
+     设置迁移：新键 chordHint 优先，旧键 noteSounds 只作为一次性的值来源被读取，
+     之后只写 chordHint（旧键保留在 GP_DEFAULTS 里不再写入，避免老用户设置丢失）。
+     覆盖缺口（Q-1 拍板 = 隐藏）：236 首中有 6 首（gp-song-001 + 5 首 pd-* 旋律）全部
+     是单音、没有任何 ≥2 音音符，提示音必然不响 —— 这些曲子**不渲染按钮**，
+     不给「亮着却不响」的假承诺。 */
+  const hasChordNotes = notes.some((n) => n.midi.length > 1);
+  let chordHint = hasChordNotes && (s.chordHint ?? s.noteSounds ?? true);
+  const chordBtn = hasChordNotes ? el("button.btn", { class: chordHint ? "primary" : "", title: T("play.hint.chordHint"), onclick: () => {
+    chordHint = !chordHint; Store.setSetting("chordHint", chordHint);
+    chordBtn.classList.toggle("primary", chordHint);
+  } }, [T("play.chordHint")]) : null;
   let showFrets = fretted || harp ? (s.showFingering ?? true) : false;
   const fretBtn = fretted || harp ? el("button.btn", { class: showFrets ? "primary" : "", title: harp ? T("play.hint.harmonica") : T("play.hint.fretboard"), onclick: () => {
     showFrets = !showFrets; Store.setSetting("showFingering", showFrets);
     fretBtn.classList.toggle("primary", showFrets);
     if (!playing) render(clock);
   } }, [harp ? T("play.holes") : T("play.frets")]) : null;
-  const karaokeBtn = lyrics.length ? el("button.btn", { class: karaokeLyrics ? "primary" : "", title: T("play.hint.karaoke"), onclick: () => {
-    karaokeLyrics = !karaokeLyrics; Store.setSetting("karaokeLyrics", karaokeLyrics);
-    karaokeBtn.classList.toggle("primary", karaokeLyrics);
-    updateLyric(clock);
-  } }, [T("play.karaoke")]) : null;
 
   const practiceInfo = chartDetails(song.id, chartKind, {
     partName: parts.length > 1 ? inst.name : "",
@@ -224,10 +240,13 @@ export default async function play(ctx) {
     (!player.hasAudio() && band.empty) ? el("span.muted", { style: { fontSize: "12px" }, text: T("play.noBacking") }) : null,
     (player.backing || !band.empty) ? wrapNarrow(volB) : null,
     player.vocal ? wrapNarrow(volV) : null,
-    karaokeBtn, bandBtn, soundBtn, fretBtn, metroBtn, backBtn,
+    chordBtn, bandBtn, fretBtn, metroBtn, backBtn,
   ]);
 
-  shell.append(el("div.play-stage", {}, [canvas, overlay]), controls);
+  /* P2-02：歌词栏是 .play-shell 的第二个子节点（画布与歌词、控制区三者分层），
+     teardown 仍只 removeChild(shell) → RE-1/RE-2 重入语义不变。 */
+  const lyricBar = el("div.gp-lyric-bar", {}, [barChordEl, lyric]);
+  shell.append(el("div.play-stage", {}, [canvas, overlay]), lyricBar, controls);
   root.appendChild(shell);
   const clockEl = controls.querySelector("#play-clock");
 
@@ -343,8 +362,10 @@ export default async function play(ctx) {
     // sound notes as they cross the hit line (guard skips backlog after audio-sync jumps)
     while (soundIdx < notes.length && notes[soundIdx].time <= clock) {
       const n = notes[soundIdx++];
-      if (noteSounds && clock - n.time < 0.3) {
-        for (const m of n.midi) Synth.playMidi(m, { dur: Math.max(0.4, Math.min(n.dur, 2)), a4, gain: 0.18, instrument: playInst });
+      /* V4.2.5 P1-03：只有和弦音（≥2 音）才提示，单音不再发声（产品决策）。
+         clock - n.time < 0.3 的守卫保留：音频同步跳转后的积压不补发。 */
+      if (chordHint && n.midi.length > 1 && clock - n.time < 0.3) {
+        strumChord(n.midi, chordVol());
       }
     }
 
@@ -472,7 +493,7 @@ export default async function play(ctx) {
     const hitX = HIT_X(), pps = PPS();
 
     // horizontal pitch gridlines for octaves
-    c.strokeStyle = getVar("--highway-line"); c.lineWidth = 1; c.font = "10px var(--mono)"; c.fillStyle = getVar("--muted");
+    c.strokeStyle = getVar("--highway-line"); c.lineWidth = 1; c.font = "10px var(--mono)"; c.fillStyle = getVar("--gp-canvas-muted");
     for (let m = Math.ceil(loM / 12) * 12; m <= hiM; m += 12) {
       const y = yFor(m); c.globalAlpha = 0.5; c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
       c.globalAlpha = 1; c.fillText(midiToName(m).full, 4, y - 3);
@@ -481,9 +502,9 @@ export default async function play(ctx) {
     // hit line
     c.globalAlpha = 1;
     const grd = c.createLinearGradient(hitX - 30, 0, hitX + 30, 0);
-    grd.addColorStop(0, "rgba(255,255,255,0)"); grd.addColorStop(0.5, getVar("--accent")); grd.addColorStop(1, "rgba(255,255,255,0)");
+    grd.addColorStop(0, "rgba(255,255,255,0)"); grd.addColorStop(0.5, getVar("--gp-canvas-accent")); grd.addColorStop(1, "rgba(255,255,255,0)");
     c.fillStyle = grd; c.fillRect(hitX - 30, 0, 60, H);
-    c.strokeStyle = getVar("--accent"); c.lineWidth = 2; c.beginPath(); c.moveTo(hitX, 0); c.lineTo(hitX, H); c.stroke();
+    c.strokeStyle = getVar("--gp-canvas-accent"); c.lineWidth = 2; c.beginPath(); c.moveTo(hitX, 0); c.lineTo(hitX, H); c.stroke();
 
     // notes
     for (const n of notes) {
@@ -500,7 +521,7 @@ export default async function play(ctx) {
     // live pitch marker (meaningless for unpitched percussion)
     if (!percussion && detectedMidi > 0) {
       const y = yFor(detectedMidi);
-      c.fillStyle = getVar("--accent-2");
+      c.fillStyle = getVar("--gp-canvas-accent-2");
       c.beginPath(); c.arc(hitX, y, 7, 0, 7); c.fill();
       c.globalAlpha = 0.3; c.fillRect(0, y - 1.5, hitX, 3); c.globalAlpha = 1;
     }
@@ -511,7 +532,7 @@ export default async function play(ctx) {
     // count-in
     if (t < 0) {
       const n = Math.ceil(-t);
-      c.fillStyle = getVar("--text"); c.font = "bold 120px var(--font)"; c.textAlign = "center";
+      c.fillStyle = getVar("--gp-canvas-text"); c.font = "bold 120px var(--font)"; c.textAlign = "center";
       c.globalAlpha = (1 - (Math.abs(t) % 1)) * 0.9 + 0.1;
       c.fillText(String(n), W / 2, H / 2 + 40); c.globalAlpha = 1; c.textAlign = "start";
     }
@@ -524,7 +545,7 @@ export default async function play(ctx) {
 
   function drawNote(x, y, w, state, midi, chord, label) {
     const h = 26;
-    const colors = { pending: getVar("--accent"), played: getVar("--muted"), perfect: getVar("--j-perfect"),
+    const colors = { pending: getVar("--gp-canvas-accent"), played: getVar("--gp-canvas-muted"), perfect: getVar("--j-perfect"),
       good: getVar("--j-good"), off: getVar("--j-off"), miss: getVar("--j-miss") };
     const col = colors[state] || colors.pending;
     c.globalAlpha = state === "miss" ? 0.35 : 1;
@@ -553,7 +574,7 @@ export default async function play(ctx) {
     const nutX = x0 + 22, cell = (fbW - 30) / FRETS;
     c.fillStyle = "rgba(0,0,0,0.55)";
     roundRect(x0 - 10, y0 - 24, fbW + 20, fbH + 44, 10); c.fill();
-    c.fillStyle = now ? getVar("--accent") : getVar("--muted");
+    c.fillStyle = now ? getVar("--gp-canvas-accent") : getVar("--gp-canvas-muted");
     c.font = "bold 12px var(--font)";
     const unreachableText = unreachable > 0 ? " · " + TF("play.prompt.unreachable", { n: unreachable }) : "";
     c.fillText((now ? T("play.now") : T("play.next")) + cur.promptName
@@ -562,7 +583,7 @@ export default async function play(ctx) {
     c.lineWidth = 1;
     c.strokeStyle = "rgba(255,255,255,0.4)";
     for (let si = 0; si < nStr; si++) { const y = sy(si); c.beginPath(); c.moveTo(nutX, y); c.lineTo(nutX + cell * FRETS, y); c.stroke(); }
-    c.fillStyle = getVar("--muted"); c.font = "10px var(--mono)";
+    c.fillStyle = getVar("--gp-canvas-muted"); c.font = "10px var(--mono)";
     for (let si = 0; si < nStr; si++) c.fillText(midiToName(inst.strings[si]).name, x0 - 2, sy(si) + 3);
     for (let f = 0; f <= FRETS; f++) {
       const x = nutX + f * cell;
@@ -570,9 +591,9 @@ export default async function play(ctx) {
       c.lineWidth = f === 0 ? 3 : 1;
       c.beginPath(); c.moveTo(x, sy(nStr - 1) - 5); c.lineTo(x, sy(0) + 5); c.stroke();
     }
-    c.fillStyle = getVar("--muted"); c.font = "9px var(--mono)";
+    c.fillStyle = getVar("--gp-canvas-muted"); c.font = "9px var(--mono)";
     for (const f of [3, 5, 7, 9, 12]) c.fillText(String(f + capo), nutX + (f - 0.5) * cell - 3, sy(0) + 14);
-    const col = now ? getVar("--accent") : "rgba(255,255,255,0.75)";
+    const col = now ? getVar("--gp-canvas-accent") : "rgba(255,255,255,0.75)";
     for (const pos of cur.frets) {
       if (!pos || pos.fret < 0 || pos.fret > FRETS) continue;
       const y = sy(pos.string);
@@ -603,17 +624,17 @@ export default async function play(ctx) {
     const label = played.length
       ? played.map((p) => TF("play.harmonica.hole", { hole: p.hole, dir: p.draw ? T("play.harmonica.draw") : T("play.harmonica.blow") })).join(" · ")
       : T("play.harmonica.na");
-    c.fillStyle = now ? getVar("--accent") : getVar("--muted");
+    c.fillStyle = now ? getVar("--gp-canvas-accent") : getVar("--gp-canvas-muted");
     c.font = "bold 12px var(--font)";
     c.fillText((now ? T("play.now") : T("play.next")) + cur.promptName + " — " + label, x0, y0 - 8);
-    const col = now ? getVar("--accent") : "rgba(255,255,255,0.75)";
+    const col = now ? getVar("--gp-canvas-accent") : "rgba(255,255,255,0.75)";
     for (let i = 0; i < 10; i++) {
       const x = x0 + i * cell;
       const p = played.find((h) => h.hole === i + 1);
       roundRect(x, y0, cell - 5, 34, 5);
       if (p) { c.fillStyle = col; c.fill(); }
       c.strokeStyle = "rgba(255,255,255,0.35)"; c.lineWidth = 1; c.stroke();
-      c.fillStyle = p ? "rgba(0,0,0,0.85)" : getVar("--muted");
+      c.fillStyle = p ? "rgba(0,0,0,0.85)" : getVar("--gp-canvas-muted");
       c.font = "bold 11px var(--mono)";
       const num = String(i + 1);
       c.fillText(num, x + (cell - 5) / 2 - num.length * 3, y0 + 21);
@@ -631,34 +652,41 @@ export default async function play(ctx) {
     c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
   }
 
-  // lyrics — word-by-word karaoke fill when enabled, else simple current/next
+  /**
+   * 歌词渲染（V4.2.5 P1-01）：**单行**、只显示当前行。
+   *
+   * ⚠️ 这不是 N-5 的回退 —— 行级时间轴仍由 activeAt() 消费（见上方 lyrics 段注释），
+   *    产品决策是「不再消费词级渲染」（逐字 span 填色 + 下一行弱化预览），
+   *    不是「不再切词」。tokenizeLine/allocate 及其 KT-1/2/3/4/5/7 全部保留。
+   *
+   * 用 textContent 而非 innerHTML：单行纯文本天然免疫 XSS，
+   * 也省掉每帧的 HTML 解析与节点重建（歌词栏只有 1 个文本节点）。
+   * @param {number} t 当前演奏时刻（秒）
+   */
   function updateLyric(t) {
     /* BUG-15：无歌词曲目不再静默空白，显式提示「暂无歌词」（只渲染一次） */
     if (!lyrics.length) {
       if (!lyric.dataset.noLyrics) {
         lyric.dataset.noLyrics = "1";
-        lyric.innerHTML = `<div style="font-size:14px;opacity:.5">${esc(T("play.noLyrics"))}</div>`;
+        lyric.textContent = T("play.noLyrics");
       }
       return;
     }
-    if (karaokeLyrics && lyricTimeline) {
+    let text = "";
+    if (lyricTimeline) {
       const a = activeAt(lyricTimeline, t);
-      const lines = lyricTimeline.lines;
-      const cur = a.lineIdx >= 0 ? lineFillHTML(lines[a.lineIdx], a.wordIdx, a.wordProgress) : "";
-      const nIdx = a.lineIdx >= 0 ? a.lineIdx + 1 : 0;
-      const next = lines[nIdx] ? esc(lines[nIdx].text) : "";
-      lyric.innerHTML =
-        `<div style="font-size:26px;line-height:1.2;font-weight:700">${cur}</div>` +
-        (next ? `<div style="font-size:15px;opacity:.55;margin-top:2px">${next}</div>` : "");
-      return;
+      const line = a.lineIdx >= 0 ? lyricTimeline.lines[a.lineIdx] : null;
+      if (line) text = line.text || "";
     }
-    let idx = -1;
-    for (let i = 0; i < lyrics.length; i++) { if (t >= lyrics[i].time) idx = i; else break; }
-    const cur = idx >= 0 ? lyrics[idx].text : "";
-    const next = lyrics[idx + 1] ? lyrics[idx + 1].text : "";
-    lyric.innerHTML =
-      `<div style="font-size:26px;line-height:1.2">${esc(cur)}</div>` +
-      (next ? `<div style="font-size:15px;opacity:.55;margin-top:2px">${esc(next)}</div>` : "");
+    /* 无时间轴 / 时间轴未命中（如前奏段）：退回 lyrics 线性扫描 */
+    if (!text) {
+      let idx = -1;
+      for (let i = 0; i < lyrics.length; i++) { if (t >= lyrics[i].time) idx = i; else break; }
+      text = idx >= 0 ? (lyrics[idx].text || "") : "";
+    }
+    if (lyric._last === text) return;            // 同文本不重排（省每帧 reflow）
+    lyric._last = text;
+    lyric.textContent = text;
   }
 
   /**
@@ -760,6 +788,36 @@ export default async function play(ctx) {
     document.getElementById("health-mini")?.classList.add("hidden");
     if (shell.parentNode) shell.parentNode.removeChild(shell);
   };
+}
+
+/* ---------- V4.2.5 P1-03 和弦提示音 ----------
+   与和弦库「听扫弦」同源（assets/js/core/audio-engine.js 的 AudioEngine.strum）。
+   AudioEngine 是宿主挂到 window 的全局对象，此处只做惰性查找：
+     · 浏览器：走真实扫弦，与和弦库同音色、共享 master 总线；
+     · Node 单测（test/_gp-dom.mjs 没有 AudioContext，也没有 AudioEngine）：
+       显式降级为静默并返回 false，绝不让演奏视图在无音频环境抛错；
+     · 测试可注入 window.AudioEngine = { strum: spy } 断言发声，产品代码无测试分支。 */
+
+/** MIDI → 频率（升序）。A4=69 → 440Hz。 */
+export function chordHintFreqs(midis) {
+  return Array.isArray(midis) ? midis.map((m) => 440 * Math.pow(2, (m - 69) / 12)).sort((a, b) => a - b) : [];
+}
+
+/** 与伴奏音量滑杆联动：backingVolume 0→1 映射为 0.12~0.30（默认 0.7 → 0.22）。
+    区间落在和弦库 chord-lib.js 的 .22~.30 内，不新增滑杆（否则与控制区紧凑化冲突）。 */
+export function chordVol() {
+  const v = Store.settings().backingVolume ?? 0.7;
+  return Math.max(0.12, Math.min(0.30, 0.22 * (v / 0.7)));
+}
+
+/** 触发一次吉他扫弦；无 AudioEngine / 非和弦时静默降级返回 false。 */
+export function strumChord(midis, vol) {
+  const AE = (typeof window !== "undefined" && window.AudioEngine) || null;
+  if (!AE || typeof AE.strum !== "function") return false;
+  const freqs = chordHintFreqs(midis);
+  if (freqs.length < 2) return false;
+  AE.strum(freqs, "down", vol);
+  return true;
 }
 
 // ---------- helpers ----------

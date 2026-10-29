@@ -6,8 +6,13 @@
    KT-3 英文歌词仍按空格切词（保持旧行为）
    KT-4 activeAt 边界与 timelineDuration
    KT-5 自带词级时间戳的行原样保留
-   KT-6 CJK 行经 lineFillHTML 渲染不含词间空格
    KT-7 allocate() 夹紧区间与闭合性（长/短极端行）
+   ------------------------------------------------------------
+   V4.2.5 P1-01：KT-6（CJK 行经 lineFillHTML 渲染不含词间空格）随**词级渲染**
+   一起退役 —— 它断言的对象（karaoke-render.js 的 lineFillHTML）已被产品决策删除，
+   属「测试锁死被删功能」，同步删除。行级时间轴的 KT-1/2/3/4/5/7 **全部保留**：
+   tokenizeLine / allocate / buildLyricTimeline / activeAt 仍被 play.js 消费
+   （activeAt 做当前行定位）。这不是 N-5 的回退，是产品取舍，详见 README V4.2.5。
    ------------------------------------------------------------
    手册纠偏：「长亭外古道边」是 6 个字（非 7），KT-1 按实际字数断言。
    ============================================================ */
@@ -22,7 +27,6 @@ const imp = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
 
 const { buildLyricTimeline, activeAt, timelineDuration, tokenizeLine, allocate } =
   await imp('assets/js/gp/karaoke-timeline.js');
-const { lineFillHTML } = await imp('assets/js/gp/karaoke-render.js');
 
 const MIN_WORD_DUR = 0.12;
 const MAX_WORD_DUR = 1.20;
@@ -78,16 +82,6 @@ test('KT-5 已有词级时间戳应原样保留', () => {
   assert.strictEqual(tl.hasWordTiming, true);
   assert.strictEqual(tl.lines[0].words.length, 2);
   assert.strictEqual(tl.lines[0].words[0].dur, 2);
-});
-
-test('KT-6 CJK 行经 lineFillHTML 渲染不含词间空格', () => {
-  const tl = buildLyricTimeline({ lyrics: [{ time: 0, dur: 7, text: '长亭外古道边' }] });
-  const html = lineFillHTML(tl.lines[0], 2, 0.5);
-  assert.ok(!/<\/span>\s+<span/.test(html), `CJK 词间不得插空格：${html.slice(0, 80)}`);
-  assert.ok(html.includes('长') && html.includes('亭'), '应逐字渲染');
-  /* 拉丁行仍需空格，否则英文单词会粘成一串 */
-  const en = buildLyricTimeline({ lyrics: [{ time: 0, dur: 4, text: 'hello world' }] });
-  assert.ok(/<\/span> <span/.test(lineFillHTML(en.lines[0], 0, 0.5)), '英文行应保留词间空格');
 });
 
 test('KT-7 allocate() 夹紧 [0.12, 1.20] 且恒闭合', () => {

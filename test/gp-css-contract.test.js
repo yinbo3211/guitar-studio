@@ -12,7 +12,12 @@ const PATCH_MARKER = '宿主补丁 V4.2.3';
 const markerIndex = CSS.lastIndexOf(PATCH_MARKER);
 assert.ok(markerIndex >= 0, 'gp.css 末尾应包含 V4.2.3 宿主补丁');
 const markerEnd = CSS.indexOf('*/', markerIndex);
-const PATCH = CSS.slice(markerEnd + 2);
+/* V4.2.5：CSS-5 用「花括号之间取文本」的方式反推选择器，注释里没有花括号时，
+   整段注释会和下一个选择器被合成一个「选择器」而误判未加 .gp-scope 前缀。
+   这是**测试解析器的缺陷**（注释不是选择器），故先剥离注释再取补丁区。
+   ⚠️ stripComments 必须先声明再使用，否则走 const 的 TDZ 报错。 */
+const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+const PATCH = stripComments(CSS.slice(markerEnd + 2));
 
 function lastRule(selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

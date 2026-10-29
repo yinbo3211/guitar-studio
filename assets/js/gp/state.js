@@ -21,9 +21,17 @@ const GP_DEFAULTS = {
   backingVolume: 0.7,
   vocalVolume: 0.8,
   band: true,
+  /* V4.2.5 P1-03：单音提示音退役，新增「和弦提示音」。
+     chordHint = 新键（唯一写入键）；noteSounds = 旧键，**只作一次性迁移来源**，
+     读取后不再写入（保留在默认值里，老用户升级后开关状态不丢）。
+     ⚠️ chordHint 刻意**不写进 GP_DEFAULTS**：一旦给了默认值，settings() 里的
+        chordHint 恒有值，play.js 的 `s.chordHint ?? s.noteSounds ?? true` 迁移链
+        就永远走不到 noteSounds（等价于死代码，老用户的关闭态会被默认值顶掉）。
+        默认值由迁移链末端 `?? true` 提供，语义完全等价。 */
   noteSounds: true,
   showFingering: true,
-  karaokeLyrics: true,
+  /* V4.2.5 P1-01：逐字歌词（karaokeLyrics）随词级渲染一起退役，消费方已删除，
+     故默认值也删除（行级时间轴 buildLyricTimeline/activeAt 不受影响）。 */
   karaokeScoring: false,
   micGate: 0.012,
 };
