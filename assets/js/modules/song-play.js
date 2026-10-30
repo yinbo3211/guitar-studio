@@ -4,8 +4,7 @@
    · 把移植进来的 gp/play.js 挂到宿主路由 songPlay 上；
    · 负责：进入时建视图、离开/切换时执行 teardown（停麦、停伴奏、
      解绑 keydown/ResizeObserver），避免计时器与麦克风泄漏；
-   · 导航映射：GuitarPicker 的 #/library / #/history / #/locker
-     分别落到宿主的 songbook / stats / settings；
+   · 导航映射：GuitarPicker 的 #/library / #/history 分别落到宿主的 songbook / stats；
    · 曲目来源：曲卡 prepare(id) 进入，或 URL ?song=<id> 兜底。
    ============================================================ */
 'use strict';
@@ -13,8 +12,13 @@
 import playView from '../gp/play.js';
 import { defById } from '../gp/catalog.js';
 
-/* GuitarPicker 内部路由 → 宿主路由 */
-const NAV = { '#/library': 'songbook', '#/history': 'stats', '#/locker': 'settings' };
+/* GuitarPicker 内部路由 → 宿主路由。
+   V4.2.6 N-3：上游残留的 '#/locker'（GuitarPicker 的 Locker 装扮商店，本仓未移植，
+   见 NOTICE.md）已随 play.js 结算横幅的「外观」按钮一起删除，NAV 同步移除该死映射
+   —— ROUTE_TITLES 无 settings 路由，原映射点击后会被 core/router.js 兜底回 #/home。
+   ⚠️ 新增任何 NAV 项前必须确认目标存在于 ROUTE_TITLES 且有 #view-<route> 视图，
+      否则就是新的死链（test/gp-play-v426.test.js V6-3b 已加通用护栏）。 */
+const NAV = { '#/library': 'songbook', '#/history': 'stats' };
 
 /* i18n 取词兜底：t 由 core/i18n 挂到 window；Node 单测环境退化为返回 key */
 function T(k) {

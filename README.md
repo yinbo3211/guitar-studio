@@ -485,6 +485,36 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.2.6 · 收尾补丁包（版本对齐 / emoji 清尾 / 死链处置 / 返回可发现性 / 弱提示 / 迁移回归）
+
+依据《V4.2.5 全量测试报告》（`docs/V4.2.5_TEST_REPORT.md`）第八节 N-1..N-6 与第九节 9.1–9.6 落地。版本 4.2.3 → **4.2.6**（文件此前从未随文档口径 bump 过，这正是 N-1 的根因）。设计与实测纠正见 `docs/V4.2.6_INCREMENTAL_DESIGN.md`（含对需求源 4 处实测纠正）。
+
+| 编号 | 级别 | 问题 | 修复 |
+|---|---|---|---|
+| N-1 | P1 | 版本号停留在 `4.2.3`，而 README 已写到 V4.2.5 | `package.json` 与 `version.json` 统一 `4.2.6`；`scripts/lint.mjs` 新增 **C8 版本一致性硬门禁**（两 JSON 互校 + README 必含当前版本章节；历史章节允许并存、`V4.2.60` 之类前缀不误命中） |
+| N-2 | P1 | 结算横幅与 HUD 文案残留贴纸符号 | 四语 `assets/js/i18n/zh-CN.js` / `assets/js/i18n/en.js` / `assets/js/i18n/ja.js` / `assets/js/i18n/ko.js` 的 6 个键去 emoji（`play.progress` / `play.capo` / `play.yourPart` / `play.part.singalong` / `play.badge.generated` / `play.result.coins`）；`play.locker` 随 N-3 删除 |
+| N-3 | P1 | 结算横幅「外观」按钮死链（上游 Locker 残留，本仓未移植） | 隐藏：`assets/js/gp/play.js` 删该按钮并在注释写明源流；`assets/js/modules/song-play.js` 的 NAV 删 `'#/locker'` 死映射；四语删 `play.locker`；`play.result.coinsHint` 改为中性文案（保留键 + 保留 span，零 DOM 变化） |
+| N-4 | P2 | 演奏页返回可发现性差（返回混排于 7 个功能按钮中） | 新增 `.gp-back-bar`（`assets/js/gp/play.js` 的 shell **首子节点**）承载左上角「← 返回」，配套规则追加在 `assets/css/gp.css` 末尾（纯追加 +N/-0）；另从 `assets/js/core/i18n.js` 给 `.gs-theme-btn` / `.gs-lang-btn` 两个纯图标按钮补 aria-label（复用既有词条 `theme.title` / `lang.title`，零新增 key） |
+| N-5 | P2 | 单音谱面隐藏「和弦提示音」按钮但无说明 | 按钮原位给弱提示 `play.noChordHint`（四语新增 1 键），与 `play.noBacking` 同款 muted 12px |
+| N-6 | P2 | 旧 `noteSounds` 键仅作迁移来源，需回归确认老用户语义 | 新增 `test/gp-play-v426.test.js` 的 V6-6a/b/c 断言（不翻转 / 不删 / 挂载零回写），**不改产品代码** |
+
+### 关键数据（本次实跑）
+
+- **测试**：**443 用例 / 442 pass / 0 fail / 1 skip**（基线 430 → +13 新增 `test/gp-play-v426.test.js`）；`node --test test/songplay-reentry.test.js` 2 项全绿。
+- **lint / 诊断**：`node scripts/lint.mjs` **115 文件 0 告警**（F9 硬编码中文 **303** ≤ 基线 420，C7 README 路径引用均存在，新增 **C8 通过**）；`node tools/diagnose-songbook.mjs` exit 0（9 PASS / 0 FAIL / 2 DATA）。
+- **版本**：`package.json` = `version.json` = `4.2.6`；`sw.js` 缓存名由此派生，无需改文件。
+- **i18n**：四语 key 集合**完全相等**（原 69 键 − `play.locker` + `play.back` + `play.noChordHint` = **70**）；6 个被清理的键 × 4 语经 STICKER_RE 检查**均无贴纸符号**（检查面刻意收窄到本轮实际清理的键，`play.back`「←」/ `play.sheetLink`「→」/ `play.harmonica.draw`「↓」等既有文字符号不在其中）。
+- **gp.css**：本轮 diff 为**纯追加 +7/-0**（生成区零改动，行尾为新分隔符，无注释、无 `@media`、全部带 `.gp-scope` 前缀）。
+- **DOM 结构**：`.play-shell` 由三段变为四段（返回栏 / 舞台 / 歌词栏 / 控制区），`test/gp-play-v425.test.js` 的 R-02d 随之由 3 改为 4（teardown 仍只 `removeChild(shell)`，RE-1/RE-2 重入语义不变）。
+
+### 未完成（登记为已知问题，严禁造假数据）
+
+- **KV-6（W-4）**：393px 下演奏页 HUD 右列（计分 + 血条）**本就已**横向溢出——本仓无头 Chromium 复测 `.play-hud > .col` 右缘 **471px** vs 视口 393px（超出约 78px，被容器裁掉故不产生文档级横向滚动；设计报告 §0.3 记为 77px，差 1px 属取整口径）。非 N-4 引入，本轮不改任何 HUD 布局（改了会打破已验收的移动端几何），登记 V4.3。
+- **W-2**：全新用户（无 `gp` 段）首次 `setSetting` 会把 `GP_DEFAULTS` 整体落盘，带出孤儿键 `noteSounds:true`。老用户迁移语义正确（实测不翻转 / 不删 / 不单独回写，已由 V6-6a/b 钉死），根治方向是 `assets/js/gp/state.js` 的 `setSetting` 落盘前剔除仅作迁移来源的键，登记 V4.3。
+- **W-5**：`#earPlay`（练耳）、`#recBtn`（录音棚）两个纯 SVG 按钮仍无 aria-label（本轮只补了顶栏的主题/语言两键），登记 V4.3 统一处理。
+- **KV-5（W-3）**：`.gp-scope .lyric-line .kw.cur` 死规则随 V4.3 修复 CSS 生成器一并处理，`test/gp-css-contract.test.js` 的 CSS-3 断言本轮保持不变。
+- **人工验收项**（无法自动化，见设计 §4.2）：H-1 结算横幅三按钮无 emoji/无「外观」、H-2 无障碍快照无名按钮清零、H-3 双分辨率截图（返回栏左上、控制区仍 187px、无横向溢出）、H-4 《送别》控制区弱提示、H-5 四语巡检。
+
 ## V4.2.5 · 弹唱页体验整改（歌词单行 / 去按钮表情 / 和弦提示音 / 主题与排版）
 
 依据《V4.2.4 全量测试报告》（`docs/V4.2.4_TEST_REPORT.md`）第五节 7 条缺陷与第六节 6.1–6.6 落地方案，完成弹唱页 9 项诉求。版本 4.2.4 → **4.2.5**。设计与冲突分析见 `docs/V4.2.5_INCREMENTAL_DESIGN.md`（含对需求源 5 处实测纠正）。
@@ -517,7 +547,7 @@ P1-01 退役的是**词级渲染**（`assets/js/gp/karaoke-render.js` 的逐字 
 
 - **KV-3**：cyber 主题 `--accent-ink` 对比 4.47（AA 4.5 差 0.03）。单值无法全主题达标（dawn 需更暗、cyber 需更亮，方向相反），主理人拍板接受，测试阈值写 **4.4**。
 - **KV-4**：`assets/css/gp.css` 的 6 个 `@media` + 2 个 `@keyframes` 在 CSSOM 中 `cssRules.length === 0`（`tools/build_gp_css.py` 把选择器生成成了裸 `{`），既有移动端断点全部失效。属生成区，本轮补丁一律用无断点写法绕过，单独立项修生成器。
-- **KV-5**：`.gp-scope .lyric-line .kw.cur` 规则随词级渲染退役成为无生产者的死规则，但 `gp-css-contract` CSS-3 断言其存在，故保留，列入 V4.2.6 清理。
+- **KV-5**：`.gp-scope .lyric-line .kw.cur` 规则随词级渲染退役成为无生产者的死规则，但 `gp-css-contract` CSS-3 断言其存在，故保留；它位于 `assets/css/gp.css` 的生成区，随 V4.3 修复 CSS 生成器（`tools/build_gp_css.py`）时一并处理，不在本轮改动。
 - **P2-03 数据层**：231 首的真实调性/BPM/和弦进行与标准开放指型白名单仍待回源（第七节三期路线），本轮不做；yopu.co 级数模型只登记路线，未实现。
 - **人工验收项**（无法自动化，见设计 §4.2）：R-03e 真机听感（吉他扫弦音色）、R-04c 双分辨率截图、R-05c 7 主题 × 4 语言截图、R-06c iPhone 16 Pro 真机安全区。
 

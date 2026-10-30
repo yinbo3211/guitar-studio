@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /* ============================================================
-   六弦工坊 V3.1 · 统一 lint 脚本（S0.4 / F9 / C7）
-   ------------------------------------------------------------
+   六弦工坊 V3.1 · 统一 lint 脚本（S0.4 / F9 / C7 / C8 / C3）
+  ------------------------------------------------------------
    1) 语法检查：assets/js、server、test、scripts 全量 node --check
    2) S0.4 XSS 插值面抽查：innerHTML/outerHTML/insertAdjacentHTML 中
       出现「疑似用户输入」的插值（value/input/.name/.title/text 等）时告警
    3) F9 国际化抽查：扫描 app.html 与模块中的硬编码中文文案数量，
       与基线比较，新增超过基线 + 阈值时告警（不阻断）
    4) C7 文档一致性：README 中的路径引用须真实存在
-   退出码：仅语法检查失败时为 1（其余为告警，保持 CI 友好）
+   5) C8 版本一致性（V4.2.6 N-1）：version.json = package.json，且 README 含当前版本章节
+   退出码：语法检查失败 / C3 缺失 / C8 不一致时为 1（硬失败，会连带 CI 变红）；
+           S0.4 / F9 为告警，保持 CI 友好
    ============================================================ */
 import { readdirSync, statSync, readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -90,6 +92,33 @@ for (const m of readme.matchAll(/`([A-Za-z0-9_\-./]+\.(?:js|html|json|md|mjs))`/
 }
 console.log(badPaths.length ? `⚠ README 引用了不存在的路径：${badPaths.join(', ')}` : '✔ C7 README 路径引用均存在');
 
+/* ---------- 4.5 C8 版本一致性（N-1：version.json = package.json，且 README 含当前版本章节） ----------
+   起因为 version.json/package.json 长期停在 4.2.3，而 README 已写到 V4.2.5：
+   版本号是发布口径，同时是 sw.js 缓存名的唯一来源，错版本号会导致 SW 缓存串号。
+   三个独立事实源（两个 JSON + README 文本）互相校验，非自证。 */
+let c8Bad = 0;
+try {
+  const pkgV = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+  const verV = JSON.parse(readFileSync(path.join(ROOT, 'version.json'), 'utf8')).version;
+  if (pkgV !== verV) {
+    console.error(`❌ C8 版本不一致：package.json=${pkgV}，version.json=${verV}（两处必须同步，SW 缓存名取自 version.json）`);
+    c8Bad++;
+  }
+  /* 鲁棒性口径：README 只要求「当前版本」的标题行存在（形如 `## V4.2.6`），
+     历史章节（V4.2.1..V4.2.5）允许共存，不要求唯一、也不要求其余章节等于当前版本。
+     \b 边界防误命中：`4.2.6` 不会被 `V4.2.60` / `V4.2.6x` 蒙混过关。 */
+  const escV = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const headingRe = new RegExp(`^#{1,6}\\s+V${escV(verV)}\\b`, 'm');
+  if (!headingRe.test(readme)) {
+    console.error(`❌ C8 README 缺少当前版本章节：version.json=${verV}，但未找到形如「## V${verV}」的标题行（历史章节不受影响）`);
+    c8Bad++;
+  }
+  if (!c8Bad) console.log(`✔ C8 版本一致性：${pkgV}（package.json = version.json，README 含 V${verV} 章节）`);
+} catch (e) {
+  console.error('❌ C8 版本文件解析失败：', e.message);
+  c8Bad++;
+}
+
 /* ---------- 5. C3 / P1-5 离线模块图覆盖 ----------
    Service Worker 预缓存清单必须与 main.js 的静态 import 图一致：
    漏掉任何一个静态依赖，离线冷启动时模块图直接 reject → 全站白屏。
@@ -120,8 +149,8 @@ if (missingCore.length) {
 }
 
 /* 汇总行：保持兼容旧断言（成功路径必须可见地打印 lint ok） */
-if (!syntaxBad && !missingCore.length) {
-  console.log(`lint ok: ${files.length} 个文件通过语法校验 + S0.4/F9/C7/C3 抽查`);
+if (!syntaxBad && !missingCore.length && !c8Bad) {
+  console.log(`lint ok: ${files.length} 个文件通过语法校验 + S0.4/F9/C7/C8/C3 抽查`);
 }
 
-process.exit(syntaxBad || missingCore.length ? 1 : 0);
+process.exit(syntaxBad || missingCore.length || c8Bad ? 1 : 0);

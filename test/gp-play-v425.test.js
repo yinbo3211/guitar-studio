@@ -156,7 +156,11 @@ test('R-02d GP-4 结构不变：歌词栏仍挂在 shell 内（teardown 语义�
   assert.ok(bar, '应新增独立歌词栏');
   assert.ok(bar.querySelector('.lyric-line'), '歌词行应位于歌词栏内');
   assert.ok(bar.querySelector('.gp-bar-chord'), '当前小节和弦应并入歌词栏');
-  assert.strictEqual(shell.children.length, 3, 'shell 应为 舞台 / 歌词栏 / 控制区 三段');
+  /* V4.2.6 N-4：shell 由「舞台 / 歌词栏 / 控制区」三段变为「返回栏 / 舞台 / 歌词栏 / 控制区」
+     四段（新增 .gp-back-bar 承载左上角「← 返回」）。这是有意的演进（同 V4.2.5 加歌词栏时
+     把该断言从 2 改到 3），不是掩盖缺陷：teardown 仍只 removeChild(shell)，RE-1/RE-2 不变。 */
+  assert.strictEqual(shell.children.length, 4, 'shell 应为 返回栏 / 舞台 / 歌词栏 / 控制区 四段（V4.2.6 N-4 新增 .gp-back-bar）');
+  assert.ok(shell.children[0].className.includes('gp-back-bar'), 'shell 首子节点应为返回栏');
   cleanup();
   assert.strictEqual(root.children.length, 0, 'teardown 后 shell 必须被移除（RE-1 语义不变）');
 });

@@ -41,7 +41,20 @@ export function setLang(lang) {
   document.documentElement.setAttribute('lang', lang);
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  syncAriaLabels();
   document.dispatchEvent(new CustomEvent('gs:lang', { detail: { lang } }));
+}
+
+/* V4.2.6 N-4：给纯图标按钮补可访问名，复用既有词条（theme.title / lang.title），零新增 key。
+   对象由浏览器实测（CDP Accessibility.getFullAXTree）确定：全站无名按钮只有这两个
+   （`.gs-theme-btn` 主题切换、`.gs-lang-btn` 语言切换），均由 JS 注入、纯 SVG、无文本。
+   纠正需求源结论：`.nav-item` / `.tab`（首页/调音器…）内部本就有 `<span data-i18n>`
+   文本节点，AX 树里可访问名正确，无需补 label。
+   放本文件而不是 theme-switch.js：后者在 main.js 中先于 i18n 执行，彼时 window.t 未挂载，
+   取词时机不可靠；而两个按钮在 i18n init / injectEntry 之前就已建好，这里补齐最稳。 */
+function syncAriaLabels() {
+  document.querySelectorAll('.gs-theme-btn').forEach((b) => b.setAttribute('aria-label', t('theme.title')));
+  document.querySelectorAll('.gs-lang-btn').forEach((b) => b.setAttribute('aria-label', t('lang.title')));
 }
 
 /* 语言面板（与主题面板同风格） */
@@ -86,6 +99,7 @@ function init() {
   // 静态词条扫描（main.js 模块加载完成后 DOM 已就绪）
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
   injectEntry();
+  syncAriaLabels();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

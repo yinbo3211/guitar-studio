@@ -220,6 +220,10 @@ export default async function play(ctx) {
     chordHint = !chordHint; Store.setSetting("chordHint", chordHint);
     chordBtn.classList.toggle("primary", chordHint);
   } }, [T("play.chordHint")]) : null;
+  /* V4.2.6 N-5：无和弦音的曲目（gp-song-001 + 5 首 pd-*，共 6 首）在按钮原位给弱提示，
+     与 noBacking 同款 muted 12px，避免用户以为按钮丢了（隐藏是 V4.2.5 的刻意取舍）。 */
+  const noChordNote = hasChordNotes ? null
+    : el("span.muted", { style: { fontSize: "12px" }, text: T("play.noChordHint") });
   let showFrets = fretted || harp ? (s.showFingering ?? true) : false;
   const fretBtn = fretted || harp ? el("button.btn", { class: showFrets ? "primary" : "", title: harp ? T("play.hint.harmonica") : T("play.hint.fretboard"), onclick: () => {
     showFrets = !showFrets; Store.setSetting("showFingering", showFrets);
@@ -240,13 +244,23 @@ export default async function play(ctx) {
     (!player.hasAudio() && band.empty) ? el("span.muted", { style: { fontSize: "12px" }, text: T("play.noBacking") }) : null,
     (player.backing || !band.empty) ? wrapNarrow(volB) : null,
     player.vocal ? wrapNarrow(volV) : null,
-    chordBtn, bandBtn, fretBtn, metroBtn, backBtn,
+    chordBtn || noChordNote, bandBtn, fretBtn, metroBtn, backBtn,
   ]);
 
-  /* P2-02：歌词栏是 .play-shell 的第二个子节点（画布与歌词、控制区三者分层），
-     teardown 仍只 removeChild(shell) → RE-1/RE-2 重入语义不变。 */
+  /* V4.2.6 N-4：左上角统一「← 返回」——.gp-back-bar 是 shell 的第一个子节点，
+     独立于控制区之外，不再与 7 个功能按钮混排（用户「没有返回按钮」感受的根因）。
+     不放 HUD 行的原因：393px 下 HUD 右列本身已横向溢出约 77px（登记 KV-6 / V4.3），
+     再往 HUD 里加按钮会把溢出推到 100px+，本轮不得打破已验收的移动端几何。
+     可见文本「← 返回」即其可访问名（WCAG 2.5.3 Label in Name：可见文本 = 可访问名），
+     故不叠加 aria-label（叠加后两者不一致反而违规）。
+     V4.2.6 N-5：控制区内的和弦提示音不可用时由 noChordNote 原位兜底（见上）。
+     teardown 仍只 removeChild(shell) → RE-1/RE-2 重入语义不变（返回栏随 shell 一起移除）。
+     P2-02：歌词栏是 .play-shell 的第三个子节点（返回栏 / 舞台 / 歌词栏 / 控制区四段分层）。 */
+  const backBar = el("div.gp-back-bar", {}, [
+    el("button.btn.ghost", { onclick: () => navigate("#/library") }, [T("play.back")]),
+  ]);
   const lyricBar = el("div.gp-lyric-bar", {}, [barChordEl, lyric]);
-  shell.append(el("div.play-stage", {}, [canvas, overlay]), lyricBar, controls);
+  shell.append(backBar, el("div.play-stage", {}, [canvas, overlay]), lyricBar, controls);
   root.appendChild(shell);
   const clockEl = controls.querySelector("#play-clock");
 
@@ -765,7 +779,13 @@ export default async function play(ctx) {
         el("button.btn.primary", { onclick: restart }, [T("play.playAgain")]),
         el("button.btn", { onclick: () => navigate("#/library") }, [T("play.songs")]),
         el("button.btn", { onclick: () => navigate("#/history") }, [T("play.progress")]),
-        coinsEarned ? el("button.btn", { onclick: () => navigate("#/locker") }, [T("play.locker")]) : null,
+        /* V4.2.6 N-3：此处原有的「外观」按钮已删除（不再有任何替代按键）。
+           源流：它是 MIT 上游 GuitarPicker 的 Locker 装扮商店入口，自 16e6861（V4.1 移植）
+           就以硬编码形式存在，d1ea7d2 才 i18n 化为 play.locker；NOTICE.md 明写
+           「未移植：Locker 装扮商店」，本仓没有任何外观/储物柜功能面。
+           死链链：navigate("#/locker") → NAV['#/locker'] = 'settings' → ROUTE_TITLES 无
+           settings 路由 → router.js 兜底 location.replace('#/home')（实测 600ms 内回首页）。
+           隐藏而不是改映射到 stats：本仓无对应功能，改映射会把「假承诺」换成「误导导航」。 */
       ]),
     ]));
     banner.classList.remove("hidden");
