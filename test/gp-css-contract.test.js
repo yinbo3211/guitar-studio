@@ -71,3 +71,19 @@ test('CSS-5 尾部宿主补丁的选择器全部带 .gp-scope 前缀', () => {
   const unscoped = selectors.filter((selector) => !selector.startsWith('.gp-scope'));
   assert.deepStrictEqual(unscoped, [], `未加 .gp-scope 前缀：${unscoped.join(', ')}`);
 });
+
+/* V4.2.7 · BUG-26A：结算横幅三按钮全部无法点击。
+   .play-overlay 整体 pointer-events:none（让点击穿透到公路画布），HUD 的两个
+   子元素补了 auto 恢复规则，横幅整条链路漏配 → 按钮看得见点不动。 */
+test('CSS-6 结算横幅按钮必须恢复 pointer-events:auto（BUG-26A）', () => {
+  /* 该补丁是一条逗号并列规则：.banner .panel, .banner .panel .btn { ... } */
+  const rule = /(\.gp-scope \.play-overlay \.banner \.panel[^{}]*)\{([^}]*)\}/.exec(PATCH);
+  assert.ok(rule, '宿主补丁应包含结算横幅的 pointer-events 恢复规则');
+  const selectors = rule[1];
+  assert.match(selectors, /\.gp-scope \.play-overlay \.banner \.panel\b/, '需覆盖 banner .panel');
+  assert.match(selectors, /\.gp-scope \.play-overlay \.banner \.panel \.btn\b/, '按钮自身也需覆盖');
+  assert.match(rule[2], /pointer-events:\s*auto\b/, 'banner 链路需 pointer-events:auto');
+  /* 遮罩层本身必须保持 none，否则点击无法穿透到公路动画（设计契约） */
+  assert.match(lastRule('.gp-scope .play-overlay') || '', /pointer-events:\s*none\b/,
+    'play-overlay 必须保持 pointer-events:none');
+});

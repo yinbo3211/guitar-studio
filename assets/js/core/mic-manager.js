@@ -23,8 +23,8 @@ function buildDiagnostics(err) {
   const hasAPI = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   const name = err && err.name || (secure ? (hasAPI ? 'TimeoutError' : 'NoAPI') : 'InsecureContext');
   const hints = {
-    NotAllowedError: '麦克风权限被拒绝：点击地址栏左侧 🔒 图标，把麦克风改为「允许」后重试',
-    PermissionDeniedError: '麦克风权限被拒绝：点击地址栏左侧 🔒 图标，把麦克风改为「允许」后重试',
+    NotAllowedError: '麦克风权限被拒绝：点击地址栏左侧的锁形图标，把麦克风改为「允许」后重试',
+    PermissionDeniedError: '麦克风权限被拒绝：点击地址栏左侧的锁形图标，把麦克风改为「允许」后重试',
     NotFoundError: '没有检测到麦克风设备：请检查麦克风是否连接/启用',
     DevicesNotFoundError: '没有检测到麦克风设备：请检查麦克风是否连接/启用',
     NotReadableError: '麦克风被其他应用占用：请关闭微信/腾讯会议/OBS 等占用麦克风的程序后重试',

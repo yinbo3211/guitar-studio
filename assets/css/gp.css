@@ -863,3 +863,7 @@
 .gp-scope .gp-back-bar .btn {
   min-height: 32px; padding: 4px 12px; font-size: 13px;
 }
+.gp-scope .play-overlay .banner .panel,
+.gp-scope .play-overlay .banner .panel .btn {
+  pointer-events: auto;
+}

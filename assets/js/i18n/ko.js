@@ -84,7 +84,7 @@ export const DICT = {
   'plan.focus.ear':'청음',
   'plan.focus.scale':'스케일',
     'metro.sample':'사용자 음원',
-  'metro.test':'🔊 시험',
+  'metro.test':'시험',
   'metro.apply':'적용',
   'metro.sampleVoice':'사용자',
   'metro.sampleTip':'팁: freesound.org / zapsplat.com / creazilla.com 에서 오디오를 내려받아 불러오거나, 직접 다운로드 가능한 URL을 입력하세요.',

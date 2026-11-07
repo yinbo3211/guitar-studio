@@ -84,7 +84,7 @@ export const DICT = {
   'plan.focus.ear':'练耳',
   'plan.focus.scale':'音阶',
     'metro.sample':'自定义音源',
-  'metro.test':'🔊 试音',
+  'metro.test':'试音',
   'metro.apply':'使用',
   'metro.sampleVoice':'自定义',
   'metro.sampleTip':'提示：可从 freesound.org / zapsplat.com / creazilla.com 下载音频后导入；也可填写可直接下载的音频直链。导入后音色菜单会切换到「自定义」。',

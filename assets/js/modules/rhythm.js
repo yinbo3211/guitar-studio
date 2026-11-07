@@ -531,7 +531,7 @@ const Rhythm = {
       const m=Math.floor(sec/60),s=sec%60;
       $('#rtLastSession').textContent=
         `上次会话：${this.pattern.name} · ${this.bpm} BPM · ${loops} 遍 · ${m}分${s}秒`;
-      toast(`练完了！${this.pattern.name} ×${loops} 遍，坚持住 🎸`,'ok');
+      toast(`练完了！${this.pattern.name} ×${loops} 遍，坚持住`,'ok');
     }
     this.playedSeconds=0; this.loopDone=0;
     this.renderStats();

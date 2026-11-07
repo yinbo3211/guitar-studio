@@ -84,7 +84,7 @@ export const DICT = {
   'plan.focus.ear':'耳トレ',
   'plan.focus.scale':'スケール',
     'metro.sample':'カスタム音源',
-  'metro.test':'🔊 試聴',
+  'metro.test':'試聴',
   'metro.apply':'適用',
   'metro.sampleVoice':'カスタム',
   'metro.sampleTip':'ヒント：freesound.org / zapsplat.com / creazilla.com で音源をダウンロードして読み込むか、直接ダウンロード可能な URL を入力してください。',

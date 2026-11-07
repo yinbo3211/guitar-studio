@@ -70,7 +70,11 @@ test('V6-1 版本号双源一致 + README 含当前版本章节（C8 单测级�
   const pkgV = JSON.parse(read('package.json')).version;
   const verV = JSON.parse(read('version.json')).version;
   assert.strictEqual(pkgV, verV, `package.json(${pkgV}) 与 version.json(${verV}) 版本号必须同步`);
-  assert.strictEqual(pkgV, '4.2.6', `本轮版本应为 4.2.6，实际 ${pkgV}`);
+  /* V4.2.7：改为「不得回退」断言。原实现硬编码 '4.2.6'，每次 bump 都要改测试，
+     而本条测试的语义是防止回到 N-1 的 4.2.3 漂移，不是锁定某个具体补丁号。 */
+  const parts = String(pkgV).split('.').map(Number);
+  assert.ok(parts[0] === 4 && (parts[1] > 2 || (parts[1] === 2 && parts[2] >= 6)),
+    `版本不得回退到 V4.2.5 及更早，实际 ${pkgV}`);
   /* 与 lint C8 完全同口径：#{1,6} + 空格 + V<ver> + 词边界 */
   const escV = String(verV).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const headingRe = new RegExp(`^#{1,6}\\s+V${escV}\\b`, 'm');

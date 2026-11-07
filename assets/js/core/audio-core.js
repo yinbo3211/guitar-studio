@@ -226,20 +226,36 @@
     const ring = new Float64Array(RING);
     const sortBuf = new Float64Array(RING);
     let idx = 0, count = 0, smoothed = 0, prevRms = 0;
+    /* V4.2.7：换音确认（连续两帧吻合才认），用于替代旧版的八度折叠 */
+    let jumpFreq = 0, jumpCount = 0;
     return {
-      reset() { idx = 0; count = 0; smoothed = 0; prevRms = 0; },
+      reset() { idx = 0; count = 0; smoothed = 0; prevRms = 0; jumpFreq = 0; jumpCount = 0; },
       get value() { return smoothed; },
       push(freq, rms, clarity) {
         const nowRms = Number(rms) > 0 ? Number(rms) : 0;
         const onset = prevRms > 0 && nowRms > prevRms * 3;
         prevRms = nowRms;
         if (!(freq > 0) || !isFinite(freq)) return null;
-        if (onset) { idx = 0; count = 0; smoothed = 0; }   // 新的一次拨弦
-        let f = freq;
+        if (onset) { idx = 0; count = 0; smoothed = 0; jumpFreq = 0; jumpCount = 0; }   // 新的一次拨弦
+        const f = freq;
+        /* V4.2.7：删除「相对 smoothed 的八度折叠」（原 ratio 1.8~2.2 折半 / 0.45~0.55 加倍）。
+           旧实现把新读数往上一帧的 smoothed 上折：调完 6 弦（E2 82.41Hz）再拨 4 弦，
+           4 弦只要比标准音高 18 音分以上（146.83→148.3Hz）比值就超过 1.8，被折半成 74Hz；
+           而 smoothed 随之变成 74Hz，下一帧又被折半——自我强化后读数永久钉在 75Hz 附近，
+           UI 一直显示「6 弦「偏低 163 音分」，这就是「4 弦怎么调都调不准」的根因
+           （6 弦与 4 弦正好差 19 个半音 = 1.7818 倍，紧贴 1.8 的折叠门槛）。
+           谐波误锁（约 +1200 音分）交给中值滤波与调音器侧的目标弦八度归一来处理。 */
         if (smoothed > 0) {
-          const ratio = f / smoothed;
-          if (ratio > 1.8 && ratio < 2.2) f = f / 2;
-          else if (ratio > 0.45 && ratio < 0.55) f = f * 2;
+          const cd = Math.abs(1200 * Math.log2(f / smoothed));
+          /* 与 1200 的整数倍相差 150 音分以内 = 疑似谐波/低八度误锁，不动窗口，交给中值滤波；
+             其余 >300 音分的跳变先记下，连续两帧互相吻合（±60 音分）才认定真的换了音，
+             单帧野值不会清空历史（T-04 的野值抑制语义保留）。 */
+          const octaveish = Math.abs(cd - 1200 * Math.round(cd / 1200)) < 150;
+          if (cd > 300 && !octaveish) {
+            if (jumpCount > 0 && Math.abs(1200 * Math.log2(f / jumpFreq)) < 60) jumpCount++;
+            else { jumpFreq = f; jumpCount = 1; }
+            if (jumpCount >= 2) { idx = 0; count = 0; smoothed = 0; jumpFreq = 0; jumpCount = 0; }
+          } else { jumpFreq = 0; jumpCount = 0; }
         }
         ring[idx] = f;
         idx = (idx + 1) % RING;

@@ -84,7 +84,7 @@ export const DICT = {
   'plan.focus.ear':'Ear training',
   'plan.focus.scale':'Scales',
     'metro.sample':'Custom sound',
-  'metro.test':'🔊 Test',
+  'metro.test':'Test',
   'metro.apply':'Apply',
   'metro.sampleVoice':'Custom',
   'metro.sampleTip':'Tip: download audio from freesound.org / zapsplat.com / creazilla.com and import it here, or paste a direct audio URL.',

@@ -214,6 +214,8 @@ const Tuner = {
     // Fix-9: 检测音高统一基于当前 A4 基准（this.a4）计算 MIDI 值
     const midiFloat = 69 + 12*Math.log2(t.freq/this.a4);
     let targetMidi, cents, displayName, sub;
+    /* V4.2.7：八度归一后的判定音高。默认等于检测值，仅吉他模式下可能被折回一个八度。 */
+    let detFreq = t.freq;
     if(this.mode==='guitar'){
       // V3.2：手动锁定的弦优先；未锁定时才找最接近的标准弦
       let target = null;
@@ -222,12 +224,29 @@ const Tuner = {
         let bd=99;
         this.strings.forEach(s=>{const d=Math.abs(midiFloat-s.midi); if(d<bd){bd=d; target=s;}});
       }
+      /* V4.2.7：目标弦八度归一（修「4 弦永远调不准」的第二个成因）。
+         手机麦克风对 4 弦基频 146.8Hz 衰减明显时，YIN 会锁到二次谐波 293.7Hz；
+         自动模式把它判给 1 弦（E4 329.6）并显示「偏高 200 音分」——无论怎么拧都不进绿区。
+         规则从严，只在同时满足三条时采纳折回值：
+           ① 当前读数不在绿区（|cents|>50，否则本来就是准的，不折腾）；
+           ② 原读数与某根弦相差 >600 音分（空弦不可能跑这么远，只能是谐波）；
+           ③ 折回一个八度后与那根弦相差 ≤25 音分（谐波误锁的典型特征）。
+         真实跑音（偏高或偏低）都不满足 ②+③，不会被折回，避免把跑音当准音。 */
+      const centsTo = (f,s) => 1200*Math.log2(f/this.freq(s.midi));
+      if(Math.abs(centsTo(detFreq,target))>50){
+        for(const s of this.strings){
+          if(this.picked!=null && s.midi!==this.picked) continue;
+          if(Math.abs(centsTo(detFreq,s))<=600) continue;
+          const half=detFreq/2;
+          if(Math.abs(centsTo(half,s))<=25){ detFreq=half; target=s; break; }
+        }
+      }
       // Fix-9: 目标音高按报告公式基于当前 A4 基准换算：targetMidi=69+12*log2(targetFreq/this.a4)，
       // 与 midiFloat 保持同一基准（this.freq() 本身以 this.a4 计算，故结果恒等于 target.midi）；
       // 取整以避免浮点误差破坏后续 === 比较
       const targetFreq=this.freq(target.midi);
       targetMidi=Math.round(69+12*Math.log2(targetFreq/this.a4));
-      cents=(midiFloat-targetMidi)*100;
+      cents=centsTo(detFreq,target);
       displayName=target.label;
       this.heardString=target.n;
       sub = (this.picked!=null ? '已锁定 ' : '') + target.n+'弦 · 目标 '+(targetFreq.toFixed(1))+' Hz';
@@ -251,7 +270,7 @@ const Tuner = {
     this.glideNeedle(shown);
     noteEl.textContent = displayName;
     $('#tunerSub').textContent = sub;
-    $('#tunerFreq').textContent = t.freq.toFixed(1)+' Hz';
+    $('#tunerFreq').textContent = detFreq.toFixed(1)+' Hz';
 
     // 准音判定：进 ≤5¢，出 ≥8¢（参考 pro-tuner 的滞后策略，防临界闪烁）
     const absC=Math.abs(cents);

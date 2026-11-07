@@ -256,7 +256,7 @@ const Ear = {
     const right=this.melody.length===this.melodyInput.length &&
       this.melody.every((m,i)=>((m%12)+12)%12===((this.melodyInput[i]%12)+12)%12);
     this.n++;
-    if(right){ this.ok++; this.streak++; this.bestStreak=Math.max(this.bestStreak,this.streak); $('#earQ').textContent='完全正确！🎧'; }
+    if(right){ this.ok++; this.streak++; this.bestStreak=Math.max(this.bestStreak,this.streak); $('#earQ').textContent='完全正确！'; }
     else{ this.streak=0; $('#earQ').textContent=`正确顺序：${this.melody.map(m=>noteNameNoOct(m)).join(' → ')}`; }
     this.updateStats();
     if(this.n%10===0) this.report();

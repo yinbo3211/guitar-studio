@@ -90,7 +90,7 @@ const Plan = {
     if(PracticeStore) PracticeStore.savePlan(this.plan);
     this.refreshProgress();
     this.render();
-    toast('今日计划已生成，开始练琴吧 🎸','ok');
+    toast('今日计划已生成，开始练琴吧','ok');
   },
   /* 依据 F1 会话数据刷新完成度（仅用可测指标：次数/时长/正确率） */
   refreshProgress(){
@@ -149,7 +149,7 @@ const Plan = {
     }
     const done = p.tasks.filter(x=>x.finished).length;
     const prog = $('#planProgress');
-    if(prog) prog.textContent = `${done}/${p.tasks.length} 项完成${p.completedAt?' · 今日已全部完成 🎉':''}`;
+    if(prog) prog.textContent = `${done}/${p.tasks.length} 项完成${p.completedAt?' · 今日已全部完成':''}`;
     box.innerHTML = p.tasks.map((t,i)=>`
       <div class="plan-task ${t.finished?'finished':''}">
         <div class="plan-task-main">

@@ -485,6 +485,42 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.2.7 · 热修：结算横幅可点击 / emoji 清尾收口 / 四弦调音精度（八度误锁根治）
+
+依据《六弦工坊 V4.2.6 全量测试与缺陷手册》（`docs/V4.2.6_TEST_MANUAL.md` 归档）第四、八节，外加用户物理机实测新增的一类调音缺陷。版本 4.2.6 → **4.2.7**。
+
+| 编号 | 级别 | 问题 | 修复 |
+|---|---|---|---|
+| BUG-26A | P1 | 结算横幅「再弹一次 / 曲库 / 练习进度」三按钮视觉正常但点击无响应（桌面与移动端双复现）；`elementFromPoint` 命中的是背景画布 `#highway-canvas`，banner / panel / button 三层 `pointer-events` 均为 `none` | `.play-overlay` 为让点击穿透到公路动画整体设为 `none`，HUD 两个子元素补了 `auto` 而横幅链路漏配。`assets/css/gp.css` **末尾纯追加** `.gp-scope .play-overlay .banner .panel, .gp-scope .play-overlay .banner .panel .btn { pointer-events: auto; }`（+4 行，无注释、无 `@media`）；`test/gp-css-contract.test.js` 新增 **CSS-6** 契约断言（同时守住 overlay 本身必须保持 `none`） |
+| BUG-26B | P3 | emoji 清尾在 `play.*` 之外漏网，已实测在 UI 渲染 | 四语 `metro.test` 去 🔊；`assets/js/modules/plan.js` 两处 toast 去 🎸/🎉；`assets/js/modules/rhythm.js` 一处去 🎸；另由新增的扫描测试**新发现 3 处**：`assets/js/modules/ear-training.js` 的「完全正确！🎧」、`app.html` 的 `#metroSoundTest`「🔊 试音诊断」与 `#metroTest` 首屏兜底「🔊 试音」；顺带清掉 `assets/js/core/mic-manager.js` 权限提示里的 🔒。`test/v427-defects.test.js` 锁定该口径（★☆ 星级、✓ 准音指示属符号语义，不在清理范围） |
+| T-26D | P1 | **四弦永远调不准**（用户物理机实测）：调完 6 弦再拨 4 弦，界面一直停在「6 弦 / 偏低 163 音分」，怎么拧都不进绿区 | 双成因叠加，见下节 |
+
+### T-26D 根因与修法（本轮唯一的算法级改动）
+
+**成因① 跟踪器把换弦折成八度（主因，已实测复现）。** `assets/js/core/audio-core.js` 的 `createPitchTracker` 会把新读数往**上一帧的 `smoothed`** 上折八度（`ratio 1.8~2.2` 折半）。而 6 弦 E2(82.41Hz) 与 4 弦 D3(146.83Hz) 正好相差 **19 个半音 = 1.7818 倍**，紧贴 1.8 的门槛：4 弦只要比标准音高 **18 音分以上**（146.83 → 148.3Hz，调音过程中几乎必然经过），比值就越过 1.8 被折半成 74Hz；`smoothed` 随之变成 74Hz，下一帧继续折——**自我强化后永久钉死在 75Hz**。实测序列（先稳定 82.41，再喂 150Hz）：旧实现输出 `82.4, 82.4, 82.4, 82.4, 75, 75, 75…`，UI 恒显示「6 弦 偏低 163 音分」。
+
+**成因② 手机麦克风低频衰减导致二次谐波误锁。** 146.8Hz 基频被手机麦克风高频滚降压掉后，YIN 锁到 293.7Hz；自动模式按最近弦判给 1 弦 E4(329.6)，显示「偏高 200 音分」，同样永远不进绿区。
+
+**修法（两层，均从严）：**
+
+1. `createPitchTracker` **删除「相对 smoothed 的八度折叠」**，改为「换音确认」：偏差 >300 音分且与 1200 的整数倍相差 150 音分以上（即不像谐波误锁）时，连续两帧互相吻合（±60 音分）才清空窗口立即采纳。单帧野值仍由 9 点中值滤波抑制，`T-04` 语义不变。
+2. `assets/js/modules/tuner.js` 增加**目标弦八度归一**，必须同时满足三条才采纳折回值：① 当前读数不在绿区（`|cents|>50`）；② 原读数与某根弦相差 >600 音分（空弦不可能跑这么远）；③ 折回一个八度后与该弦相差 ≤25 音分。**真实跑音（-660 / -100 / +200 / +700 音分）实测均如实显示，不被折回**；半音阶模式不受影响。
+
+### 关键数据（本次实跑）
+
+- **测试**：**455 用例 / 454 pass / 0 fail / 1 skip**（V4.2.6 基线 443 → **+12**：`test/tuner-octave.test.js` 7 项 + `test/v427-defects.test.js` 4 项 + `test/gp-css-contract.test.js` CSS-6）。
+- **lint**：`node scripts/lint.mjs` **117 文件 0 告警**（F9 硬编码中文 303 ≤ 基线 420，C7 路径引用存在，C8 版本一致性 4.2.7 通过）。
+- **回归复现证据**：修复前 `createPitchTracker` 在「82.41 → 150Hz」序列下输出末值 **75Hz**（相对 D3 −1163 音分）；修复后第 2 帧即跟上 **150Hz**，且全序列无 75Hz。
+- **端到端**：裸 Chromium + 虚拟麦克风（`--use-file-for-fake-audio-capture`，D3 合成拨弦 12s）实测调音器显示 `D / 4弦 · 目标 146.8 Hz / 准 ✓ / 146.8 Hz`。
+- **gp.css**：本轮 diff 为**纯追加 +4/-0**（生成区零改动、CRLF 保留、全部带 `.gp-scope` 前缀）。
+- **i18n**：四语 key 集合仍完全相等（只改词条值，无增删）。
+
+### 未完成（沿用登记，不造假数据）
+
+- **KV-6（W-4）**：393px 下 HUD 横向溢出 108px（V4.2.5 基线 77px），随 V4.3 布局一并处理。
+- **W-2 / W-5 / W-3**：孤儿键 `noteSounds`、`#earPlay`/`#recBtn` 无 aria-label、`.kw.cur` 死规则，登记 V4.3。
+- **真机验收**：本轮八度修复以合成信号 + 无头 Chromium 复现与验证，**未在真实手机 + 真实吉他上复测**；建议用旧故障场景（先调 6 弦再拨 4 弦）回验一次。
+
 ## V4.2.6 · 收尾补丁包（版本对齐 / emoji 清尾 / 死链处置 / 返回可发现性 / 弱提示 / 迁移回归）
 
 依据《V4.2.5 全量测试报告》（`docs/V4.2.5_TEST_REPORT.md`）第八节 N-1..N-6 与第九节 9.1–9.6 落地。版本 4.2.3 → **4.2.6**（文件此前从未随文档口径 bump 过，这正是 N-1 的根因）。设计与实测纠正见 `docs/V4.2.6_INCREMENTAL_DESIGN.md`（含对需求源 4 处实测纠正）。
