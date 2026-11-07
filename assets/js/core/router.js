@@ -7,6 +7,14 @@
 /* ---------- 路由 ---------- */
 /* V4.0：新增 songbook（弹唱曲库）与 songPractice（弹唱练习）两个路由 */
 const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚',flow:'和弦转换训练',plan:'每日练习计划',stats:'练习统计中心',songbook:'弹唱曲库',songPractice:'弹唱练习',songPlay:'弹唱演奏'};
+/* V4.3 R2/R3：路由标题走词条（ROUTE_TITLES 仅作无 i18n 环境兜底与路由合法性校验） */
+const ROUTE_TITLE_KEYS = {home:'brand.name',tuner:'tool.tuner',metro:'tool.metro',rhythm:'tool.rhythm',game:'tool.game',scale:'tool.scale',chords:'tool.chords',ear:'tool.ear',fret:'tool.fret',studio:'tool.studio',flow:'flow.title',plan:'plan.title',stats:'stats.title',songbook:'songbook.title',songPractice:'route.songPractice',songPlay:'route.songPlay'};
+function routeTitle(route){
+  const k = ROUTE_TITLE_KEYS[route];
+  if(k && typeof window.t==='function'){ const v = window.t(k); if(v && v!==k) return v; }
+  if(ROUTE_TITLES[route]) return ROUTE_TITLES[route];
+  return (typeof window.t==='function' ? window.t('brand.name') : '六弦工坊');
+}
 const onRouteEnter = {};
 function go(route){
   location.hash = '#/'+route;
@@ -28,7 +36,7 @@ function applyRoute(){
   $$('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+route));
   $$('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.route===route));
   $$('.tab').forEach(b=>b.classList.toggle('active', b.dataset.route===route));
-  $('#topbarTitle').textContent = ROUTE_TITLES[route]||'六弦工坊';
+  $('#topbarTitle').textContent = routeTitle(route);
   $('#views').scrollTop = 0;
   if(onRouteEnter[route]) onRouteEnter[route]();
 }
@@ -71,19 +79,41 @@ const MORE_LABEL = {
   fret:'指板', studio:'录音', flow:'和弦转换', plan:'计划', stats:'统计',
   songbook:'曲库'
 };
+/* V4.3 R2：更多菜单词条映射（无 i18n 环境回退 MORE_LABEL 中文兜底） */
+const MORE_LABEL_KEYS = {
+  home:'tab.home', tuner:'tab.tuner', metro:'tab.metro', game:'tab.game',
+  rhythm:'more.rhythm', chords:'tool.chords', scale:'stats.module.scale', ear:'stats.module.ear',
+  fret:'stats.module.fret', studio:'stats.module.studio', flow:'nav.flow', plan:'more.plan',
+  stats:'more.stats', songbook:'play.songs'
+};
+function moreLabel(r){
+  const k = MORE_LABEL_KEYS[r];
+  if(k && typeof window.t==='function'){ const v = window.t(k); if(v && v!==k) return v; }
+  return MORE_LABEL[r] || ROUTE_TITLES[r];
+}
 /* songPractice 需要「先选曲」才有内容，不作为独立入口出现在更多菜单 */
 /* 练习页与演奏页都只能从曲卡进入：不出现在底栏「更多」里 */
 const MORE_EXCLUDE = ['songPractice', 'songPlay'];
 const MORE_ROUTES = Object.keys(ROUTE_TITLES)
   .filter(r => TABBAR_ROUTES.indexOf(r) < 0 && MORE_EXCLUDE.indexOf(r) < 0)
-  .map(r => ({ r, label: MORE_LABEL[r] || ROUTE_TITLES[r], ic: MORE_EXTRA_IC[r] || MORE_EXTRA_IC.stats }));
-$('#moreGrid').innerHTML = MORE_ROUTES.map(m=>`
+  .map(r => ({ r, ic: MORE_EXTRA_IC[r] || MORE_EXTRA_IC.stats }));
+function renderMoreGrid(){
+  $('#moreGrid').innerHTML = MORE_ROUTES.map(m=>`
   <button class="more-item" data-route="${m.r}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 4px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);transition:all .2s">
     <span style="width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:rgba(255,180,84,.12);color:var(--amber)">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m.ic}</svg>
     </span>
-    <span style="font-size:12.5px;color:var(--txt)">${m.label}</span>
+    <span style="font-size:12.5px;color:var(--txt)">${moreLabel(m.r)}</span>
   </button>`).join('');
+}
+renderMoreGrid();
+/* V4.3 R3：语言切换即时刷新路由标题与更多菜单（chrome 层联动） */
+document.addEventListener('gs:lang', () => {
+  const route = (location.hash.replace('#/','')||'home').split('?')[0];
+  const tt = $('#topbarTitle');
+  if(tt) tt.textContent = routeTitle(route);
+  renderMoreGrid();
+});
 function closeMoreSheet(){
   $('#moreSheet').style.transform='translateY(105%)';
   $('#sheetMask').style.opacity='0';

@@ -32,15 +32,30 @@ export function t(key) {
   return (DICTS[current] && DICTS[current][key]) ?? ZH[key] ?? key;
 }
 
+/* V4.3 R4：带参替换收敛为宿主单一口径（占位符 {n}/{id}…，split/join 纯文本替换，
+   绝不拼接 HTML）。gp 弹唱等模块的本地 TF 一律委托到本函数（无宿主时才本地回退）。 */
+export function tF(key, pairs) {
+  let s = t(key);
+  for (const a of Object.keys(pairs || {})) s = s.split('{' + a + '}').join(String(pairs[a]));
+  return s;
+}
+
 export function getLang() { return current; }
+
+/* V4.3 R2：静态扫描抽到独立函数，init 与 setLang 共用（新增 data-i18n-aria 维度） */
+function scanStatic() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+  document.title = t('app.title');
+}
 
 export function setLang(lang) {
   if (!DICTS[lang]) return;
   current = lang;
   store.write({ lang });
   document.documentElement.setAttribute('lang', lang);
-  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
-  document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  scanStatic();
   syncAriaLabels();
   document.dispatchEvent(new CustomEvent('gs:lang', { detail: { lang } }));
 }
@@ -82,22 +97,35 @@ function openLangPanel() {
   });
 }
 
+/* V4.3 R1：双注入范式（复刻 theme-switch.js）。
+   .sidebar 仅桌面可见（≤860px 时 display:none），原实现只注入侧栏导致移动端
+   语言入口物理性不存在；现在与主题按钮一样同时注入 .topbar（移动端唯一可见区）。
+   注入时序：main.js 中 theme-switch 先于 i18n 执行，主题按钮先入顶栏，
+   语言按钮 appendChild 在后 = 位于主题按钮右侧（文档 §4.2）。 */
+const GLOBE_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h9M8.5 3v2M6 5c0 4-1 7-4 9M9 5c0 5 3 8 6 9m-4-4c-1 2-3 4-6 5"/><path d="M15 21l4-9 4 9m-6.7-3h5.4"/></svg>';
 function injectEntry() {
-  const side = document.querySelector('.sidebar');
-  if (side && !document.querySelector('.gs-lang-btn')) {
+  const make = (parent) => {
+    // BUG-08 经验：去重判断只查父容器内部，允许侧栏与顶栏各自存在入口
+    if (!parent || parent.querySelector('.gs-lang-btn')) return;
     const btn = document.createElement('button');
     btn.className = 'nav-item gs-lang-btn';
-    btn.style.cssText = 'border:none;background:none;cursor:pointer;font:inherit;color:inherit;';
-    btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h9M8.5 3v2M6 5c0 4-1 7-4 9M9 5c0 5 3 8 6 9m-4-4c-1 2-3 4-6 5"/><path d="M15 21l4-9 4 9m-6.7-3h5.4"/></svg>';
+    /* topbar 内 44px 定宽（顺带修复按钮被 flex 拉伸的失衡，主题按钮同款处理见
+       theme-switch.js）；强调色描边以区分主题按钮。sidebar 保持整行 nav-item 形态。 */
+    btn.style.cssText = parent.classList.contains('topbar')
+      ? 'width:44px;height:34px;flex:0 0 44px;display:grid;place-items:center;padding:0;border:1px solid rgba(212,135,90,.55);border-radius:9px;background:none;cursor:pointer;font:inherit;color:inherit;'
+      : 'border:none;background:none;cursor:pointer;font:inherit;color:inherit;';
+    btn.innerHTML = GLOBE_SVG;
     btn.onclick = openLangPanel;
-    side.appendChild(btn);
-  }
+    parent.appendChild(btn);
+  };
+  make(document.querySelector('.sidebar'));
+  make(document.querySelector('.topbar'));
 }
 
 function init() {
   document.documentElement.setAttribute('lang', current);
   // 静态词条扫描（main.js 模块加载完成后 DOM 已就绪）
-  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  scanStatic();
   injectEntry();
   syncAriaLabels();
 }
@@ -105,7 +133,7 @@ function init() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
 
-window.gsI18n = { t, setLang, getLang, LANGS };
+window.gsI18n = { t, tF, setLang, getLang, LANGS };
 window.t = t;   // V3.1 F9：供各模块直接取词（缺词回退 zh-CN）
 export { init as initI18n };
-export default { t, setLang, getLang, LANGS };
+export default { t, tF, setLang, getLang, LANGS };

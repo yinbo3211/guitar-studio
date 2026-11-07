@@ -28,8 +28,12 @@ function T(k) {
   } catch (e) { /* 忽略：无 i18n 环境用 key 兜底 */ }
   return k;
 }
-/** 占位符替换（{id} 等一律走这里，绝不拼进 HTML 模板 —— BUG-06） */
+/** 占位符替换（{id} 等一律走这里，绝不拼进 HTML 模板 —— BUG-06）
+    V4.3 R4：优先委托宿主 window.gsI18n.tF（单一口径），无宿主（Node 单测）本地回退 */
 function TF(k, pairs) {
+  try {
+    if (typeof window !== 'undefined' && window.gsI18n && typeof window.gsI18n.tF === 'function') return window.gsI18n.tF(k, pairs);
+  } catch (e) { /* 回退本地实现 */ }
   let s = T(k);
   for (const a of Object.keys(pairs || {})) s = s.split('{' + a + '}').join(String(pairs[a]));
   return s;

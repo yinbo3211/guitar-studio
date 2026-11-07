@@ -86,7 +86,12 @@ function injectEntry() {
     if (!parent || parent.querySelector('.gs-theme-btn')) return;
     const btn = document.createElement('button');
     btn.className = 'nav-item gs-theme-btn';
-    btn.style.cssText = 'border:none;background:none;cursor:pointer;font:inherit;color:inherit;';
+    /* V4.3 R1：topbar 内 44px 定宽——原无边距 nav-item 会被 topbar 的 flex
+       拉伸成 252px 宽（移动端实测），与右侧语言按钮对齐为 44×34 双按钮并排；
+       sidebar 内保持整行 nav-item 形态不变。 */
+    btn.style.cssText = parent.classList.contains('topbar')
+      ? 'width:44px;height:34px;flex:0 0 44px;display:grid;place-items:center;padding:0;border:none;background:none;cursor:pointer;font:inherit;color:inherit;'
+      : 'border:none;background:none;cursor:pointer;font:inherit;color:inherit;';
     btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>';
     btn.onclick = openPanel;
     parent.appendChild(btn);

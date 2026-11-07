@@ -55,7 +55,7 @@
       <div class="brand-logo">
         <svg viewBox="0 0 24 24" fill="#1a1206"><path d="M15.5 2.5A2.6 2.6 0 0 0 13 5v7.1a4.8 4.8 0 1 0 2.6 0V9.3h2.6V7h-2.6V5.1c0-.3.1-.6.2-.8a2.6 2.6 0 0 0-.3-1.8z"/><circle cx="11" cy="19" r="1.4" fill="#ffb454"/></svg>
       </div>
-      <div class="brand-name">六弦工坊<small>SIX STRING LAB</small></div>
+      <div class="brand-name"><span data-i18n="brand.name">六弦工坊</span><small>SIX STRING LAB</small></div>
     </div>
     <nav class="nav" id="nav">
       <button class="nav-item active" data-route="home">
@@ -104,8 +104,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg><span data-i18n="nav.stats">练习统计
       </span></button>
     </nav>
-    <div class="sidebar-foot">
-      所有音频处理均在本地浏览器完成<br>麦克风声音不会上传到任何服务器
+    <div class="sidebar-foot" data-i18n="privacy.note">
+      所有音频处理均在本地浏览器完成，麦克风声音不会上传到任何服务器
     </div>
   </aside>
 
@@ -123,21 +123,21 @@
       <!-- ===== 视图：首页 ===== -->
       <section class="view active" id="view-home">
         <div class="hero">
-          <h1>把整间吉他练习室<br>装进<em>你的浏览器</em></h1>
-          <p>调音、节拍、节奏型、和弦闯关、音阶、和弦库、练耳、指板、录音——九大模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
+          <h1><span data-i18n="home.hero.title1">把整间吉他练习室</span><br><span data-i18n="home.hero.title2">装进</span><em><span data-i18n="home.hero.title3">你的浏览器</span></em></h1>
+          <p data-i18n="home.hero.sub">调音、节拍、节奏型、和弦闯关、音阶、和弦库、练耳、指板、录音——九大模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
           <div class="hero-tags">
-            <span class="tag tag-amber">麦克风实时识别</span>
-            <span class="tag tag-mint">零延迟节拍器</span>
-            <span class="tag tag-violet">本地运行 · 隐私安全</span>
+            <span class="tag tag-amber" data-i18n="home.badge.mic">麦克风实时识别</span>
+            <span class="tag tag-mint" data-i18n="home.badge.metro">零延迟节拍器</span>
+            <span class="tag tag-violet" data-i18n="home.badge.local">本地运行 · 隐私安全</span>
           </div>
           <div class="quick-row">
             <button class="btn btn-primary" data-route="tuner">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg>
-              立即调音
+              <span data-i18n="home.cta.tune">立即调音</span>
             </button>
             <button class="btn" data-route="game">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11V8a6 6 0 0 1 12 0v3"/><rect x="4" y="11" width="16" height="10" rx="3"/></svg>
-              开始和弦闯关
+              <span data-i18n="home.cta.game">开始和弦闯关</span>
             </button>
           </div>
           <svg class="hero-deco" width="260" height="260" viewBox="0 0 24 24" fill="none" stroke="#ffb454" stroke-width=".6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 2.5A2.6 2.6 0 0 0 13 5v7.1a4.8 4.8 0 1 0 2.6 0V9.3h2.6V7h-2.6V5.1c0-.3.1-.6.2-.8a2.6 2.6 0 0 0-.3-1.8z"/></svg>
@@ -145,48 +145,48 @@
 
         <div class="tool-grid" id="toolGrid">
           <button type="button" class="tool-card" data-route="tuner">
-            <span class="tag tag-mint tc-mic">麦克风</span>
+            <span class="tag tag-mint tc-mic" data-i18n="home.tag.mic">麦克风</span>
             <div class="tc-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg></div>
-            <h3>调音器</h3><p>自相关算法实时识别基频，六弦/半音阶双模式，音分偏差一目了然</p>
+            <h3 data-i18n="tool.tuner">调音器</h3><p data-i18n="tool.tuner.desc">自相关算法实时识别基频，六弦/半音阶双模式，音分偏差一目了然</p>
           </button>
           <button type="button" class="tool-card" data-route="metro">
             <div class="tc-icon ic-mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg></div>
-            <h3>节拍器</h3><p>40–240 BPM 精准调度，TAP 测速、多种拍号与节拍细分，强弱拍可视化</p>
+            <h3 data-i18n="tool.metro">节拍器</h3><p data-i18n="tool.metro.desc">40–240 BPM 精准调度，TAP 测速、多种拍号与节拍细分，强弱拍可视化</p>
           </button>
           <button type="button" class="tool-card" data-route="rhythm">
             <div class="tc-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M8 4v16M12 7v10M16 4v16M20 7v10"/></svg></div>
-            <h3>节奏型练习</h3><p>扫弦 D/U 与分解弦序可视化跟练，示范试听＋节拍器＋循环计数，告别「会按不会弹」</p>
+            <h3 data-i18n="tool.rhythm">节奏型练习</h3><p data-i18n="tool.rhythm.desc">扫弦 D/U 与分解弦序可视化跟练，示范试听＋节拍器＋循环计数，告别「会按不会弹」</p>
           </button>
           <button type="button" class="tool-card" data-route="game">
-            <span class="tag tag-mint tc-mic">麦克风</span>
+            <span class="tag tag-mint tc-mic" data-i18n="home.tag.mic">麦克风</span>
             <div class="tc-icon ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg></div>
-            <h3>和弦闯关</h3><p>听提示、按和弦、对着麦克风拨弦，AI 听音判定，连击计分越练越快</p>
+            <h3 data-i18n="tool.game">和弦闯关</h3><p data-i18n="tool.game.desc">听提示、按和弦、对着麦克风拨弦，AI 听音判定，连击计分越练越快</p>
           </button>
           <button type="button" class="tool-card" data-route="scale">
-            <span class="tag tag-mint tc-mic">麦克风</span>
+            <span class="tag tag-mint tc-mic" data-i18n="home.tag.mic">麦克风</span>
             <div class="tc-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h4v-5h4V9h4V4h4"/></svg></div>
-            <h3>音阶练习</h3><p>大/小调、五声、布鲁斯音阶指板高亮，跟听示范，开麦克风逐音跟弹</p>
+            <h3 data-i18n="tool.scale">音阶练习</h3><p data-i18n="tool.scale.desc">大/小调、五声、布鲁斯音阶指板高亮，跟听示范，开麦克风逐音跟弹</p>
           </button>
           <button type="button" class="tool-card" data-route="chords">
             <div class="tc-icon ic-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/></svg></div>
-            <h3>和弦库</h3><p>常用开放和弦指法图，点卡片即可试听合成扫弦，支持左手模式</p>
+            <h3 data-i18n="tool.chords">和弦库</h3><p data-i18n="tool.chords.desc">常用开放和弦指法图，点卡片即可试听合成扫弦，支持左手模式</p>
           </button>
           <button type="button" class="tool-card" data-route="ear">
             <div class="tc-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/><path d="M9 13a3 3 0 0 0 3 3"/></svg></div>
-            <h3>练耳训练</h3><p>单音、音程、和弦三级听辨，选择题作答即时反馈，建立内心音高感</p>
+            <h3 data-i18n="tool.ear">练耳训练</h3><p data-i18n="tool.ear.desc">单音、音程、和弦三级听辨，选择题作答即时反馈，建立内心音高感</p>
           </button>
           <button type="button" class="tool-card" data-route="fret">
             <div class="tc-icon ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/></svg></div>
-            <h3>指板训练</h3><p>指板音名图与爬格子引导，点击品位发声，熟悉每一个音的位置</p>
+            <h3 data-i18n="tool.fret">指板训练</h3><p data-i18n="tool.fret.desc">指板音名图与爬格子引导，点击品位发声，熟悉每一个音的位置</p>
           </button>
           <button type="button" class="tool-card" data-route="studio">
             <div class="tc-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg></div>
-            <h3>录音棚</h3><p>一键录制练习片段，波形回放、对比原速，支持下载保存为音频文件</p>
+            <h3 data-i18n="tool.studio">录音棚</h3><p data-i18n="tool.studio.desc">一键录制练习片段，波形回放、对比原速，支持下载保存为音频文件</p>
           </button>
           <button type="button" class="tool-card" data-route="songbook">
-            <span class="tag tag-amber tc-mic">231 首</span>
+            <span class="tag tag-amber tc-mic" data-i18n="home.tag.songs">231 首</span>
             <div class="tc-icon ic-mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 16.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg></div>
-            <h3>弹唱曲库</h3><p>231 首从易到难的民谣弹唱曲目，19 个课程单元逐关解锁，弹唱练习全程节拍引导</p>
+            <h3 data-i18n="tool.songbook">弹唱曲库</h3><p data-i18n="tool.songbook.desc">231 首从易到难的民谣弹唱曲目，19 个课程单元逐关解锁，弹唱练习全程节拍引导</p>
           </button>
         </div>
       </section>
@@ -231,18 +231,18 @@
           .a4-val{font-family:var(--font-mono);color:var(--amber);min-width:64px;text-align:right}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg></span>调音器</div>
-          <div class="view-sub">点击开启麦克风后，依次拨响每一根弦，指针指向正中央并显示“准”时，该弦就调好了。周围越安静越准。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg></span><span data-i18n="tool.tuner">调音器</span></div>
+          <div class="view-sub" data-i18n="tuner.sub">点击开启麦克风后，依次拨响每一根弦，指针指向正中央并显示“准”时，该弦就调好了。周围越安静越准。</div>
         </div>
 
         <div class="card tuner-card">
           <div class="tuner-top">
             <div class="seg" id="tunerMode">
-              <button data-mode="guitar" class="on">吉他六弦</button>
-              <button data-mode="chromatic">半音阶</button>
+              <button data-mode="guitar" class="on" data-i18n="tuner.mode.guitar">吉他六弦</button>
+              <button data-mode="chromatic" data-i18n="tuner.mode.chromatic">半音阶</button>
             </div>
             <div class="a4-row">
-              <span>基准 A4</span>
+              <span data-i18n="tuner.a4">基准 A4</span>
               <input type="range" id="a4Range" min="432" max="446" value="440" step="1">
               <span class="a4-val" id="a4Val">440 Hz</span>
             </div>
@@ -257,7 +257,7 @@
 
           <div class="tuner-note">
             <div class="big mono" id="tunerNote">--</div>
-            <div class="sub" id="tunerSub">点击下方按钮开启麦克风</div>
+            <div class="sub" id="tunerSub" data-i18n="tuner.subIdle">点击下方按钮开启麦克风</div>
           </div>
           <div class="tuner-freq mono" id="tunerFreq"></div>
           <div class="tuner-status" id="tunerStatus"></div>
@@ -267,15 +267,15 @@
           <div class="tuner-meter"><i id="tunerLevel"></i></div>
           <div class="tuner-actions">
             <div class="dev-row" style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;flex-wrap:wrap">
-              <span class="dev-hint" style="font-size:12px;color:var(--txt-3)">输入设备</span>
+              <span class="dev-hint" style="font-size:12px;color:var(--txt-3)" data-i18n="dev.input">输入设备</span>
               <select id="tunerDeviceSel" class="preset-chip" style="max-width:220px"></select>
             </div>
             <button class="btn btn-primary" id="tunerToggle" style="min-width:178px">
               <span style="display:inline-flex;width:18px;height:18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v3"/></svg></span>
-              <span id="tunerToggleTxt">开启麦克风调音</span>
+              <span id="tunerToggleTxt" data-i18n="tuner.start">开启麦克风调音</span>
             </button>
           </div>
-          <div class="mic-note" id="tunerMicNote">调音在你的浏览器本地完成，录音不会上传或保存。iPhone 若无声请关闭侧边静音键并检查浏览器麦克风权限。</div>
+          <div class="mic-note" id="tunerMicNote" data-i18n="tuner.micNote">调音在你的浏览器本地完成，录音不会上传或保存。iPhone 若无声请关闭侧边静音键并检查浏览器麦克风权限。</div>
         </div>
       </section>
       <!-- ===== 视图：节拍器 ===== -->
@@ -320,8 +320,8 @@
           .btn-mini:active{transform:scale(.94)}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg></span>节拍器</div>
-          <div class="view-sub">以音频硬件时钟调度，不跑拍、不漂移。支持 TAP 测速、四种拍号和八分/十六分/三连音细分。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/><circle cx="12" cy="18.5" r="2.5"/></svg></span><span data-i18n="tool.metro">节拍器</span></div>
+          <div class="view-sub" data-i18n="metro.sub">以音频硬件时钟调度，不跑拍、不漂移。支持 TAP 测速、四种拍号和八分/十六分/三连音细分。</div>
         </div>
 
         <div class="card">
@@ -345,52 +345,52 @@
             </div>
           </div>
           <div class="preset-row">
-            <button class="preset-chip" data-bpm="60">广板 60</button>
-            <button class="preset-chip" data-bpm="76">行板 76</button>
-            <button class="preset-chip" data-bpm="90">中速 90</button>
-            <button class="preset-chip" data-bpm="110">小快板 110</button>
-            <button class="preset-chip" data-bpm="140">快板 140</button>
-            <button class="preset-chip" id="tapBtn">TAP 测速</button>
+            <button class="preset-chip" data-bpm="60" data-i18n="metro.preset.60">广板 60</button>
+            <button class="preset-chip" data-bpm="76" data-i18n="metro.preset.76">行板 76</button>
+            <button class="preset-chip" data-bpm="90" data-i18n="metro.preset.90">中速 90</button>
+            <button class="preset-chip" data-bpm="110" data-i18n="metro.preset.110">小快板 110</button>
+            <button class="preset-chip" data-bpm="140" data-i18n="metro.preset.140">快板 140</button>
+            <button class="preset-chip" id="tapBtn" data-i18n="metro.tap">TAP 测速</button>
           </div>
         </div>
 
         <div class="card">
-          <div class="metro-label">拍号</div>
+          <div class="metro-label" data-i18n="metro.timeSig">拍号</div>
           <div class="seg" id="timeSig" style="margin-bottom:16px">
             <button data-beats="2" class="on">2/4</button>
             <button data-beats="3">3/4</button>
             <button data-beats="4">4/4</button>
             <button data-beats="6">6/8</button>
           </div>
-          <div class="metro-label">节拍细分</div>
+          <div class="metro-label" data-i18n="metro.subdiv">节拍细分</div>
           <div class="seg" id="subdiv">
-            <button data-sub="1" class="on">四分</button>
-            <button data-sub="2">八分</button>
-            <button data-sub="3">三连音</button>
-            <button data-sub="4">十六分</button>
+            <button data-sub="1" class="on" data-i18n="metro.sub.1">四分</button>
+            <button data-sub="2" data-i18n="metro.sub.2">八分</button>
+            <button data-sub="3" data-i18n="metro.sub.3">三连音</button>
+            <button data-sub="4" data-i18n="metro.sub.4">十六分</button>
           </div>
-          <div class="metro-label">音色</div>
+          <div class="metro-label" data-i18n="metro.voice">音色</div>
           <div class="seg" id="metroVoice">
-            <button data-voice="click" class="on">咔嗒</button>
-            <button data-voice="wood">木鱼</button>
-            <button data-voice="rim">边击</button>
-            <button data-voice="beep">哔声</button>
-            <button data-voice="kick">底鼓</button>
-            <button data-voice="clap">拍手</button>
+            <button data-voice="click" class="on" data-i18n="metro.voice.click">咔嗒</button>
+            <button data-voice="wood" data-i18n="metro.voice.wood">木鱼</button>
+            <button data-voice="rim" data-i18n="metro.voice.rim">边击</button>
+            <button data-voice="beep" data-i18n="metro.voice.beep">哔声</button>
+            <button data-voice="kick" data-i18n="metro.voice.kick">底鼓</button>
+            <button data-voice="clap" data-i18n="metro.voice.clap">拍手</button>
             <button data-voice="sample" id="metroVoiceSample" hidden data-i18n="metro.sampleVoice">自定义</button>
           </div>
-          <div class="metro-label">渐快训练</div>
+          <div class="metro-label" data-i18n="metro.trainer">渐快训练</div>
           <div class="seg" id="metroTrainer">
-            <button data-trainer="0" class="on">关</button>
-            <button data-trainer="8">8 小节</button>
-            <button data-trainer="16">16 小节</button>
-            <button data-trainer="32">32 小节</button>
+            <button data-trainer="0" class="on" data-i18n="metro.trainer.0">关</button>
+            <button data-trainer="8" data-i18n="metro.trainer.8">8 小节</button>
+            <button data-trainer="16" data-i18n="metro.trainer.16">16 小节</button>
+            <button data-trainer="32" data-i18n="metro.trainer.32">32 小节</button>
           </div>
-          <div class="metro-label">Swing 摇摆</div>
+          <div class="metro-label" data-i18n="metro.swing">Swing 摇摆</div>
           <div class="seg" id="metroSwing">
-            <button data-swing="0" class="on">直</button>
-            <button data-swing="0.55">轻</button>
-            <button data-swing="0.62">重</button>
+            <button data-swing="0" class="on" data-i18n="metro.swing.0">直</button>
+            <button data-swing="0.55" data-i18n="metro.swing.1">轻</button>
+            <button data-swing="0.62" data-i18n="metro.swing.2">重</button>
           </div>
           <div class="beat-dots" id="beatDots"></div>
           <!-- 自定义音源：从 freesound / zapsplat / creazilla 等站点下载音频后导入，
@@ -398,21 +398,23 @@
           <div class="metro-sample">
             <div class="metro-label" data-i18n="metro.sample">自定义音源</div>
             <div class="metro-sample-row">
-              <input type="file" id="metroSampleFile" accept="audio/*" aria-label="选择本地音频文件">
+              <input type="file" id="metroSampleFile" accept="audio/*" aria-label="选择本地音频文件" data-i18n-aria="metro.sampleFileAria">
               <button class="btn-mini" id="metroTest" type="button" data-i18n="metro.test">试音</button>
             </div>
             <div class="metro-sample-row">
-              <input type="url" id="metroSampleUrl" placeholder="音频直链 https://…（可选）" data-i18n-ph="metro.sampleUrlPh" aria-label="音频直链">
+              <input type="url" id="metroSampleUrl" placeholder="音频直链 https://…（可选）" data-i18n-ph="metro.sampleUrlPh" aria-label="音频直链" data-i18n-aria="metro.sampleUrlAria">
               <button class="btn-mini" id="metroSampleApply" type="button" data-i18n="metro.apply">使用</button>
             </div>
-            <div class="metro-sample-tip" id="metroSampleTip" data-i18n="metro.sampleTip">
+            <!-- V4.3：#metroSampleTip 为动态节点（导入/下载状态会覆盖文本），
+                 不做静态 data-i18n 挂载；语言切换由 metronome.js 的 gs:lang 监听按状态复位 -->
+            <div class="metro-sample-tip" id="metroSampleTip">
               提示：可从 freesound.org / zapsplat.com / creazilla.com 下载音频后导入；
               也可填写可直接下载的音频直链。导入后音色菜单会切换到「自定义」。
             </div>
           </div>
           <div class="metro-actions">
-            <button class="preset-chip" id="metroSoundTest" style="align-self:center">试音诊断</button>
-            <button class="btn-round" id="metroToggle" style="width:68px;height:68px" aria-label="开始或暂停节拍器">
+            <button class="preset-chip" id="metroSoundTest" style="align-self:center" data-i18n="metro.soundTest">试音诊断</button>
+            <button class="btn-round" id="metroToggle" style="width:68px;height:68px" aria-label="开始或暂停节拍器" data-i18n-aria="metro.toggleAria">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
             </button>
           </div>
@@ -462,31 +464,31 @@
           @keyframes pop{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}35%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-75%) scale(1)}}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg></span>和弦闯关</div>
-          <div class="view-sub">屏幕给出和弦与指法，你按好和弦后对着麦克风逐弦拨响，系统实时听音判定。练的是和弦转换的速度与准确度。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg></span><span data-i18n="tool.game">和弦闯关</span></div>
+          <div class="view-sub" data-i18n="game.sub">屏幕给出和弦与指法，你按好和弦后对着麦克风逐弦拨响，系统实时听音判定。练的是和弦转换的速度与准确度。</div>
         </div>
 
         <!-- 准备页 -->
         <div class="card" id="gameIntro">
-          <h3 style="font-family:var(--font-display);font-size:18px;margin-bottom:4px">选择难度</h3>
-          <p class="hint">每轮 10 个和弦，在限定时间内按对并拨响全部应弹的弦即可过关；连续正确会有连击加分。</p>
+          <h3 style="font-family:var(--font-display);font-size:18px;margin-bottom:4px" data-i18n="game.intro.title">选择难度</h3>
+          <p class="hint" data-i18n="game.intro.hint">每轮 10 个和弦，在限定时间内按对并拨响全部应弹的弦即可过关；连续正确会有连击加分。</p>
           <div class="level-cards" id="levelCards"></div>
           <div style="display:flex;gap:10px;margin-top:10px">
             <button class="btn btn-primary btn-block" id="gameStart" style="margin:0 auto;max-width:340px">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
-              开启麦克风开始
+              <span data-i18n="game.start">开启麦克风开始</span>
             </button>
           </div>
-          <div class="mic-note">请在安静环境游玩，手机麦克风距音孔 30–50 厘米。判定仅在本地进行，不上传任何音频。</div>
+          <div class="mic-note" data-i18n="game.micNote">请在安静环境游玩，手机麦克风距音孔 30–50 厘米。判定仅在本地进行，不上传任何音频。</div>
         </div>
 
         <!-- 游戏页 -->
         <div class="card" id="gamePlay" style="display:none;position:relative">
           <div class="combo-pop" id="comboPop"></div>
           <div class="game-hud">
-            <div class="hud-box"><div class="k">得分</div><div class="v" id="gameScore">0</div></div>
-            <div class="hud-box combo"><div class="k">连击</div><div class="v" id="gameCombo">0</div></div>
-            <div class="hud-box"><div class="k">进度</div><div class="v" id="gameProg">0/10</div></div>
+            <div class="hud-box"><div class="k" data-i18n="game.hud.score">得分</div><div class="v" id="gameScore">0</div></div>
+            <div class="hud-box combo"><div class="k" data-i18n="game.hud.combo">连击</div><div class="v" id="gameCombo">0</div></div>
+            <div class="hud-box"><div class="k" data-i18n="game.hud.progress">进度</div><div class="v" id="gameProg">0/10</div></div>
           </div>
           <div class="time-bar"><i id="timeBar"></i></div>
           <div class="game-stage">
@@ -495,26 +497,26 @@
             <div class="game-diagram" id="gameDiagram"></div>
             <div id="gameFingering" style="font-size:12.5px;color:var(--txt-2);line-height:1.8;margin-top:8px;text-align:center"></div>
             <div class="string-check" id="stringCheck"></div>
-            <div class="game-tip" id="gameTip">从最粗的 6 弦开始，依次拨响</div>
+            <div class="game-tip" id="gameTip" data-i18n="game.tip.default">从最粗的 6 弦开始，依次拨响</div>
             <div class="game-actions">
-              <button class="btn btn-sm" id="gameSkip">跳过本和弦</button>
-              <button class="btn btn-sm btn-danger" id="gameQuit">退出</button>
+              <button class="btn btn-sm" id="gameSkip" data-i18n="game.skip">跳过本和弦</button>
+              <button class="btn btn-sm btn-danger" id="gameQuit" data-i18n="game.quit">退出</button>
             </div>
           </div>
         </div>
 
         <!-- 结算页 -->
         <div class="card" id="gameResult" style="display:none;text-align:center">
-          <h3 style="font-family:var(--font-display);font-size:24px" id="resultTitle">本轮完成</h3>
-          <p class="hint" style="margin-top:6px" id="resultSub">每天练 10 分钟，和弦转换会越来越快</p>
+          <h3 style="font-family:var(--font-display);font-size:24px" id="resultTitle" data-i18n="game.result.title">本轮完成</h3>
+          <p class="hint" style="margin-top:6px" id="resultSub" data-i18n="game.result.sub">每天练 10 分钟，和弦转换会越来越快</p>
           <div class="result-stats">
-            <div class="result-stat"><div class="v" id="rScore">0</div><div class="k">总得分</div></div>
-            <div class="result-stat"><div class="v" id="rOk">0</div><div class="k">正确和弦</div></div>
-            <div class="result-stat"><div class="v" id="rCombo">0</div><div class="k">最高连击</div></div>
+            <div class="result-stat"><div class="v" id="rScore">0</div><div class="k" data-i18n="game.result.score">总得分</div></div>
+            <div class="result-stat"><div class="v" id="rOk">0</div><div class="k" data-i18n="game.result.ok">正确和弦</div></div>
+            <div class="result-stat"><div class="v" id="rCombo">0</div><div class="k" data-i18n="game.result.combo">最高连击</div></div>
           </div>
           <div class="game-actions" style="margin-top:8px">
-            <button class="btn btn-primary" id="gameAgain">再来一轮</button>
-            <button class="btn" id="gameBack">返回选关</button>
+            <button class="btn btn-primary" id="gameAgain" data-i18n="game.again">再来一轮</button>
+            <button class="btn" id="gameBack" data-i18n="game.back">返回选关</button>
           </div>
         </div>
       </section>
@@ -552,16 +554,16 @@
           .prog-play.playing{background:linear-gradient(135deg,#ff7d8e,#ff5d73);color:#2a070d}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/></svg></span>和弦库</div>
-          <div class="view-sub">点和弦卡片即可听合成扫弦；选中后查看指法与构成音。下方还有经典和弦进行循环伴奏，可跟着练转换。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M9.2 8.2l3.6 6.6M14.8 8.2l-3.6 6.6"/></svg></span><span data-i18n="tool.chords">和弦库</span></div>
+          <div class="view-sub" data-i18n="chords.sub">点和弦卡片即可听合成扫弦；选中后查看指法与构成音。下方还有经典和弦进行循环伴奏，可跟着练转换。</div>
         </div>
 
         <div class="card">
           <div class="chord-cat seg" id="chordCat">
-            <button data-cat="major" class="on">大和弦</button>
-            <button data-cat="minor">小和弦</button>
-            <button data-cat="seven">七和弦</button>
-            <button data-cat="sus">挂留</button>
+            <button data-cat="major" class="on" data-i18n="chords.cat.major">大和弦</button>
+            <button data-cat="minor" data-i18n="chords.cat.minor">小和弦</button>
+            <button data-cat="seven" data-i18n="chords.cat.seven">七和弦</button>
+            <button data-cat="sus" data-i18n="chords.cat.sus">挂留</button>
           </div>
           <div class="chord-grid" id="chordGrid"></div>
         </div>
@@ -571,10 +573,10 @@
         </div>
 
         <div class="card">
-          <div class="metro-label" style="font-size:12px;color:var(--txt-3);letter-spacing:1px;margin-bottom:12px">经典和弦进行 · 循环伴奏</div>
+          <div class="metro-label" style="font-size:12px;color:var(--txt-3);letter-spacing:1px;margin-bottom:12px" data-i18n="chords.prog">经典和弦进行 · 循环伴奏</div>
           <div class="prog-list" id="progList"></div>
           <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
-            <span style="font-size:12.5px;color:var(--txt-2)">伴奏速度</span>
+            <span style="font-size:12.5px;color:var(--txt-2)" data-i18n="chords.progBpm">伴奏速度</span>
             <input type="range" id="progBpm" min="50" max="160" value="80" style="flex:1;max-width:240px">
             <span class="mono" id="progBpmVal" style="color:var(--mint);font-size:13px;min-width:62px">80 BPM</span>
           </div>
@@ -600,26 +602,26 @@
           .ear-stats b{font-family:var(--font-mono);color:var(--amber);font-size:17px;margin-right:4px}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/><path d="M9 13a3 3 0 0 0 3 3"/></svg></span>练耳训练</div>
-          <div class="view-sub">听声音、辨音高。先从单音开始，再练音程与和弦色彩，每天几轮，建立不靠乐器的内心听觉。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-3-1-5-1-8a6 6 0 0 0-12 0c0 3-1 5-1 8a7 7 0 0 0 7 7z"/><path d="M9 13a3 3 0 0 0 3 3"/></svg></span><span data-i18n="tool.ear">练耳训练</span></div>
+          <div class="view-sub" data-i18n="ear.sub">听声音、辨音高。先从单音开始，再练音程与和弦色彩，每天几轮，建立不靠乐器的内心听觉。</div>
         </div>
         <div class="card">
           <div class="seg" id="earMode" style="display:flex;justify-content:center;width:100%">
-            <button data-m="note" class="on">单音听辨</button>
-            <button data-m="interval">音程</button>
-            <button data-m="triad">三和弦</button>
-            <button data-m="seven">七和弦</button>
-            <button data-m="melody">旋律模仿</button>
+            <button data-m="note" class="on" data-i18n="ear.mode.note">单音听辨</button>
+            <button data-m="interval" data-i18n="ear.mode.interval">音程</button>
+            <button data-m="triad" data-i18n="ear.mode.triad">三和弦</button>
+            <button data-m="seven" data-i18n="ear.mode.seven">七和弦</button>
+            <button data-m="melody" data-i18n="ear.melody">旋律模仿</button>
           </div>
           <!-- F3：难度分级 -->
           <div class="seg" id="earLevel" style="display:flex;justify-content:center;width:100%;margin-top:10px">
-            <button data-lv="basic" class="on">入门 · 自然音单八度</button>
-            <button data-lv="advance">进阶 · 含变化音双八度</button>
-            <button data-lv="master">大师 · 音程与旋律短句</button>
+            <button data-lv="basic" class="on" data-i18n="ear.level.basic">入门 · 自然音单八度</button>
+            <button data-lv="advance" data-i18n="ear.level.advance">进阶 · 含变化音双八度</button>
+            <button data-lv="master" data-i18n="ear.level.master">大师 · 音程与旋律短句</button>
           </div>
           <!-- F3：旋律模仿（音名复现 + 回听） -->
           <div id="earMelodyBox" style="display:none;margin-top:14px;text-align:center">
-            <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:8px">按顺序点出你听到的音名 <span id="earMelodyHint">0/0</span></div>
+            <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:8px"><span data-i18n="ear.melodyHint">按顺序点出你听到的音名</span> <span id="earMelodyHint">0/0</span></div>
             <div id="earMelodyInput" style="min-height:34px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;align-items:center"></div>
             <div id="earMelodyNotes" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0">
               <button data-semi="0">C</button><button data-semi="1">C#</button><button data-semi="2">D</button>
@@ -628,22 +630,22 @@
               <button data-semi="9">A</button><button data-semi="10">A#</button><button data-semi="11">B</button>
             </div>
             <div style="display:flex;gap:8px;justify-content:center">
-              <button class="preset-chip" id="earReplay">回听题目</button>
-              <button class="preset-chip" id="earMelodyClear">清空</button>
-              <button class="preset-chip" id="earMelodySubmit">提交答案</button>
+              <button class="preset-chip" id="earReplay" data-i18n="ear.replay">回听题目</button>
+              <button class="preset-chip" id="earMelodyClear" data-i18n="ear.clear">清空</button>
+              <button class="preset-chip" id="earMelodySubmit" data-i18n="ear.submit">提交答案</button>
             </div>
           </div>
           <div class="ear-stage">
             <button class="btn-round ear-play" id="earPlay">
               <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
             </button>
-            <div class="ear-q" id="earQ">点击播放，听一听这是什么音</div>
+            <div class="ear-q" id="earQ" data-i18n="ear.q.idle">点击播放，听一听这是什么音</div>
             <div class="ear-options" id="earOptions"></div>
             <div class="ear-stats">
-              <span><b id="earN">0</b>题</span>
-              <span><b id="earOk">0</b>正确</span>
-              <span>正确率 <b id="earRate">0%</b></span>
-              <span><b id="earStreak">0</b>连对</span>
+              <span><b id="earN">0</b><span data-i18n="ear.stats.n">题</span></span>
+              <span><b id="earOk">0</b><span data-i18n="ear.stats.ok">正确</span></span>
+              <span><span data-i18n="ear.stats.rate">正确率</span> <b id="earRate">0%</b></span>
+              <span><b id="earStreak">0</b><span data-i18n="ear.stats.streak">连对</span></span>
             </div>
           </div>
         </div>
@@ -672,16 +674,16 @@
           .fb-ask small{font-size:12px;color:var(--txt-3);font-weight:400;margin-left:8px}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/></svg></span>指板训练</div>
-          <div class="view-sub">浏览模式点击任意品位发声；找音模式根据提示在指板上找到目标音，记住指板上每一个音的位置。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/></svg></span><span data-i18n="tool.fret">指板训练</span></div>
+          <div class="view-sub" data-i18n="fret.sub">浏览模式点击任意品位发声；找音模式根据提示在指板上找到目标音，记住指板上每一个音的位置。</div>
         </div>
         <div class="card">
           <div class="seg" id="fbMode" style="margin-bottom:14px">
-            <button data-m="browse" class="on">浏览模式</button>
-            <button data-m="find">找音游戏</button>
+            <button data-m="browse" class="on" data-i18n="fret.mode.browse">浏览模式</button>
+            <button data-m="find" data-i18n="fret.mode.find">找音游戏</button>
           </div>
           <div class="fb-hint" id="fbHint">
-            <span class="hint">点击品格试听该音，横向滑动查看 12 品</span>
+            <span class="hint" data-i18n="fret.hint.browse">点击品格试听该音，横向滑动查看 12 品</span>
           </div>
           <div class="fret-board-wrap">
             <div class="fret-board" id="fbBoard"></div>
@@ -689,10 +691,10 @@
           </div>
           <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
             <label class="switch" style="display:inline-flex"><input type="checkbox" id="fbShowAll" checked><span class="track"></span><span class="thumb"></span></label>
-            <span style="font-size:13px;color:var(--txt-2)">显示全部音名</span>
+            <span style="font-size:13px;color:var(--txt-2)" data-i18n="fret.showAll">显示全部音名</span>
             <span style="flex:1"></span>
             <span style="font-size:13px;color:var(--txt-2)" id="fbScore"></span>
-            <button class="btn btn-sm btn-primary" id="fbStart" style="display:none">开始 / 下一题</button>
+            <button class="btn btn-sm btn-primary" id="fbStart" style="display:none" data-i18n="fret.start">开始 / 下一题</button>
           </div>
         </div>
       </section>
@@ -746,49 +748,49 @@
           .scx-tip{font-size:12.5px;color:var(--txt-3);margin:14px auto 0;line-height:1.65;max-width:460px}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h4v-5h4V9h4V4h4"/></svg></span>音阶练习</div>
-          <div class="view-sub">选好音阶与把位，指板上会标出全部音阶音（青色为根音）。先跟听示范，再开麦克风逐音跟弹，从根音上行再下行，练熟指型与把位。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h4v-5h4V9h4V4h4"/></svg></span><span data-i18n="tool.scale">音阶练习</span></div>
+          <div class="view-sub" data-i18n="scale.sub">选好音阶与把位，指板上会标出全部音阶音（青色为根音）。先跟听示范，再开麦克风逐音跟弹，从根音上行再下行，练熟指型与把位。</div>
         </div>
 
         <div class="card">
-          <div class="metro-label">选择音阶与把位</div>
+          <div class="metro-label" data-i18n="scale.pick">选择音阶与把位</div>
           <div class="scx-picker" id="scxList"></div>
           <div class="scx-notes" id="scxNotes"></div>
         </div>
 
         <div class="card">
-          <div class="metro-label" style="margin-bottom:12px">指板音阶图</div>
+          <div class="metro-label" style="margin-bottom:12px" data-i18n="scale.board">指板音阶图</div>
           <div class="scx-board-wrap">
             <div class="scx-board" id="scxBoard"></div>
             <div class="scx-fretnums" id="scxFretNums"></div>
           </div>
           <div class="scx-legend">
-            <span><i style="background:linear-gradient(135deg,#6fe6ff,#2bb8e6)"></i>根音</span>
-            <span><i style="background:linear-gradient(135deg,#ffd27a,#f59136)"></i>音阶音</span>
-            <span><i style="background:#fff"></i>当前练习音</span>
-            <span><i style="background:var(--mint)"></i>已弹对</span>
+            <span><i style="background:linear-gradient(135deg,#6fe6ff,#2bb8e6)"></i><span data-i18n="scale.legend.root">根音</span></span>
+            <span><i style="background:linear-gradient(135deg,#ffd27a,#f59136)"></i><span data-i18n="scale.legend.scale">音阶音</span></span>
+            <span><i style="background:#fff"></i><span data-i18n="scale.legend.current">当前练习音</span></span>
+            <span><i style="background:var(--mint)"></i><span data-i18n="scale.legend.done">已弹对</span></span>
           </div>
         </div>
 
         <div class="card">
           <div class="scx-stage">
-            <div class="scx-cur" id="scxCur">准备好了吗</div>
+            <div class="scx-cur" id="scxCur" data-i18n="scale.ready">准备好了吗</div>
             <div class="scx-pos" id="scxPos"></div>
             <div class="scx-hud">
-              <div class="hb">进度<b id="scxProg"></b></div>
-              <div class="hb">连击<b id="scxCombo"></b></div>
+              <div class="hb"><span data-i18n="scale.hud.progress">进度</span><b id="scxProg"></b></div>
+              <div class="hb"><span data-i18n="scale.hud.combo">连击</span><b id="scxCombo"></b></div>
             </div>
             <div class="scx-bpm">
-              <span>速度</span>
+              <span data-i18n="scale.bpm">速度</span>
               <input type="range" id="scxBpm" min="50" max="180" value="80">
               <span class="bv" id="scxBpmVal">80 BPM</span>
             </div>
             <div class="scx-ctrl">
-              <button class="btn" id="scxListen">跟听示范</button>
-              <button class="btn btn-primary" id="scxFollow">开始跟弹（麦克风）</button>
+              <button class="btn" id="scxListen" data-i18n="scale.listen">跟听示范</button>
+              <button class="btn btn-primary" id="scxFollow" data-i18n="scale.follow">开始跟弹（麦克风）</button>
             </div>
-            <div class="scx-tip" id="scxTip">先在上方选择音阶，点“跟听示范”听一遍，或开麦克风“跟弹”逐音练习</div>
-            <div class="mic-note">麦克风仅在本地判定音高，不会上传音频。跟弹时照指板高亮位置拨弦，连续两次识别正确即进入下一音。</div>
+            <div class="scx-tip" id="scxTip" data-i18n="scale.tip">先在上方选择音阶，点“跟听示范”听一遍，或开麦克风“跟弹”逐音练习</div>
+            <div class="mic-note" data-i18n="scale.micNote">麦克风仅在本地判定音高，不会上传音频。跟弹时照指板高亮位置拨弦，连续两次识别正确即进入下一音。</div>
           </div>
         </div>
       </section>
@@ -809,12 +811,12 @@
           .rec-del svg{width:17px;height:17px}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg></span>录音棚</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg></span><span data-i18n="tool.studio">录音棚</span></div>
           <div class="dev-row" style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
-            <span class="dev-hint" style="font-size:12px;color:var(--txt-3)">输入设备</span>
+            <span class="dev-hint" style="font-size:12px;color:var(--txt-3)" data-i18n="dev.input">输入设备</span>
             <select id="studioDeviceSel" class="preset-chip" style="max-width:220px"></select>
           </div>
-          <div class="view-sub">录下自己的练习片段，回听找问题。录音文件保存在本地，可下载为 WebM 音频。</div>
+          <div class="view-sub" data-i18n="studio.sub">录下自己的练习片段，回听找问题。录音文件保存在本地，可下载为 WebM 音频。</div>
         </div>
         <div class="card">
           <div class="rec-stage">
@@ -823,7 +825,7 @@
             </button>
             <div class="rec-time mono" id="recTime">00:00</div>
             <div class="rec-level"><i id="recLevel"></i></div>
-            <div class="hint" id="recHint">点击按钮开始录音</div>
+            <div class="hint" id="recHint" data-i18n="studio.hint.idle">点击按钮开始录音</div>
           </div>
           <div class="rec-list" id="recList"></div>
         </div>
@@ -888,12 +890,12 @@
           }
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M8 4v16M12 7v10M16 4v16M20 7v10"/></svg></span>节奏型练习</div>
-          <div class="view-sub">先听示范、再看网格跟拍、最后脱离示范独立循环。扫弦认 D/U 箭头，分解认弦序数字，节拍器全程护航。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M8 4v16M12 7v10M16 4v16M20 7v10"/></svg></span><span data-i18n="tool.rhythm">节奏型练习</span></div>
+          <div class="view-sub" data-i18n="rhythm.sub">先听示范、再看网格跟拍、最后脱离示范独立循环。扫弦认 D/U 箭头，分解认弦序数字，节拍器全程护航。</div>
         </div>
 
         <details class="card rt-help" id="rtHelp">
-          <summary>第一次练？先看 30 秒说明</summary>
+          <summary data-i18n="rhythm.help.summary">第一次练？先看 30 秒说明</summary>
           <div class="rt-help-body">
             <b>符号含义：</b>扫弦格 <kbd>↓</kbd>=下扫（D）、<kbd>↑</kbd>=上扫（U）、<kbd>×</kbd>=切音闷音、<kbd>·</kbd>=空拍（占时值但不出声）；分解格的 <kbd>根</kbd>=当前和弦根音、<kbd>B</kbd>=交替低音、数字=弦序（1 最细 · 6 最粗），下方小字为建议指法 T/i/m/a。<br>
             <b>怎么练：</b>①选节奏型听几遍示范 → ②把示范音量调到 0、只留节拍器看格子高亮默数 → ③跟着示范慢速弹 → ④逐步加 BPM → ⑤开循环（∞）独立连奏。练错了不丢人，降速再来才算会。<br>
@@ -903,8 +905,8 @@
 
         <div class="card">
           <div class="seg rt-mode-seg" id="rtModeSeg">
-            <button data-cat="strum" class="on">扫弦节奏</button>
-            <button data-cat="pick">分解和弦</button>
+            <button data-cat="strum" class="on" data-i18n="rhythm.cat.strum">扫弦节奏</button>
+            <button data-cat="pick" data-i18n="rhythm.cat.pick">分解和弦</button>
           </div>
           <div class="rt-chips" id="rtChips"></div>
           <div class="rt-info" id="rtInfo"></div>
@@ -913,12 +915,12 @@
         <div class="card">
           <div class="rt-dots" id="rtDots"></div>
           <div class="rt-grid" id="rtGrid"></div>
-          <div class="rt-status" id="rtStatus">就绪 · 选择节奏型后按开始</div>
+          <div class="rt-status" id="rtStatus" data-i18n="rhythm.status.idle">就绪 · 选择节奏型后按开始</div>
         </div>
 
         <div class="card">
           <div class="rt-ctl-row">
-            <span class="rt-lab">速度 BPM</span>
+            <span class="rt-lab" data-i18n="rhythm.bpm">速度 BPM</span>
             <button class="rt-step-btn" id="rtBpmMinus5" title="减 5">-5</button>
             <button class="rt-step-btn" id="rtBpmMinus" title="减 1">−</button>
             <input type="number" class="rt-bpm-num" id="rtBpmNum" min="40" max="180" value="60" inputmode="numeric">
@@ -927,42 +929,42 @@
           </div>
           <input type="range" id="rtBpmRange" min="40" max="180" value="60" style="--fill:10%">
           <div class="rt-ctl-row">
-            <span class="rt-lab">循环次数</span>
+            <span class="rt-lab" data-i18n="rhythm.loop">循环次数</span>
             <div class="rt-chips" id="rtLoopChips"></div>
           </div>
           <div class="rt-ctl-row" id="rtChordRow" style="display:none">
-            <span class="rt-lab">练习和弦</span>
+            <span class="rt-lab" data-i18n="rhythm.chord">练习和弦</span>
             <div class="rt-chips" id="rtChordChips"></div>
           </div>
           <div class="rt-ctl-row">
-            <span class="rt-lab">预备拍</span>
+            <span class="rt-lab" data-i18n="rhythm.countin">预备拍</span>
             <div class="rt-chips" id="rtCountInChips">
-              <button class="preset-chip on" data-ci="1">开启（1 小节）</button>
-              <button class="preset-chip" data-ci="0">关闭</button>
+              <button class="preset-chip on" data-ci="1" data-i18n="rhythm.countin.on">开启（1 小节）</button>
+              <button class="preset-chip" data-ci="0" data-i18n="common.close">关闭</button>
             </div>
           </div>
           <div class="rt-ctl-row">
-            <span class="rt-lab">示范音量</span>
+            <span class="rt-lab" data-i18n="rhythm.demoVol">示范音量</span>
             <div class="rt-vol"><input type="range" id="rtDemoVol" min="0" max="100" value="80"></div>
           </div>
           <div class="rt-ctl-row">
-            <span class="rt-lab">节拍器音量</span>
+            <span class="rt-lab" data-i18n="rhythm.metroVol">节拍器音量</span>
             <div class="rt-vol"><input type="range" id="rtMetroVol" min="0" max="100" value="90"></div>
           </div>
           <div class="rt-transport">
-            <button class="btn-round" id="rtPlay" aria-label="开始/暂停">
+            <button class="btn-round" id="rtPlay" aria-label="开始/暂停" data-i18n-aria="rhythm.playAria">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>
             </button>
-            <button class="btn" id="rtStop" style="min-width:96px">停止</button>
-            <button class="btn" id="rtRestart" style="min-width:96px">重头开始</button>
+            <button class="btn" id="rtStop" style="min-width:96px" data-i18n="common.stop">停止</button>
+            <button class="btn" id="rtRestart" style="min-width:96px" data-i18n="rhythm.restart">重头开始</button>
           </div>
-          <p class="hint" style="text-align:center;margin-top:10px" id="rtHint">开始前会先给你数一小节预备拍（可关闭）。切到其他页面会自动暂停。</p>
+          <p class="hint" style="text-align:center;margin-top:10px" id="rtHint" data-i18n="rhythm.hint">开始前会先给你数一小节预备拍（可关闭）。切到其他页面会自动暂停。</p>
         </div>
 
         <div class="card">
           <div class="metro-label" style="display:flex;justify-content:space-between;align-items:center">
-            <span>练习统计</span>
-            <button class="preset-chip" id="rtClearStats" style="padding:5px 12px">清除记录</button>
+            <span data-i18n="rhythm.stats">练习统计</span>
+            <button class="preset-chip" id="rtClearStats" style="padding:5px 12px" data-i18n="rhythm.clearStats">清除记录</button>
           </div>
           <div class="rt-stats" id="rtStats"></div>
           <div class="rt-status" id="rtLastSession" style="min-height:0"></div>
@@ -985,35 +987,35 @@
           .flow-meta b{font-family:var(--font-mono);color:var(--amber);font-size:17px;margin-right:4px}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7l-3 10"/><path d="M13 7h7l-3 10"/></svg></span>和弦转换训练</div>
-          <div class="view-sub">按节拍器提示在两个及以上和弦之间切换，当前与下一个和弦同时显示。V3.1 为节拍引导版：只做节奏引导与次数记录，不判断你的切换动作是否标准。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7l-3 10"/><path d="M13 7h7l-3 10"/></svg></span><span data-i18n="flow.title">和弦转换训练</span></div>
+          <div class="view-sub" data-i18n="flow.sub">按节拍器提示在两个及以上和弦之间切换，当前与下一个和弦同时显示。V3.1 为节拍引导版：只做节奏引导与次数记录，不判断你的切换动作是否标准。</div>
         </div>
         <div class="card">
-          <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:4px">选择要练习的和弦（至少 2 个）</div>
+          <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:4px" data-i18n="flow.pick">选择要练习的和弦（至少 2 个）</div>
           <div id="flowSeq" class="flow-chips"></div>
           <div style="text-align:right;margin-top:6px">
             <button class="btn-mini" id="flowClear" type="button" data-i18n="flow.clear">清空已选</button>
           </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:8px">
-            <span style="font-size:12.5px;color:var(--txt-2)">每个和弦停留</span>
+            <span style="font-size:12.5px;color:var(--txt-2)" data-i18n="flow.bars">每个和弦停留</span>
             <div class="seg" id="flowBars" style="display:flex">
-              <button data-bars="1">1 小节</button>
-              <button data-bars="2" class="on">2 小节</button>
-              <button data-bars="4">4 小节</button>
+              <button data-bars="1" data-i18n="flow.bar.1">1 小节</button>
+              <button data-bars="2" class="on" data-i18n="flow.bar.2">2 小节</button>
+              <button data-bars="4" data-i18n="flow.bar.4">4 小节</button>
             </div>
-            <span style="font-size:12.5px;color:var(--txt-2)">目标速度 <b id="flowBpmVal">80 BPM</b></span>
+            <span style="font-size:12.5px;color:var(--txt-2)"><span data-i18n="flow.targetBpm">目标速度</span> <b id="flowBpmVal">80 BPM</b></span>
             <input type="range" id="flowBpm" min="30" max="300" value="80" style="width:150px">
           </div>
           <div class="flow-stage" style="margin-top:14px">
-            <div class="flow-box"><div class="flow-label">当前和弦</div><div class="flow-name" id="flowNowName">—</div><div id="flowNow"></div></div>
-            <div class="flow-box next"><div class="flow-label">下一个</div><div class="flow-name" id="flowNextName">—</div><div id="flowNext"></div></div>
+            <div class="flow-box"><div class="flow-label" data-i18n="flow.now">当前和弦</div><div class="flow-name" id="flowNowName">—</div><div id="flowNow"></div></div>
+            <div class="flow-box next"><div class="flow-label" data-i18n="flow.next">下一个</div><div class="flow-name" id="flowNextName">—</div><div id="flowNext"></div></div>
           </div>
           <div style="text-align:center;margin-top:16px">
-            <button class="btn btn-primary" id="flowStart">开始转换练习</button>
+            <button class="btn btn-primary" id="flowStart" data-i18n="flow.start">开始转换练习</button>
           </div>
           <div class="flow-meta">
-            <span><b id="flowSwitches">0</b>次转换</span>
-            <span>目标 <b id="flowBpmVal2">80</b> BPM</span>
+            <span><b id="flowSwitches">0</b><span data-i18n="flow.switches">次转换</span></span>
+            <span><span data-i18n="flow.target">目标</span> <b id="flowBpmVal2">80</b> BPM</span>
           </div>
         </div>
       </section>
@@ -1032,27 +1034,27 @@
           .plan-task-num{font-family:var(--font-mono);font-size:12.5px;color:var(--txt-2)}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/><path d="M9 16l2 2 4-4"/></svg></span>每日练习计划</div>
-          <div class="view-sub">选阶段 → 定时长 → 选关注点，3 步生成今日任务。完成判定只依据模块内可测指标（识别、命中、时长），不代表对演奏质量的评估。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/><path d="M9 16l2 2 4-4"/></svg></span><span data-i18n="plan.title">每日练习计划</span></div>
+          <div class="view-sub" data-i18n="plan.sub">选阶段 → 定时长 → 选关注点，3 步生成今日任务。完成判定只依据模块内可测指标（识别、命中、时长），不代表对演奏质量的评估。</div>
         </div>
         <div class="card">
-          <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:6px">① 学习阶段</div>
+          <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:6px" data-i18n="plan.step1">① 学习阶段</div>
           <div class="seg" id="planLevel" style="display:flex">
-            <button data-lv="basic" class="on">入门</button>
-            <button data-lv="advance">进阶</button>
+            <button data-lv="basic" class="on" data-i18n="plan.basic">入门</button>
+            <button data-lv="advance" data-i18n="plan.advance">进阶</button>
           </div>
-          <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px">② 每日时长目标：<b id="planMinutesVal">15 分钟</b></div>
+          <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px"><span data-i18n="plan.step2">② 每日时长目标</span>：<b id="planMinutesVal">15 分钟</b></div>
           <input type="range" id="planMinutes" min="5" max="120" step="5" value="15" style="width:100%;max-width:360px">
-          <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px">③ 当前关注点</div>
+          <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px" data-i18n="plan.step3">③ 当前关注点</div>
           <div class="seg" id="planFocus" style="display:flex">
-            <button data-f="chords" class="on">和弦转换</button>
-            <button data-f="rhythm">节奏型</button>
-            <button data-f="ear">练耳</button>
-            <button data-f="scale">音阶</button>
+            <button data-f="chords" class="on" data-i18n="plan.focus.chords">和弦转换</button>
+            <button data-f="rhythm" data-i18n="plan.focus.rhythm">节奏型</button>
+            <button data-f="ear" data-i18n="plan.focus.ear">练耳</button>
+            <button data-f="scale" data-i18n="plan.focus.scale">音阶</button>
           </div>
           <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-            <button class="btn btn-primary" id="planGenerate">生成今日计划</button>
-            <button class="btn btn-ghost" id="planReset">重置</button>
+            <button class="btn btn-primary" id="planGenerate" data-i18n="plan.generate">生成今日计划</button>
+            <button class="btn btn-ghost" id="planReset" data-i18n="plan.reset">重置</button>
           </div>
           <div id="planProgress" style="margin-top:14px;font-size:13px;color:var(--amber);font-weight:600"></div>
           <div id="planList" style="margin-top:12px"></div>
@@ -1091,34 +1093,34 @@
           .stat-sb-cell span{font-size:11px;color:var(--txt-3)}
         </style>
         <div class="view-head">
-          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg></span>练习统计中心</div>
-          <div class="view-sub">今日 / 本周 / 累计练习时长与次数、进步曲线、模块正确率对比与打卡日历。全部数据只存在本机浏览器，不上传服务器。</div>
+          <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg></span><span data-i18n="stats.title">练习统计中心</span></div>
+          <div class="view-sub" data-i18n="stats.sub">今日 / 本周 / 累计练习时长与次数、进步曲线、模块正确率对比与打卡日历。全部数据只存在本机浏览器，不上传服务器。</div>
         </div>
         <div class="card">
           <div class="stat-cards">
-            <div class="stat-card"><b id="statTodayCount">0</b><span>今日次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statTodayDur">0 秒</div></div>
-            <div class="stat-card"><b id="statWeekCount">0</b><span>本周次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statWeekDur">0 秒</div></div>
-            <div class="stat-card"><b id="statAllCount">0</b><span>累计次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statAllDur">0 秒</div></div>
+            <div class="stat-card"><b id="statTodayCount">0</b><span data-i18n="stats.today">今日次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statTodayDur">0 秒</div></div>
+            <div class="stat-card"><b id="statWeekCount">0</b><span data-i18n="stats.week">本周次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statWeekDur">0 秒</div></div>
+            <div class="stat-card"><b id="statAllCount">0</b><span data-i18n="stats.all">累计次数</span><div style="font-size:11.5px;color:var(--txt-2);margin-top:4px" id="statAllDur">0 秒</div></div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px">
-            <span style="font-size:13px;font-weight:600">进步曲线</span>
+            <span style="font-size:13px;font-weight:600" data-i18n="stats.chart">进步曲线</span>
             <div class="seg" id="statsRange" style="display:flex">
-              <button data-d="7" class="on">7 天</button>
-              <button data-d="30">30 天</button>
-              <button data-d="90">90 天</button>
+              <button data-d="7" class="on" data-i18n="stats.range.7">7 天</button>
+              <button data-d="30" data-i18n="stats.range.30">30 天</button>
+              <button data-d="90" data-i18n="stats.range.90">90 天</button>
             </div>
           </div>
           <div id="statChart"></div>
-          <div style="font-size:13px;font-weight:600;margin:16px 0 8px">连续打卡 <b id="statStreak" style="color:var(--amber)">0</b> 天</div>
+          <div style="font-size:13px;font-weight:600;margin:16px 0 8px"><span data-i18n="stats.streak">连续打卡</span> <b id="statStreak" style="color:var(--amber)">0</b> <span data-i18n="stats.streak.day">天</span></div>
           <div id="statCalendar"></div>
-          <div style="font-size:13px;font-weight:600;margin:16px 0 8px">模块表现（时长 / 正确率）</div>
+          <div style="font-size:13px;font-weight:600;margin:16px 0 8px" data-i18n="stats.modules">模块表现（时长 / 正确率）</div>
           <div id="statModules"></div>
           <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center">
-            <button class="btn btn-primary" id="statsExport">导出 JSON</button>
-            <button class="btn" id="statsExportCSV">导出 CSV</button>
-            <label class="btn btn-ghost" style="margin:0">导入备份<input type="file" id="statsImport" accept=".json,application/json" style="display:none"></label>
-            <button class="btn btn-ghost" id="statsClear">清空数据</button>
-            <span style="font-size:11.5px;color:var(--txt-3)">目标速度与实测速度分列，不做自动等同</span>
+            <button class="btn btn-primary" id="statsExport" data-i18n="stats.export">导出 JSON</button>
+            <button class="btn" id="statsExportCSV" data-i18n="stats.exportCsv">导出 CSV</button>
+            <label class="btn btn-ghost" style="margin:0"><span data-i18n="stats.import">导入备份</span><input type="file" id="statsImport" accept=".json,application/json" style="display:none"></label>
+            <button class="btn btn-ghost" id="statsClear" data-i18n="stats.clear">清空数据</button>
+            <span style="font-size:11.5px;color:var(--txt-3)" data-i18n="stats.note">目标速度与实测速度分列，不做自动等同</span>
           </div>
           <div id="statSongbookBox" style="margin-top:18px"></div>
         </div>
@@ -1150,19 +1152,19 @@
     <nav class="tabbar">
       <div class="tabbar-inner">
         <button class="tab active" data-route="home">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>首页
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span data-i18n="tab.home">首页</span>
         </button>
         <button class="tab" data-route="tuner">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg>调音
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg><span data-i18n="tab.tuner">调音</span>
         </button>
         <button class="tab" data-route="metro">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/></svg>节拍
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><rect x="7" y="3" width="10" height="6" rx="2"/><path d="M12 9v3l4 8"/></svg><span data-i18n="tab.metro">节拍</span>
         </button>
         <button class="tab" data-route="game">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg>闯关
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg><span data-i18n="tab.game">闯关</span>
         </button>
         <button class="tab" id="tabMore">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></svg>更多
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></svg><span data-i18n="tab.more">更多</span>
         </button>
       </div>
     </nav>
@@ -1173,7 +1175,7 @@
 <div id="sheetMask" style="position:fixed;inset:0;background:rgba(5,6,12,.6);z-index:90;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(2px)"></div>
 <div id="moreSheet" style="position:fixed;left:0;right:0;bottom:0;z-index:91;background:var(--surface-sheet);border-radius:22px 22px 0 0;border:1px solid var(--line-strong);padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .32s cubic-bezier(.22,1,.36,1)">
   <div style="width:40px;height:4px;border-radius:4px;background:rgba(255,255,255,.18);margin:6px auto 14px"></div>
-  <div style="font-family:var(--font-display);font-weight:700;font-size:16px;margin:0 4px 12px">更多工具</div>
+  <div style="font-family:var(--font-display);font-weight:700;font-size:16px;margin:0 4px 12px" data-i18n="sheet.more">更多工具</div>
   <div id="moreGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
 </div>
 

@@ -485,6 +485,19 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.3.0 · 国际化 M1（移动端语言入口 / 静态全量挂载 / 首批模块联动 / 取词收敛）
+
+依据 `docs/V4.3_I18N_PRD.md`（GS-PRD-2026-003）落地 V4.3 里程碑 M1，并提前合入 R4。需求文档将 V4.3 分为 M1（R1+R2+第一批词条）→ M2（R3 全量+R4+第二三批词条）→ M3（R5 内容数据多语），本版本交付 M1 全部 + R4（取词收敛，低风险高价值故提前）。
+
+- **R1 移动端语言入口**：`assets/js/core/i18n.js` 的 `injectEntry()` 复刻 theme-switch 双注入范式——`.sidebar`（桌面）+ `.topbar`（移动端唯一可见区，≤860px）各注入语言按钮，去重只查父容器内部（沿用 BUG-08 经验）；顶栏按钮 44×34px 定宽、琥珀色描边，因 main.js 中 theme-switch 先执行，语言按钮自然位于主题按钮右侧。`assets/js/core/theme-switch.js` 顶栏主题按钮同步补 44px 定宽，修复移动端被 flex 拉伸至 252px 的视觉失衡。aria-label 复用既有 `lang.title`/`theme.title`（零新增键）。
+- **R2 静态挂载全量化**：`app.html` 从 26 处挂载扩到 **241 处 data-i18n + 1 处 data-i18n-ph + 4 处 data-i18n-aria**（aria 维度为本版新增，扫描逻辑在 `scanStatic()`）。覆盖品牌名、hero 三件套（拆为 `home.hero.title1/2/3` 以保留 `<em>` 高亮）、徽章、CTA、十张工具卡、12 个视图标题与副文案、底栏 tab、更多菜单标题、调音器/节拍器/闯关/和弦库/练耳/指板/音阶/录音棚/节奏型/和弦转换/计划/统计的静态标签。`document.title` 随 `setLang` 同步（新键 `app.title`）。首屏保留中文兜底（JS 失败仍可读）。
+- **R3 动态文案联动（首批）**：`assets/js/core/router.js` 路由标题经 `ROUTE_TITLE_KEYS` 取词、更多菜单经 `MORE_LABEL_KEYS` 取词并注册 `gs:lang` 监听即时重渲染；`assets/js/modules/tuner.js` 全部动态文案（开关/锁定/监听/准星/偏差/toast 共 14 处）走 `T()/TF()` 并监听 `gs:lang`——弦按钮只改 `<span>` 文本不重建（保住 heard/tuned/picked 状态类），且**激活中切语言主按钮必须显示「停止调音」**（防止被 scanStatic 复位成待机文案，LANG-3 有回归断言）；`assets/js/modules/metronome.js` 16 处 toast/诊断/提示走词条，采样提示条在切语言时按状态复位。
+- **R4 取词层收敛**：宿主新增 `tF(key, pairs)` 导出并挂到 `window.gsI18n`；`assets/js/gp/play.js`、`assets/js/modules/song-play.js` 的本地 `TF` 改为优先委托宿主、无宿主（Node 单测）时本地回退，占位符语义全仓单一口径。
+- **R6 第一批词条**：四语字典 239 → **349 键**（+110），键集合四语完全同步；`privacy.note` 中文对齐「本地浏览器」表述。死词条观察清单建档（`home.hero.title` 一项，测试看门只减不增）。
+- **新增测试 11 项**：`test/i18n-mount.test.js`（MOUNT-1 挂载键存在性 / MOUNT-2 关键挂载点 / MOUNT-3 死词条零新增 / MOUNT-4 全键占位符四语一致）；`test/module-lang.test.js`（LANG-1/2 双注入与 44px 契约、LANG-3 调音器双态行为级重渲染、LANG-4 节拍器监听契约、LANG-5 路由词条化、LANG-6 TF 委托、LANG-7 document.title）。
+- **测试**：**466 用例 / 465 pass / 0 fail / 1 skip**（V4.2.7 基线 455 → +11）。
+- **已知边界（M2/M3 移交）**：rhythm 帮助正文等富文本含 `<kbd>` 暂不挂载（需 i18n-html 能力）；game/ear/scale/rhythm/flow/plan/stats 模块的动态状态文案仍随交互产出中文（静态首刷已多语，动态联动属 M2）；`metroSampleTip` 等动态节点不挂静态属性、由模块 `gs:lang` 监听按状态复位（本版已示范）；曲名/歌手/歌词多语字段（R5）属 M3。
+
 ## V4.2.7 · 热修：结算横幅可点击 / emoji 清尾收口 / 四弦调音精度（八度误锁根治）
 
 依据《六弦工坊 V4.2.6 全量测试与缺陷手册》（`docs/V4.2.6_TEST_MANUAL.md` 归档）第四、八节，外加用户物理机实测新增的一类调音缺陷。版本 4.2.6 → **4.2.7**。

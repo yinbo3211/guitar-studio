@@ -13,6 +13,13 @@
 
 const { tapBpm, isSubAccent, clamp } = AudioCore;
 
+/* V4.3 R3/R4：取词收敛到宿主（window.t / window.gsI18n.tF），无宿主回退 key */
+function T(k){ try{ if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); }catch(e){/* 无 i18n 环境 */} return k; }
+function TF(k,pairs){
+  try{ if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,pairs); }catch(e){/* 回退本地 */}
+  let s=T(k); for(const a of Object.keys(pairs||{})) s=s.split('{'+a+'}').join(String(pairs[a])); return s;
+}
+
 const Metro = {
   bpm:90, beats:2, sub:1, playing:false,
   beat:0, subIdx:0, visualPos:0,
@@ -131,7 +138,7 @@ const Metro = {
              g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.1);
              o.connect(g); g.connect(AudioEngine.master); o.start(); o.stop(c.currentTime+.12);
              diag.nativePath=true; }catch(e){ diag.nativePath=e.message; }
-        setTimeout(()=>toast(`诊断: ${JSON.stringify(diag)}`, 'info', 4200), 350);
+        setTimeout(()=>toast(T('metro.diagPrefix')+JSON.stringify(diag), 'info', 4200), 350);
       });
     };
     this.renderDots();
@@ -156,18 +163,18 @@ const Metro = {
     const file=$('#metroSampleFile');
     if(file) file.addEventListener('change', async ()=>{
       const f=file.files && file.files[0]; if(!f) return;
-      tip('正在解码音频…');
+      tip(T('metro.sample.decoding'));
       try{
         const ab=await f.arrayBuffer();
         await AudioEngine.decodeSample('metro', ab);
         try{ localStorage.setItem('gs.metroSampleName', f.name); }catch(err){}
         applySample();
-        tip(`已导入：${f.name || '本地音频'}（点击「试音」可确认）`);
-        toast('自定义音源已导入','ok',2200);
+        tip(TF('metro.sample.importedTip',{name:f.name || T('metro.sample.localFile')}));
+        toast(T('metro.sample.imported'),'ok',2200);
       }catch(err){
         console.warn('[Metro] 采样解码失败：',err);
-        tip('解码失败：请换一个 mp3 / wav / ogg 文件');
-        toast('音频解码失败，请更换文件格式','err',2800);
+        tip(T('metro.sample.decodeFailTip'));
+        toast(T('metro.sample.decodeFail'),'err',2800);
       }
     });
     // 直链加载
@@ -175,18 +182,18 @@ const Metro = {
     const applyBtn=$('#metroSampleApply');
     if(applyBtn) applyBtn.addEventListener('click', async ()=>{
       const url=(urlInput && urlInput.value || '').trim();
-      if(!url){ tip('请先填写音频直链'); return; }
-      tip('正在下载音频…');
+      if(!url){ tip(T('metro.sample.needUrl')); return; }
+      tip(T('metro.sample.downloading'));
       try{
         await AudioEngine.loadSampleUrl('metro', url);
         try{ localStorage.setItem('gs.metroSampleUrl', url); }catch(err){}
         applySample();
-        tip('直链音源已就绪（点击「试音」可确认）');
-        toast('自定义音源已就绪','ok',2200);
+        tip(T('metro.sample.urlReadyTip'));
+        toast(T('metro.sample.ready'),'ok',2200);
       }catch(err){
         console.warn('[Metro] 直链加载失败：',err);
-        tip('加载失败：该链接可能不允许跨域下载，建议下载后从本地文件导入');
-        toast('直链加载失败，建议下载后本地导入','err',3000);
+        tip(T('metro.sample.urlFailTip'));
+        toast(T('metro.sample.urlFail'),'err',3000);
       }
     });
     // 记住上次的直链并自动恢复
@@ -206,8 +213,8 @@ const Metro = {
       const buses=!!(window.ToneEngine&&ToneEngine.buses);
       const sample=AudioEngine.hasSample('metro');
       const state=(AudioEngine.ctx&&AudioEngine.ctx.state)||'none';
-      tip(`诊断：backend=${backend} · voices=${voices?'yes':'no'} · buses=${buses?'yes':'no'} · sample=${sample?'yes':'no'} · ctx=${state}`);
-      toast(ok?'试音已播放（若仍听不到，请检查系统音量与输出设备）':'试音失败：请查看下方诊断信息', ok?'ok':'err', 3600);
+      tip(TF('metro.sample.diagLine',{backend, voices:voices?'yes':'no', buses:buses?'yes':'no', sample:sample?'yes':'no', state}));
+      toast(ok?T('metro.testOk'):T('metro.testFail'), ok?'ok':'err', 3600);
     });
   },
   /* 试音：依次播放强拍/弱拍/细分，覆盖 Tone 与原生两条链路 */
@@ -300,7 +307,7 @@ const Metro = {
       const played=AudioEngine.playSample('metro',off,strong?1:0.72);
       if(played){ if(subAcc) AudioEngine.playSample('metro',off+0.012,0.45); return; }
       if(!this._sampleWarned){ this._sampleWarned=true;
-        toast('自定义音源未就绪，暂时使用「咔嗒」音色','warn',2600); }
+        toast(T('metro.sampleNotReady'),'warn',2600); }
       this.voice='click';
     }
     const v=this._voices && this._voices[this.voice];
@@ -390,6 +397,15 @@ const Metro = {
     loop();
   }
 };
+/* V4.3 R3：语言切换——瞬时 toast 无需处理；唯一持久动态文案是采样提示条，
+   未导入自定义音源时复位为默认提示（已导入则保留状态信息，下次操作自然刷新） */
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>{
+    if(!Metro.inited) return;
+    if(Metro.voice!=='sample'){ const tip=$('#metroSampleTip'); if(tip) tip.textContent=T('metro.sampleTip'); }
+  });
+}
+
 onRouteEnter.metro=()=>Metro.init();
 
 window.Metro = Metro;

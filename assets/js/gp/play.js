@@ -31,7 +31,7 @@ const GOOD_CENTS = GRADE_DEFAULTS.goodCents;         // 60
 const OFF_CENTS = GRADE_DEFAULTS.observeCents;       // 100
 
 /* ---------- i18n 取词（BUG-03） ----------
-   宿主只全局暴露了 window.t-core/i18n.js），带参替换由各模块本地实现。
+   宿主全局暴露 window.t 与 window.gsI18n.tF（core/i18n.js，V4.3 R4 收敛）；
    无 window / 无 t 时回退为返回 key 本身，保证 Node 单测可直接跑。 */
 function T(k) {
   try {
@@ -40,8 +40,12 @@ function T(k) {
   } catch (e) { /* 无 i18n 环境用 key 兜底 */ }
   return k;
 }
-/** 占位符替换：{n}/{id}/{bpm}/{key}… 一律走这里，禁止拼进模板 */
+/** 占位符替换：{n}/{id}/{bpm}/{key}… 一律走这里，禁止拼进模板
+    V4.3 R4：优先委托宿主 window.gsI18n.tF（单一口径），无宿主（Node 单测）本地回退 */
 function TF(k, pairs) {
+  try {
+    if (typeof window !== 'undefined' && window.gsI18n && typeof window.gsI18n.tF === 'function') return window.gsI18n.tF(k, pairs);
+  } catch (e) { /* 回退本地实现 */ }
   let s = T(k);
   for (const a of Object.keys(pairs || {})) s = s.split('{' + a + '}').join(String(pairs[a]));
   return s;

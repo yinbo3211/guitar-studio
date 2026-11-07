@@ -17,6 +17,15 @@
 
 const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeNoiseGate, createPitchTracker, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
 
+/* V4.3 R3/R4：取词收敛到宿主——t 走 window.t（core/i18n.js），
+   带参替换优先委托 window.gsI18n.tF（单一口径）；
+   无宿主（Node 单测 DOM 桩）回退为 key 本身 + 本地替换。 */
+function T(k){ try{ if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); }catch(e){/* 无 i18n 环境 */} return k; }
+function TF(k,pairs){
+  try{ if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,pairs); }catch(e){/* 回退本地 */}
+  let s=T(k); for(const a of Object.keys(pairs||{})) s=s.split('{'+a+'}').join(String(pairs[a])); return s;
+}
+
 /* ============================================================
    模块 1：调音器
    ============================================================ */
@@ -74,7 +83,7 @@ const Tuner = {
     $('#dialLines').innerHTML=svg;
     // 弦按钮
     $('#stringRow').innerHTML=this.strings.map(s=>
-      `<button class="string-btn" data-midi="${s.midi}"><b>${s.label}</b><span>${s.n}弦</span></button>`).join('');
+      `<button class="string-btn" data-midi="${s.midi}"><b>${s.label}</b><span>${TF('tuner.stringN',{n:s.n})}</span></button>`).join('');
     /* V3.2：点弦按钮 = ①播放该弦的标准参考音 ②锁定/解锁目标弦。
        锁定后所有判定都只针对这一根弦，不会再被邻弦抢跑；
        调准后按钮转绿（.tuned）。再点一次即解锁回到自动模式。 */
@@ -86,8 +95,8 @@ const Tuner = {
       this.picked = (this.picked===midi) ? null : midi;
       this.syncPickedUI();
       $('#tunerSub').textContent = this.picked!=null
-        ? ('已锁定 '+(this.strings.find(s=>s.midi===this.picked)||{}).n+'弦 · 目标 '+this.freq(this.picked).toFixed(1)+' Hz')
-        : '松开锁定，自动识别最近的一根弦';
+        ? TF('tuner.locked',{n:(this.strings.find(s=>s.midi===this.picked)||{}).n, f:this.freq(this.picked).toFixed(1)})
+        : T('tuner.unlocked');
     });
     // 模式
     $('#tunerMode').addEventListener('click',e=>{
@@ -136,15 +145,15 @@ const Tuner = {
       this.inTune=false; this.inTuneCount=0; this.shownCents=0;
       this.lostFrames=0; this.calibFrames.length=0; this.calibDone=false;
       this.resetUI();
-      $('#tunerToggleTxt').textContent='开启麦克风调音';
+      $('#tunerToggleTxt').textContent=T('tuner.start');
       $('#tunerToggle').classList.remove('btn-danger');
       $('#tunerToggle').classList.add('btn-primary');
       return;
     }
-    $('#tunerToggleTxt').textContent='正在请求麦克风(最多等10秒)…';
+    $('#tunerToggleTxt').textContent=T('tuner.waiting');
     const ok=await Mic.start(r=>this.onPitch(r));
     if(!ok && Mic.lastDiagnostics){
-      $('#tunerSub').textContent='失败原因: '+Mic.lastDiagnostics.hint;
+      $('#tunerSub').textContent=T('tuner.failPrefix')+Mic.lastDiagnostics.hint;
     }
     if(ok){
       this.active=true;
@@ -154,17 +163,17 @@ const Tuner = {
       this.gate.reset(); this.tracker.reset();
       this.inTune=false; this.inTuneCount=0; this.shownCents=0;
       this.lostFrames=0; this.calibFrames.length=0; this.calibDone=false;
-      $('#tunerToggleTxt').textContent='停止调音';
+      $('#tunerToggleTxt').textContent=T('tuner.stopTuning');
       $('#tunerToggle').classList.remove('btn-primary');
       $('#tunerToggle').classList.add('btn-danger');
-      $('#tunerSub').textContent='请拨响任意一根弦 · 点弦按钮可锁定目标弦';
+      $('#tunerSub').textContent=T('tuner.subListening');
     }else{
-      $('#tunerToggleTxt').textContent='开启麦克风调音';
+      $('#tunerToggleTxt').textContent=T('tuner.start');
     }
   },
   resetUI(){
     $('#tunerNote').textContent='--';
-    $('#tunerSub').textContent='点击下方按钮开启麦克风';
+    $('#tunerSub').textContent=T('tuner.subIdle');
     $('#tunerFreq').textContent='';
     $('#tunerStatus').textContent='';
     $('#tunerStatus').style.color='';
@@ -200,7 +209,7 @@ const Tuner = {
       this.lostFrames++;
       this.inTune = false; this.inTuneCount = 0;
       if(this.lostFrames > 12){
-        if(st){ st.textContent = rms > 0 ? '信号较弱，请靠近音孔再弹一次' : ''; st.style.color='var(--txt-3)'; }
+        if(st){ st.textContent = rms > 0 ? T('tuner.weakSignal') : ''; st.style.color='var(--txt-3)'; }
         if(noteEl){ noteEl.textContent='--'; noteEl.style.color=''; }
         $('#tunerFreq').textContent='';
         if(glow) glow.style.opacity='0';
@@ -249,7 +258,7 @@ const Tuner = {
       cents=centsTo(detFreq,target);
       displayName=target.label;
       this.heardString=target.n;
-      sub = (this.picked!=null ? '已锁定 ' : '') + target.n+'弦 · 目标 '+(targetFreq.toFixed(1))+' Hz';
+      sub = (this.picked!=null ? T('tuner.lockedPrefix') : '') + TF('tuner.subTarget',{n:target.n, f:targetFreq.toFixed(1)});
       $$('.string-btn').forEach(b=>{
         const on = (this.picked!=null) ? (+b.dataset.midi===this.picked) : (+b.dataset.midi===target.midi);
         b.classList.toggle('heard', on);
@@ -259,7 +268,7 @@ const Tuner = {
       targetMidi=Math.round(midiFloat);
       cents=(midiFloat-targetMidi)*100;
       displayName=noteNameNoOct(targetMidi)+(Math.floor(targetMidi/12)-1);
-      sub='半音阶';
+      sub=T('tuner.chromatic');
     }
 
     /* V3.2 关键修复：删除「|cents| > 60 就清空整个 UI 并 return」的分支。
@@ -279,7 +288,7 @@ const Tuner = {
 
     if(this.inTune){
       this.inTuneCount++;
-      st.textContent='准 ✓';
+      st.textContent=T('tuner.inTune');
       st.style.color='var(--mint)';
       noteEl.style.color='var(--mint)';
       if(glow) glow.style.opacity='1';
@@ -292,7 +301,7 @@ const Tuner = {
              从不写入 PracticeStore，导致每日计划里「调音检查」任务的
              refreshProgress 永远取到 0，该任务永远无法完成。 */
           if(this.tunedSet.size===6){
-            toast('六根弦全部调准，开始练习吧！','ok');
+            toast(T('tuner.allTuned'),'ok');
             this.tunedSet.clear();
             this.reportTuned();
           }
@@ -301,7 +310,7 @@ const Tuner = {
     }else{
       this.inTuneCount=0;
       const flat=cents<0;
-      st.textContent=flat?('偏低 '+(Math.abs(cents).toFixed(0))+' 音分'):('偏高 '+(cents.toFixed(0))+' 音分');
+      st.textContent=flat?TF('tuner.flat',{n:Math.abs(cents).toFixed(0)}):TF('tuner.sharp',{n:cents.toFixed(0)});
       st.style.color=flat?'var(--blue)':'var(--red)';
       noteEl.style.color=flat?'var(--blue)':'var(--red)';
       if(glow) glow.style.opacity='0';
@@ -329,6 +338,31 @@ const Tuner = {
     this.tuneStartedAt=this.sessionStartedAt;
   }
 };
+/* V4.3 R3：语言切换即时重渲染可见文案。
+   弦按钮只改 <span> 文本，不重建按钮（保住 heard/tuned/picked 状态类）；
+   注意 scanStatic（core/i18n.js）已把 #tunerToggleTxt/#tunerSub 复位为待机枪，
+   这里必须按当前运行状态修正：激活中显示「停止调音」+ 监听/锁定提示。 */
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>{
+    if(!Tuner.inited) return;
+    if(typeof $$==='function') $$('.string-btn').forEach(b=>{
+      const s=Tuner.strings.find(x=>x.midi===+b.dataset.midi);
+      const sp=b.querySelector('span'); if(s&&sp) sp.textContent=TF('tuner.stringN',{n:s.n});
+    });
+    const tt=$('#tunerToggleTxt');
+    if(!Tuner.active){
+      if(tt) tt.textContent=T('tuner.start');
+      Tuner.resetUI();
+    }else{
+      if(tt) tt.textContent=T('tuner.stopTuning');
+      const sub=$('#tunerSub');
+      if(sub) sub.textContent = Tuner.picked!=null
+        ? TF('tuner.locked',{n:(Tuner.strings.find(s=>s.midi===Tuner.picked)||{}).n, f:Tuner.freq(Tuner.picked).toFixed(1)})
+        : T('tuner.subListening');
+    }
+  });
+}
+
 onRouteEnter.tuner=()=>{ Tuner.init(); };
 
 window.Tuner = Tuner;

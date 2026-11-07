@@ -83,6 +83,16 @@ globalThis.Mic = { lastDiagnostics: null, start: async () => true, stop() {} };
 globalThis.toast = () => {};
 globalThis.onRouteEnter = {};
 globalThis.window = globalThis;
+/* V4.3：桩环境接入 zh-CN 词典，T()/TF() 产出真实文案（断言继续检查中文口径） */
+const { DICT: ZH } = await import('../assets/js/i18n/zh-CN.js');
+globalThis.t = (k) => ZH[k] ?? k;
+globalThis.gsI18n = {
+  tF(k, pairs) {
+    let s = ZH[k] ?? k;
+    for (const a of Object.keys(pairs || {})) s = s.split('{' + a + '}').join(String(pairs[a]));
+    return s;
+  },
+};
 const { Tuner } = await import('../assets/js/modules/tuner.js');
 
 /* 把一段稳定音高喂进真实链路（gate/tracker/判定全部走真代码） */
