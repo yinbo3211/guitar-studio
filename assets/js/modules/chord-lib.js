@@ -4,6 +4,10 @@
    ============================================================ */
 'use strict';
 
+/* V4.3.1 收尾：用户可见文案统一走宿主词条（无宿主 / Node 单测回退 key） */
+const T = k => { try { if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); } catch(e){} return k; };
+const TF = (k,p) => { try { if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,p); } catch(e){} let s=T(k); for(const a of Object.keys(p||{})) s=s.split('{'+a+'}').join(String(p[a])); return s; };
+
 const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
 
 const ChordLib = {
@@ -27,7 +31,7 @@ const ChordLib = {
       <div class="prog-item" data-i="${i}">
         <div style="flex:1">
           <div class="prog-chords">${p.chords.map(c=>`<b>${c}</b>`).join('')}</div>
-          <div class="prog-name">${p.name} · ${p.desc}</div>
+          <div class="prog-name">${T(p.nk)} · ${T(p.dk)}</div>
         </div>
         <button class="prog-play" data-i="${i}"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg></button>
       </div>`).join('');
@@ -51,24 +55,24 @@ const ChordLib = {
     $$('.chord-card').forEach(x=>x.classList.toggle('sel',x.dataset.name===c.name));
     $('#chordDetail').querySelector('.big-diagram').innerHTML=renderDiagram(c,{big:true,leftHand:this.leftHand});
   },
-  select(c){
+  select(c, silent){
     this.sel=c;
     AudioEngine.ensure();
-    AudioEngine.strum(chordFreqs(c),'down',.3);
+    if(!silent) AudioEngine.strum(chordFreqs(c),'down',.3);
     this.renderGrid();
     $('#chordDetail').innerHTML=`
       <div class="big-diagram">${renderDiagram(c,{big:true,leftHand:this.leftHand})}</div>
       <div class="chord-meta">
-        <h3>${c.name} 和弦</h3>
+        <h3>${TF('chords.detailTitle',{name:c.name})}</h3>
         <div class="notes">${c.notes.map(n=>`<span class="note-chip">${n}</span>`).join('')}</div>
-        <p class="hint">数字代表按弦品位，“○”为空弦音，“×”表示该弦不弹。横按和弦用一根手指同时压住多根弦。</p>
+        <p class="hint">${T('chords.legend')}</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" id="playStrum"><span style="width:16px;height:16px;display:inline-flex">${SVG_ICONS.play}</span>听扫弦</button>
-          <button class="btn btn-sm" id="playArpeggio">听分解</button>
+          <button class="btn btn-primary btn-sm" id="playStrum"><span style="width:16px;height:16px;display:inline-flex">${SVG_ICONS.play}</span>${T('chords.btn.strum')}</button>
+          <button class="btn btn-sm" id="playArpeggio">${T('chords.btn.arpeggio')}</button>
         </div>
         <label class="lh-row" style="margin-top:16px">
           <span class="switch"><input type="checkbox" id="lhSwitch"><span class="track"></span><span class="thumb"></span></span>
-          左手琴（反手）指法图
+          ${T('chords.leftHand')}
         </label>
       </div>`;
     $('#playStrum').onclick=()=>AudioEngine.strum(chordFreqs(c),'down',.3);
@@ -155,7 +159,20 @@ const ChordLib = {
     }
     this.progPlaying=null;
   }
+,
+  /* V4.3.1：进行名只改文本不重建（保住 .playing 高亮）；详情区按当前和弦静默重绘。 */
+  refreshLang(){
+    if(!this.inited) return;
+    $$('#progList .prog-item').forEach((el,i)=>{
+      const nm=el.querySelector('.prog-name');
+      if(nm&&PROGRESSIONS[i]) nm.textContent=T(PROGRESSIONS[i].nk)+' · '+T(PROGRESSIONS[i].dk);
+    });
+    if(this.sel) this.select(this.sel,true);
+  }
 };
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>ChordLib.refreshLang());
+}
 onRouteEnter.chords=()=>ChordLib.init();
 
 window.ChordLib = ChordLib;

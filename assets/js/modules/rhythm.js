@@ -12,6 +12,10 @@
    ============================================================ */
 'use strict';
 
+/* V4.3.1 收尾：用户可见文案统一走宿主词条（无宿主 / Node 单测回退 key） */
+const T = k => { try { if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); } catch(e){} return k; };
+const TF = (k,p) => { try { if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,p); } catch(e){} let s=T(k); for(const a of Object.keys(p||{})) s=s.split('{'+a+'}').join(String(p[a])); return s; };
+
 const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
 
 const Rhythm = {
@@ -112,7 +116,7 @@ const Rhythm = {
     /* 分解模式：和弦根音映射（需求 4.2.6） */
     const chords=['通用','C','G','D','E','Am'];
     $('#rtChordChips').innerHTML=chords.map((c,i)=>
-      `<button class="preset-chip${c===this.chord?' on':''}" data-c="${c}">${c}</button>`).join('');
+      `<button class="preset-chip${c===this.chord?' on':''}" data-c="${c}">${c==='通用'?T('rhythm.common'):c}</button>`).join('');
     $$('#rtChordChips .preset-chip').forEach(c=>c.onclick=()=>{
       this.chord=c.dataset.c;
       $$('#rtChordChips .preset-chip').forEach(x=>x.classList.toggle('on',x===c));
@@ -137,9 +141,9 @@ const Rhythm = {
 
     /* 统计 */
     $('#rtClearStats').onclick=()=>{
-      if(!confirm('确定清除全部节奏练习记录吗？此操作不可恢复。')) return;
+      if(!confirm(T('rhythm.clearConfirm'))) return;
       try{ localStorage.removeItem('gs_rhythm_v1'); }catch(_){}
-      this.renderStats(); $('#rtLastSession').textContent=''; toast('练习记录已清除','ok');
+      this.renderStats(); $('#rtLastSession').textContent=''; toast(T('rhythm.cleared'),'ok');
     };
 
     /* 首次访问自动展开说明 */
@@ -160,7 +164,7 @@ const Rhythm = {
   renderPatterns(){
     const list=this.cat==='strum'?RhythmData.STRUM_PATTERNS:RhythmData.PICK_PATTERNS;
     $('#rtChips').innerHTML=list.map((p,i)=>
-      `<button class="preset-chip${p===this.pattern?' on':''}" data-i="${i}">${p.name}</button>`).join('');
+      `<button class="preset-chip${p===this.pattern?' on':''}" data-i="${i}">${T(p.nk)}</button>`).join('');
     $$('#rtChips .preset-chip').forEach(c=>c.onclick=()=>{
       if(this.phase!=='idle') this.stop(false);
       this.pattern=list[+c.dataset.i];
@@ -171,18 +175,19 @@ const Rhythm = {
   renderInfo(){
     const p=this.pattern, RD=RhythmData;
     const chordLine=this.cat==='pick'
-      ? `<div class="rt-meta">当前和弦：<b style="color:var(--mint)">${this.chord}</b>${this.chord==='通用'?'（通用弦序：根=5弦、B=6弦）':`（根音 ${RD.ROOT_MAP[this.chord].s} 弦${RD.ROOT_MAP[this.chord].fret?' '+RD.ROOT_MAP[this.chord].fret+' 品':'空弦'} · 低音 ${RD.ROOT_MAP[this.chord].altS} 弦）`}</div>`
+      ? `<div class="rt-meta">${T('rhythm.chord.current')}<b style="color:var(--mint)">${this.chord==='通用'?T('rhythm.common'):this.chord}</b>${this.chord==='通用'?T('rhythm.chord.commonNote'):TF('rhythm.chord.rootLine',{s:RD.ROOT_MAP[this.chord].s,f:RD.ROOT_MAP[this.chord].fret?TF('rhythm.fretN',{n:RD.ROOT_MAP[this.chord].fret}):T('rhythm.open'),alt:RD.ROOT_MAP[this.chord].altS})}</div>`
       : '';
     const subLabel=(p)=>{ // 细分标签按「每拍时值 × 步数」换算，不能只看 subdivision
-      if(p.subdivision===3) return '三连音';
-      return {2:'二分音符',4:'四分音符',8:'八分音符',16:'十六分音符'}[p.beatUnit*Math.pow(2,p.subdivision-1)]||'自定义';
+      if(p.subdivision===3) return T('rhythm.sub.triplet');
+      const k={2:'rhythm.sub.half',4:'rhythm.sub.quarter',8:'rhythm.sub.eighth',16:'rhythm.sub.sixteenth'}[p.beatUnit*Math.pow(2,p.subdivision-1)];
+      return k?T(k):T('rhythm.sub.custom');
     };
     $('#rtInfo').innerHTML=
-      `<h4>${p.name} <span class="rt-stars">${'★'.repeat(p.difficulty)}${'☆'.repeat(3-p.difficulty)}</span></h4>
-       <div class="rt-meta">拍号 ${RD.timeSigText(p)} · 细分 ${subLabel(p)} · 建议 ${p.bpm} BPM 起 · 格数 ${p.actions.length}</div>
+      `<h4>${T(p.nk)} <span class="rt-stars">${'★'.repeat(p.difficulty)}${'☆'.repeat(3-p.difficulty)}</span></h4>
+       <div class="rt-meta">${TF('rhythm.meta',{sig:RD.timeSigText(p),sub:subLabel(p),bpm:p.bpm,n:p.actions.length})}</div>
        ${chordLine}
-       <p>${p.desc}</p>
-       <ul class="rt-tips">${p.tips.map(t=>`<li>${t}</li>`).join('')}</ul>`;
+       <p>${T(p.dk)}</p>
+       <ul class="rt-tips">${T(p.tk).split('\n').map(t=>`<li>${t}</li>`).join('')}</ul>`;
   },
 
   /* ---------- 渲染：拍指示点 + 动作网格 ---------- */
@@ -198,10 +203,22 @@ const Rhythm = {
     let html='';
     cells.forEach((c,i)=>{
       const cls=['rt-cell',c.kind, i%p.subdivision===0?'beat-head':''].join(' ');
-      html+=`<div class="${cls}" data-i="${i}"><span class="lab">${c.label}</span><span class="cap">${c.sub||''}</span></div>`;
+      const cnAttrs=c.cnKey?` data-cnkey="${c.cnKey}"${c.cnN!=null?` data-n="${c.cnN}"`:''}`:'';
+      html+=`<div class="${cls}" data-i="${i}"${cnAttrs}><span class="lab">${c.label}</span><span class="cap"${c.subKey?` data-subkey="${c.subKey}"`:''}>${c.subKey?T(c.subKey):(c.sub||'')}</span></div>`;
     });
     $('#rtGrid').innerHTML=html;
+    this._paintCellNames();
     this.lastUiStep=-99;
+  },
+
+  /* V4.3.1：动作名只走 DOM 属性（title / aria-label），不进 innerHTML 插值面；
+     切语言时仅改属性，不重建交互网格，保住 done/next/cur 走带高亮。 */
+  _paintCellNames(){
+    $$('#rtGrid .rt-cell[data-cnkey]').forEach(el=>{
+      const k=el.dataset.cnkey, n=el.dataset.n;
+      const name=n!=null?TF(k,{n:+n}):T(k);
+      el.title=name; el.setAttribute('aria-label',name);
+    });
   },
 
   /* ---------- 音频 ---------- */
@@ -283,12 +300,12 @@ const Rhythm = {
   },
   start(){
     if(this.phase!=='idle') return;   // RT-006：防重复实例（快速连点不叠加调度器）
-    try{ this.ensureAudio(); }catch(err){ toast('音频初始化失败：'+err.message,'err'); return; }
+    try{ this.ensureAudio(); }catch(err){ toast(TF('rhythm.audioInitFail',{err:err.message}),'err'); return; }
     /* RT-011：resume() 是异步的——ctx.state 可能仍是 suspended。
        绝不能同步判死卡住，也不该硬要求用户点两次：
        挂起时先提示，等 statechange 到 running 后自动起播。 */
     if(this.ac.state!=='running'){
-      toast('正在等待浏览器放行音频…');
+      toast(T('rhythm.waitAudio'));
       this._setPlayIcon('pause');
       this._waitAudioRunning(()=>this._beginPlayback());
       return;
@@ -306,9 +323,9 @@ const Rhythm = {
       cb();
     };
     this.ac.onstatechange=done;
-    this.ac.resume().then(()=>setTimeout(done,60)).catch(()=>{ if(token===this._waitToken) toast('音频被浏览器拦截，请点击页面后再试','err'); });
+    this.ac.resume().then(()=>setTimeout(done,60)).catch(()=>{ if(token===this._waitToken) toast(T('rhythm.audioBlocked'),'err'); });
     /* 兜底：8 秒仍没放行就还原按钮，避免永远转圈 */
-    setTimeout(()=>{ if(token!==this._waitToken) return; if(this.ac.state!=='running'){ this.ac.onstatechange=null; this._setPlayIcon('play'); this._status('音频未获授权 · 请点击页面任意处后再按播放'); } },8000);
+    setTimeout(()=>{ if(token!==this._waitToken) return; if(this.ac.state!=='running'){ this.ac.onstatechange=null; this._setPlayIcon('play'); this._status(T('rhythm.audioNotAllowed')); } },8000);
   },
   _beginPlayback(){
     // RT-012：起播前再次声明本模块 BPM，防止和弦库 playProg 等外部模块改过全局
@@ -328,13 +345,13 @@ const Rhythm = {
     this._teardown();                       // 停调度器与 RAF，保留进度
     this.phase='paused';
     this._setPlayIcon('play');
-    this._status(`已暂停 · 第 ${this.loopDone||1} 遍 · 按 ▶ 从原格继续`);
+    this._status(TF('rhythm.paused',{n:this.loopDone||1}));
   },
   resume(){
     if(this.phase!=='paused') return;
-    try{ this.ensureAudio(); }catch(err){ toast('音频恢复失败：'+err.message,'err'); return; }
+    try{ this.ensureAudio(); }catch(err){ toast(TF('rhythm.audioResumeFail',{err:err.message}),'err'); return; }
     if(this.ac.state!=='running'){    // RT-011：同 start()，等待放行后续播
-      toast('正在等待浏览器放行音频…');
+      toast(T('rhythm.waitAudio'));
       this._waitAudioRunning(()=>{
         const el=this.pausedElapsed;
         this.startTime=this.ac.currentTime+.1-el;
@@ -365,7 +382,7 @@ const Rhythm = {
     $$('#rtDots .beat-dot').forEach(d=>d.className='beat-dot');
     if(wasPlaying&&record) this._finishSession(finishedLoops);
     else if(wasPlaying) this.playedSeconds=0;
-    this._status(record?this._statusText():'就绪 · 选择节奏型后按开始');
+    this._status(record?this._statusText():T('rhythm.status.idle'));
   },
   _teardown(){
     clearInterval(this.timer); this.timer=null;
@@ -379,7 +396,7 @@ const Rhythm = {
   _status(t){ $('#rtStatus').innerHTML=t; },
   _statusText(){
     const p=this.pattern;
-    return `就绪 · <b>${p.name}</b> · ${this.bpm} BPM · 循环 ${this.loops===0?'∞':this.loops} 遍`;
+    return TF('rhythm.statusText',{name:T(p.nk),bpm:this.bpm,loops:this.loops===0?'∞':this.loops});
   },
 
   /* ---------- lookahead 调度（与节拍器同源方案） ----------
@@ -466,7 +483,7 @@ const Rhythm = {
       const dotEls=$$('#rtDots .beat-dot');
       if(this.phase==='countin'){
         const ci=Math.min(beats-1,Math.floor(elapsed/quarter));
-        $('#rtStatus').innerHTML=`<span class="rt-countin">预备 ${ci+1} / ${beats}</span>`;
+        $('#rtStatus').innerHTML=`<span class="rt-countin">${TF('rhythm.countinStatus',{n:ci+1,m:beats})}</span>`;
         dotEls.forEach((d,i)=>d.className='beat-dot'+(i===ci?' flash-strong':''));
       }else{
         const rel=elapsed-ciDur;
@@ -476,7 +493,7 @@ const Rhythm = {
           this.loopDone=Math.floor(absStep/total)+1;
           const bi=Math.floor(idx/sub);
           const loopTxt=this.loops===0?`${this.loopDone} / ∞`:`${Math.min(this.loopDone,this.loops)} / ${this.loops}`;
-          $('#rtStatus').innerHTML=`<b>${esc(this.pattern.name)}</b> · ${this.bpm} BPM · 循环 <b>${esc(loopTxt)}</b>`;
+          this._status(TF('rhythm.playingStatus',{name:esc(T(this.pattern.nk)),bpm:this.bpm,loops:esc(loopTxt)}));
           dotEls.forEach((d,i)=>d.className='beat-dot'+(i===bi?(i===0?' flash-strong':(isSubAccent(beats,i)?' flash-sub':' flash-weak')):''));
           if(idx!==this.lastUiStep){                 // 高亮：当前 / 已奏变暗 / 下一格虚框
             this.lastUiStep=idx;
@@ -509,7 +526,7 @@ const Rhythm = {
     this._setPlayIcon('play'); this._clearCells();
     $$('#rtDots .beat-dot').forEach(d=>d.className='beat-dot');
     this._finishSession(finishedLoops);
-    this._status('本轮完成 · 可调整 BPM 再来，或换个节奏型挑战');
+    this._status(T('rhythm.finished'));
   },
 
   /* ---------- 练习统计（localStorage，异常静默降级） ---------- */
@@ -525,13 +542,13 @@ const Rhythm = {
       prev.t.sec+=sec; prev.t.loops+=loops; prev.t.count++;
       prev.maxBpm=Math.max(prev.maxBpm||0,this.bpm);
       prev.last.unshift({d:new Date().toLocaleString('zh-CN',{hour12:false}).slice(5,16),
-                         n:this.pattern.name,b:this.bpm,l:loops,s:sec});
+                         pid:this.pattern.id,n:this.pattern.name,b:this.bpm,l:loops,s:sec});
       prev.last=prev.last.slice(0,20);
       try{ localStorage.setItem('gs_rhythm_v1',JSON.stringify(prev)); }catch(_){}
       const m=Math.floor(sec/60),s=sec%60;
       $('#rtLastSession').textContent=
-        `上次会话：${this.pattern.name} · ${this.bpm} BPM · ${loops} 遍 · ${m}分${s}秒`;
-      toast(`练完了！${this.pattern.name} ×${loops} 遍，坚持住`,'ok');
+        TF('rhythm.lastSession',{name:T(this.pattern.nk),bpm:this.bpm,loops,m,s});
+      toast(TF('rhythm.sessionToast',{name:T(this.pattern.nk),loops}),'ok');
     }
     this.playedSeconds=0; this.loopDone=0;
     this.renderStats();
@@ -540,15 +557,40 @@ const Rhythm = {
     const st=this._loadStats();
     const t=st?st.t:{sec:0,loops:0,count:0};
     const m=Math.floor(t.sec/60),s=t.sec%60;
-    const fmt=t.sec>=60?`${m} 分 ${s} 秒`:`${t.sec} 秒`;
+    const fmt=t.sec>=60?TF('rhythm.time.min',{m,s}):TF('rhythm.time.sec',{n:t.sec});
     $('#rtStats').innerHTML=
-      `<div class="rt-stat"><b>${fmt}</b><span>累计练习</span></div>
-       <div class="rt-stat"><b>${t.loops}</b><span>完成循环</span></div>
-       <div class="rt-stat"><b>${this.bpm}</b><span>当前 BPM</span></div>
-       <div class="rt-stat"><b>${st?st.maxBpm:0}</b><span>历史最高 BPM</span></div>
-       <div class="rt-stat"><b>${t.count}</b><span>练习次数</span></div>`;
+      `<div class="rt-stat"><b>${fmt}</b><span>${T('rhythm.stat.total')}</span></div>
+       <div class="rt-stat"><b>${t.loops}</b><span>${T('rhythm.stat.loops')}</span></div>
+       <div class="rt-stat"><b>${this.bpm}</b><span>${T('rhythm.bpm')}</span></div>
+       <div class="rt-stat"><b>${st?st.maxBpm:0}</b><span>${T('rhythm.stat.maxBpm')}</span></div>
+       <div class="rt-stat"><b>${t.count}</b><span>${T('rhythm.stat.count')}</span></div>`;
+  },
+  /* V4.3.1 收尾：语言切换即时重渲染。播放中只改文本、不重建网格/统计，
+     保住 cur/done/next 高亮类与走带状态；idle 态才重建网格。 */
+  refreshLang(){
+    if(!this.inited) return;
+    this.renderPatterns(); this.renderInfo(); this.renderStats();
+    $$('#rtChordChips .preset-chip').forEach(c=>{ if(c.dataset.c==='通用') c.textContent=T('rhythm.common'); });
+    $$('#rtGrid .rt-cell .cap[data-subkey]').forEach(c=>{ c.textContent=T(c.dataset.subkey); });
+    if(this.phase==='idle'){
+      this.renderGrid();
+      this._status(T('rhythm.status.idle'));
+    }
+    this._paintCellNames();
+    const st=this._loadStats();
+    if(st&&st.last&&st.last.length){
+      const e=st.last[0], sec=e.s||0, m=Math.floor(sec/60), s=sec%60;
+      const nm=e.pid?T('rhythm.pat.'+e.pid+'.name'):(e.n||'');
+      const el=$('#rtLastSession');
+      if(el&&nm) el.textContent=TF('rhythm.lastSession',{name:nm,bpm:e.b,loops:e.l,m,s});
+    }
   }
 };
+
+/* V4.3.1 R3：语言切换协议（与 tuner / metronome 同范式） */
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>Rhythm.refreshLang());
+}
 
 onRouteEnter.rhythm=()=>Rhythm.init();
 

@@ -4,6 +4,10 @@
    ============================================================ */
 'use strict';
 
+/* V4.3.1 收尾：用户可见文案统一走宿主词条（无宿主 / Node 单测回退 key） */
+const T = k => { try { if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); } catch(e){} return k; };
+const TF = (k,p) => { try { if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,p); } catch(e){} let s=T(k); for(const a of Object.keys(p||{})) s=s.split('{'+a+'}').join(String(p[a])); return s; };
+
 const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
 
 const Scale = {
@@ -12,12 +16,7 @@ const Scale = {
   mic:false, timer:null, cand:null, candN:0, cooldown:0, bpm:80,
   init(){
     if(this.inited) return; this.inited=true;
-    $('#scxList').innerHTML = SCALE_LIST.map((s,idx)=>{
-      const t=SCALE_TYPES[s.type];
-      const posName=s.pos===0?'开放把位':'第 '+s.pos+' 把位';
-      return `<button class="scx-pick ${idx===0?'on':''}" data-i="${idx}">
-        <b>${s.root} ${t.name}</b><span>${posName}</span></button>`;
-    }).join('');
+    this.renderList();
     $('#scxList').onclick=e=>{
       const b=e.target.closest('.scx-pick'); if(!b)return;
       this.stopAll();
@@ -64,7 +63,7 @@ const Scale = {
     // 组成音（按音阶顺序）
     const ordered=t.iv.map(v=>NOTE_NAMES[(rootPc+v)%12]);
     $('#scxNotes').innerHTML=
-      `<span class="scx-nt-label">${sel.root} ${t.name} · </span>`+
+      `<span class="scx-nt-label">${TF('scx.scaleName',{root:sel.root,type:T(t.nk)})} · </span>`+
       ordered.map((n,k)=>`<span class="scx-nt ${k===0?'root':''}">${n}</span>`).join('');
     this.renderBoard();
     this.resetStage();
@@ -81,9 +80,9 @@ const Scale = {
       const openCell=this.fMin===0?this.cells.find(c=>c.s===s&&c.f===0):null;
       html+=`<div class="scx-open" data-s="${s}" data-f="0">`;
       if(openCell){
-        html+=this.dot(openCell)+`<small class="fnum-s">${6-s}弦</small>`;
+        html+=this.dot(openCell)+`<small class="fnum-s" data-n="${6-s}">${TF('scx.stringN',{n:6-s})}</small>`;
       }else{
-        html+=`<span class="str-lbl">${noteNameNoOct(OPEN_MIDI[s])}<small>${6-s}弦</small></span>`;
+        html+=`<span class="str-lbl">${noteNameNoOct(OPEN_MIDI[s])}<small data-n="${6-s}">${TF('scx.stringN',{n:6-s})}</small></span>`;
       }
       html+='</div>';
       for(const f of frets){
@@ -114,23 +113,23 @@ const Scale = {
     this.stopAll();
     this.i=0; this.combo=0; this.ok=0; this.bestCombo=0;
     this.clearAll();
-    $('#scxCur').textContent='准备好了吗';
+    this._txt('#scxCur','scale.ready');
     $('#scxPos').textContent='';
     $('#scxProg').textContent='';
     $('#scxCombo').textContent='';
-    $('#scxTip').textContent='先在上方选择音阶，点“跟听示范”听一遍，或开麦克风“跟弹”逐音练习';
+    this._txt('#scxTip','scale.tip');
     this.updateButtons();
   },
-  posText(c){ return (6-c.s)+'弦 · '+(c.f===0?'空弦':c.f+'品'); },
+  posText(c){ return TF('scx.posText',{s:6-c.s,f:c.f===0?T('rhythm.open'):TF('scx.fretN',{n:c.f})}); },
   /* ---- 跟听示范（BPM 逐音，上行再下行） ---- */
   startListen(){
     // Fix-6: 空序列保护——该音阶/把位在指板上无可用音符时直接提示并返回
-    if(!this.seq||!this.seq.length){ toast('该音阶在当前把位无可用音符','warn'); return; }
+    if(!this.seq||!this.seq.length){ toast(T('scx.empty'),'warn'); return; }
     AudioEngine.ensure();
     this.stopFollow();
     this.mode='listen';
     this.i=0; this.clearAll();
-    $('#scxTip').textContent='跟听示范，注意每个音在指板上的位置';
+    this._txt('#scxTip','scx.tip.listen');
     this.updateButtons();
     this.listenStep();
   },
@@ -140,7 +139,7 @@ const Scale = {
     const c=this.seq[this.i];
     AudioEngine.pluck(freqFromMidi(c.midi),0,1.7,.3);
     this.markNow(c);
-    $('#scxCur').textContent=noteNameNoOct(c.midi);
+    this._raw('#scxCur',noteNameNoOct(c.midi));
     $('#scxPos').textContent=this.posText(c);
     $('#scxProg').textContent=(this.i+1)+'/'+this.seq.length;
     this.i++;
@@ -156,15 +155,15 @@ const Scale = {
     this.mode='idle';
     clearTimeout(this.timer);
     this.clearNow();
-    $('#scxCur').textContent='示范完成';
+    this._txt('#scxCur','scx.done');
     $('#scxPos').textContent='';
-    $('#scxTip').textContent='轮到你了：点“开始跟弹”，照着高亮位置逐音弹';
+    this._txt('#scxTip','scx.tip.afterListen');
     this.updateButtons();
   },
   /* ---- 麦克风逐音跟弹 ---- */
   async startFollow(){
     // Fix-6: 空序列保护——该音阶/把位在指板上无可用音符时直接提示并返回
-    if(!this.seq||!this.seq.length){ toast('该音阶在当前把位无可用音符','warn'); return; }
+    if(!this.seq||!this.seq.length){ toast(T('scx.empty'),'warn'); return; }
     AudioEngine.ensure();
     this.stopListen();
     if(!this.mic){
@@ -179,14 +178,14 @@ const Scale = {
     // BUG-02：跟弹开始时记录起点并复位上报标志，一轮只计一次
     this.followStartedAt=Date.now(); this.followReported=false;
     this.clearAll();
-    $('#scxTip').textContent='照指板高亮的位置拨响当前音，逐音上行再下行';
+    this._txt('#scxTip','scx.tip.follow');
     $('#scxCombo').textContent='0';
     this.updateButtons();
     this.showTarget();
   },
   showTarget(){
     const c=this.seq[this.i];
-    $('#scxCur').textContent=noteNameNoOct(c.midi);
+    this._raw('#scxCur',noteNameNoOct(c.midi));
     $('#scxPos').textContent=this.posText(c);
     $('#scxProg').textContent=(this.i+1)+'/'+this.seq.length;
     this.markNow(c);
@@ -226,11 +225,11 @@ const Scale = {
     this.mode='idle';
     this.stopMic();
     this.clearNow();
-    $('#scxCur').textContent='完成！';
-    $('#scxPos').textContent='共弹对 '+this.ok+' 个音';
-    $('#scxTip').textContent='最高连击 '+this.bestCombo+'，提高速度或换个音阶继续';
+    this._txt('#scxCur','scx.finish');
+    this._txt('#scxPos','scx.hitN',{n:this.ok});
+    this._txt('#scxTip','scx.tip.finish',{n:this.bestCombo});
     this.updateButtons();
-    toast('音阶练习完成，最高连击 '+this.bestCombo,'ok');
+    toast(TF('scx.toast.finish',{n:this.bestCombo}),'ok');
     /* BUG-02 修复：完整弹完一条音阶后上报练习会话。旧实现只弹 toast，
        从不写入 PracticeStore，每日计划「音阶练习」任务的进度恒为 0，
        永远无法完成（计划无法达到 100%）。 */
@@ -273,13 +272,54 @@ const Scale = {
   updateButtons(){
     const lb=$('#scxListen'), fb=$('#scxFollow');
     if(!lb||!fb) return;
-    lb.textContent=this.mode==='listen'?'停止示范':'跟听示范';
+    lb.textContent=this.mode==='listen'?T('scx.btn.stopListen'):T('scale.listen');
     lb.classList.toggle('btn-danger',this.mode==='listen');
-    fb.textContent=this.mode==='follow'?'停止跟弹':'开始跟弹（麦克风）';
+    fb.textContent=this.mode==='follow'?T('scx.btn.stopFollow'):T('scale.follow');
     fb.classList.toggle('btn-danger',this.mode==='follow');
     fb.classList.toggle('btn-primary',this.mode!=='follow');
+  },
+  /* V4.3.1：文本节点记录「取词来源」，语言切换时按当前语言重放，
+     不重建指板/不清连击，保住 now/done 高亮与选中把位。 */
+  _txt(sel,key,pairs){
+    this._langText=this._langText||{};
+    this._langText[sel]={key,pairs:pairs||null};
+    $(sel).textContent=pairs?TF(key,pairs):T(key);
+  },
+  _raw(sel,val){
+    this._langText=this._langText||{};
+    this._langText[sel]=null;
+    $(sel).textContent=val;
+  },
+  renderList(){
+    $('#scxList').innerHTML=SCALE_LIST.map((s,idx)=>{
+      const t=SCALE_TYPES[s.type];
+      const posName=s.pos===0?T('scx.pos.open'):TF('scx.pos.n',{n:s.pos});
+      return `<button class="scx-pick ${idx===this.sel?'on':''}" data-i="${idx}">
+        <b>${TF('scx.scaleName',{root:s.root,type:T(t.nk)})}</b><span>${posName}</span></button>`;
+    }).join('');
+  },
+  refreshLang(){
+    if(!this.inited) return;
+    this.renderList();
+    $$('#scxBoard .fnum-s,#scxBoard .str-lbl small').forEach(e=>{
+      if(e.dataset.n!=null) e.textContent=TF('scx.stringN',{n:e.dataset.n});
+    });
+    this.updateButtons();
+    const lt=this._langText||{};
+    for(const sel of Object.keys(lt)){
+      const rec=lt[sel]; if(!rec) continue;
+      $(sel).textContent=rec.pairs?TF(rec.key,rec.pairs):T(rec.key);
+    }
+    /* 跟听/跟弹中的品位提示按当前语言重算（下一帧 listenStep 也会刷新） */
+    if(this.mode!=='idle'&&this.seq&&this.seq[this.i]){
+      const pos=$('#scxPos');
+      if(pos && !(lt['#scxPos']&&lt['#scxPos'].key==='scx.hitN')) pos.textContent=this.posText(this.seq[this.i]);
+    }
   }
 };
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>Scale.refreshLang());
+}
 onRouteEnter.scale=()=>Scale.init();
 
 window.Scale = Scale;

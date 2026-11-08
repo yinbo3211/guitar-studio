@@ -44,12 +44,12 @@ const CHORDS={
 const CHORD_MAP={};
 Object.values(CHORDS).flat().forEach(c=>CHORD_MAP[c.name]=c);
 const PROGRESSIONS=[
-  {name:'流行万能 1564', chords:['C','G','Am','F'], desc:'大量华语流行歌的和声骨架'},
-  {name:'卡农进行', chords:['C','G','Am','Em','F','C','F','G'], desc:'帕赫贝尔卡农，温暖绵长'},
-  {name:'1645 经典', chords:['C','Am','F','G'], desc:'五十年代至今最常见的进行'},
-  {name:'4536251', chords:['F','G','Em','Am','Dm','G','C'], desc:'抒情流行高频出现'},
-  {name:'6415 抒情', chords:['Am','F','C','G'], desc:'安静、略带忧伤的色彩'},
-  {name:'G-C-D-Em', chords:['G','C','D','Em'], desc:'乡村民谣常用进行'}
+  {name:'流行万能 1564', nk:'chords.prog.p1.name', dk:'chords.prog.p1.desc', chords:['C','G','Am','F'], desc:'大量华语流行歌的和声骨架'},
+  {name:'卡农进行',     nk:'chords.prog.p2.name', dk:'chords.prog.p2.desc', chords:['C','G','Am','Em','F','C','F','G'], desc:'帕赫贝尔卡农，温暖绵长'},
+  {name:'1645 经典',   nk:'chords.prog.p3.name', dk:'chords.prog.p3.desc', chords:['C','Am','F','G'], desc:'五十年代至今最常见的进行'},
+  {name:'4536251',     nk:'chords.prog.p4.name', dk:'chords.prog.p4.desc', chords:['F','G','Em','Am','Dm','G','C'], desc:'抒情流行高频出现'},
+  {name:'6415 抒情',   nk:'chords.prog.p5.name', dk:'chords.prog.p5.desc', chords:['Am','F','C','G'], desc:'安静、略带忧伤的色彩'},
+  {name:'G-C-D-Em',    nk:'chords.prog.p6.name', dk:'chords.prog.p6.desc', chords:['G','C','D','Em'], desc:'乡村民谣常用进行'}
 ];
 function chordFreqs(chord){
   return chord.frets.map((f,i)=>f<0?null:freqFromMidi(OPEN_MIDI[i]+f)).filter(Boolean);
@@ -134,19 +134,29 @@ function renderDiagram(chord, opts={}){
   return out+'</svg>';
 }
 
-/* 文字版按法提示（V3.1 BUG-7） */
+/* 文字版按法提示（V3.1 BUG-7）
+   V4.3.1：中文片段走宿主词条；无宿主（Node 单测）回退中文原文，保持既有测试契约。 */
+function _ct(k, fallback){
+  try{ if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); }catch(e){}
+  return fallback;
+}
+function _tf(k, pairs, fallback){
+  try{ if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,pairs); }catch(e){}
+  return fallback;
+}
 function formatFingering(chord){
   const parts = [];
   for(let i=0;i<6;i++){
     const f=chord.frets[i], g=(chord.fingers&&chord.fingers[i]!==undefined)?chord.fingers[i]:0;
-    const sn=6-i;
-    if(f===-1){ parts.push(sn+'弦×'); continue; }
-    if(f===0){ parts.push(sn+'弦0(空弦)'); continue; }
+    const sn=6-i, sName=_tf('chords.stringN',{n:sn},sn+'弦');
+    if(f===-1){ parts.push(sName+_ct('chords.fret.muted','×')); continue; }
+    if(f===0){ parts.push(sName+_ct('chords.fret.open','0(空弦)')); continue; }
     const barreHere = chord.barre && chord.barre.fret===f;
-    const gn = (g>=1&&!barreHere)? g+'指' : (barreHere?'横按':(g>=1?g+'指':''));
-    parts.push(sn+'弦'+f+'品'+(gn?('·'+gn):''));
+    const gn = (g>=1&&!barreHere)? _tf('chords.fingerN',{n:g},g+'指')
+             : (barreHere? _ct('chords.barre','横按') : (g>=1?_tf('chords.fingerN',{n:g},g+'指'):''));
+    parts.push(sName+_tf('chords.fretN',{n:f},f+'品')+(gn?('·'+gn):''));
   }
-  return '按法：'+parts.join(' · ');
+  return _ct('chords.fingeringPrefix','按法：')+parts.join(' · ');
 }
 
 Object.assign(window, { CHORDS, CHORD_MAP, PROGRESSIONS, chordFreqs, renderDiagram, formatFingering });

@@ -10,12 +10,12 @@ const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNa
    模块 8：音阶练习（指板高亮 + 跟听示范 + 麦克风逐音跟弹）
    ============================================================ */
 const SCALE_TYPES = {
-  major:     {name:'大调',     iv:[0,2,4,5,7,9,11]},
-  minor:     {name:'自然小调', iv:[0,2,3,5,7,8,10]},
-  majorPent: {name:'大调五声', iv:[0,2,4,7,9]},
-  minorPent: {name:'小调五声', iv:[0,3,5,7,10]},
-  blues:     {name:'布鲁斯',   iv:[0,3,5,6,7,10]},
-  dorian:    {name:'多利亚',   iv:[0,2,3,5,7,9,10]}
+  major:     {name:'大调',     nk:'scx.type.major',     iv:[0,2,4,5,7,9,11]},
+  minor:     {name:'自然小调', nk:'scx.type.minor',     iv:[0,2,3,5,7,8,10]},
+  majorPent: {name:'大调五声', nk:'scx.type.majorPent', iv:[0,2,4,7,9]},
+  minorPent: {name:'小调五声', nk:'scx.type.minorPent', iv:[0,3,5,7,10]},
+  blues:     {name:'布鲁斯',   nk:'scx.type.blues',     iv:[0,3,5,6,7,10]},
+  dorian:    {name:'多利亚',   nk:'scx.type.dorian',    iv:[0,2,3,5,7,9,10]}
 };
 const SCALE_LIST = [
   {root:'C',type:'major',pos:0},

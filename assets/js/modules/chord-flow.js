@@ -8,6 +8,10 @@
    ============================================================ */
 'use strict';
 
+/* V4.3.1 收尾：用户可见文案统一走宿主词条（无宿主 / Node 单测回退 key） */
+const T = k => { try { if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); } catch(e){} return k; };
+const TF = (k,p) => { try { if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,p); } catch(e){} let s=T(k); for(const a of Object.keys(p||{})) s=s.split('{'+a+'}').join(String(p[a])); return s; };
+
 const { clamp, freqFromMidi } = AudioCore;
 
 const Flow = {
@@ -37,7 +41,7 @@ const Flow = {
         const b=e.target.closest('.flow-chip'); if(!b) return;
         const name=b.dataset.name;
         if(this.seq.includes(name)){
-          if(this.seq.length<=2) { toast('至少保留两个和弦','warn'); return; }
+          if(this.seq.length<=2) { toast(T('flow.minChords'),'warn'); return; }
           this.seq = this.seq.filter(x=>x!==name);
         } else this.seq.push(name);
         b.classList.toggle('on', this.seq.includes(name));
@@ -51,7 +55,7 @@ const Flow = {
       $$('#flowSeq .flow-chip').forEach(x=>x.classList.remove('on'));
       this.idx = 0; this.switches = 0;
       this.render();
-      toast('已清空已选和弦，请重新选择至少两个','ok',2200);
+      toast(T('flow.cleared'),'ok',2200);
     };
     const start = $('#flowStart');
     if(start) start.onclick = ()=> this.running ? this.stop(true) : this.start();
@@ -61,17 +65,18 @@ const Flow = {
   _alertNotEnough(){
     const n = this.seq.length;
     const msg = n === 0
-      ? '请先在上方选择至少两个和弦，再开始转换练习'
-      : `当前只选了 ${n} 个和弦，至少需要两个才能开始转换练习`;
+      ? T('flow.needTwo')
+      : TF('flow.alertN',{n});
     toast(msg, 'warn', 3200);
     try{
       const box = document.createElement('div');
       box.className = 'gs-modal-mask';
+      box.setAttribute('data-flow','mask');
       box.innerHTML =
         `<div class="gs-modal" role="alertdialog" aria-modal="true">
-           <div class="gs-modal-title">无法开始练习</div>
-           <div class="gs-modal-body">${msg}</div>
-           <div class="gs-modal-actions"><button class="gs-modal-btn" data-close>我知道了</button></div>
+           <div class="gs-modal-title" data-flow="title">${T('flow.modalTitle')}</div>
+           <div class="gs-modal-body" data-flow="body">${msg}</div>
+           <div class="gs-modal-actions"><button class="gs-modal-btn" data-close data-flow="ok">${T('flow.modalOk')}</button></div>
          </div>`;
       document.body.appendChild(box);
       const close = ()=>{ box.remove(); };
@@ -102,7 +107,7 @@ const Flow = {
     AudioEngine.ensure();
     this.running = true; this.idx = 0; this.switches = 0; this.beat = 0;
     this.startedAt = Date.now();
-    const btn = $('#flowStart'); if(btn) btn.textContent = '停止';
+    const btn = $('#flowStart'); if(btn) btn.textContent = T('flow.stop');
     const msPerBeat = 60000 / this.bpm;
     const beatsPerChord = this.bars * 4;
     this.render();
@@ -126,7 +131,7 @@ const Flow = {
   stop(report){
     this.running = false;
     if(this.timer){ clearTimeout(this.timer); this.timer = null; }
-    const btn = $('#flowStart'); if(btn) btn.textContent = '开始转换练习';
+    const btn = $('#flowStart'); if(btn) btn.textContent = T('flow.start');
     if(report && typeof PracticeStore!=='undefined' && this.switches > 0){
       PracticeStore.addSession({
         module:'flow',
@@ -137,11 +142,29 @@ const Flow = {
         detectedBpm: null,
         meta:{ seq:this.seq.slice(), bars:this.bars, switches:this.switches }
       });
-      toast(`本轮完成：${this.switches} 次转换，已计入练习统计`,'ok');
+      toast(TF('flow.toastDone',{n:this.switches}),'ok');
+    }
+  }
+,
+  /* V4.3.1：按钮/模态按当前运行态取词；seq / switches / running 状态完全保留 */
+  refreshLang(){
+    if(!this.inited) return;
+    const btn=$('#flowStart');
+    if(btn) btn.textContent=this.running?T('flow.stop'):T('flow.start');
+    const mask=document.querySelector('.gs-modal-mask[data-flow]');
+    if(mask){
+      const ti=mask.querySelector('[data-flow="title"]'), ok=mask.querySelector('[data-flow="ok"]');
+      const body=mask.querySelector('[data-flow="body"]');
+      if(ti) ti.textContent=T('flow.modalTitle');
+      if(ok) ok.textContent=T('flow.modalOk');
+      if(body) body.textContent=this.seq.length===0?T('flow.needTwo'):TF('flow.alertN',{n:this.seq.length});
     }
   }
 };
 
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>Flow.refreshLang());
+}
 onRouteEnter.flow = ()=>Flow.init();
 /* 切页清理：确保停止后无残留声音 */
 if(typeof cleanupModules==='function'){

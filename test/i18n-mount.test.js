@@ -1,8 +1,8 @@
 /* ============================================================
    六弦工坊 V4.3 · R2 静态挂载完整性与死词条看门
    ------------------------------------------------------------
-   MOUNT-1  app.html 所有 data-i18n / data-i18n-ph / data-i18n-aria
-            引用的键必须存在于 zh-CN 词典（挂错键 = 运行时显示键名）
+   MOUNT-1  app.html 所有 data-i18n / data-i18n-ph / data-i18n-aria /
+            data-i18n-title 引用的键必须存在于 zh-CN 词典（挂错键 = 运行时显示键名）
    MOUNT-2  R2 要求的 chrome/首页/各视图关键挂载点必须存在
             （防后续编辑把挂载属性弄丢）
    MOUNT-3  死词条零新增：词典中既未被 app.html 挂载、也未被 JS 取词的键
@@ -29,6 +29,7 @@ const mounted = [
   ...[...html.matchAll(/data-i18n="([^"]+)"/g)].map((m) => m[1]),
   ...[...html.matchAll(/data-i18n-ph="([^"]+)"/g)].map((m) => m[1]),
   ...[...html.matchAll(/data-i18n-aria="([^"]+)"/g)].map((m) => m[1]),
+  ...[...html.matchAll(/data-i18n-title="([^"]+)"/g)].map((m) => m[1]),
 ];
 
 test('MOUNT-1 app.html 挂载引用的键全部存在于 zh-CN 词典', () => {

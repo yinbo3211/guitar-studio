@@ -4,6 +4,10 @@
    ============================================================ */
 'use strict';
 
+/* V4.3.1 收尾：用户可见文案统一走宿主词条（无宿主 / Node 单测回退 key） */
+const T = k => { try { if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); } catch(e){} return k; };
+const TF = (k,p) => { try { if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,p); } catch(e){} let s=T(k); for(const a of Object.keys(p||{})) s=s.split('{'+a+'}').join(String(p[a])); return s; };
+
 const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
 
 /* ============================================================
@@ -25,10 +29,8 @@ const Fret = {
       // 新模式的第 1 题就显示成 N/M 的错误计数）
       this.askN=0; this.askOk=0; this.targetPC=null;
       $('#fbStart').style.display=this.mode==='find'?'inline-flex':'none';
-      $('#fbStart').textContent='开始找音'; // P2-16：按钮文案回到初始状态
-      $('#fbHint').innerHTML=this.mode==='browse'
-        ?'<span class="hint">点击品格试听该音，横向滑动查看 12 品</span>'
-        :'<span class="hint">点击“开始”，根据提示在指板上找音</span>';
+      $('#fbStart').textContent=T('fret.startBtn'); // P2-16：按钮文案回到初始状态
+      this._hint(this.mode==='browse'?'fret.hint.browse':'fret.hint.find');
       this.clearMarks();
       $('#fbScore').textContent='';
     };
@@ -52,7 +54,7 @@ const Fret = {
     let html='';
     this.strings.forEach((base,s)=>{
       html+='<div class="fb-row">';
-      html+=`<div class="fb-open">${noteNameNoOct(base)}<br>弦</div>`;
+      html+=`<div class="fb-open">${noteNameNoOct(base)}<br><span data-fb="str">${T('fret.stringN')}</span></div>`;
       for(let f=1;f<=12;f++){
         const midi=base+f, pc=((midi%12)+12)%12;
         const dbl=f===12?'double':'';
@@ -85,9 +87,10 @@ const Fret = {
     }
     this.targetPC=pc;
     const name=NOTE_NAMES[this.targetPC];
-    $('#fbHint').innerHTML=`<span class="fb-ask">请找到：${name}<small>点击指板上所有 ${name} 音的位置都算对</small></span>`;
+    $('#fbHint').innerHTML=`<span class="fb-ask" data-fb="ask" data-name="${name}">${TF('fret.ask',{name})}<small>${TF('fret.askSub',{name})}</small></span>`;
+    this._hintKey=null;
     $('#fbScore').textContent=`${this.askOk}/${this.askN}`;
-    $('#fbStart').textContent='下一题'; // P2-16：出题后按钮文案切换
+    $('#fbStart').textContent=T('fret.nextBtn'); // P2-16：出题后按钮文案切换
   },
   judge(cell,midi){
     const pc=((midi%12)+12)%12;
@@ -96,7 +99,8 @@ const Fret = {
       this.askOk++;
       this.playing=false;
       $('#fbScore').textContent=`${this.askOk}/${this.askN}`;
-      $('#fbHint').innerHTML=`<span class="fb-ask" style="color:var(--mint)">正确！</span><span class="hint" style="margin-left:10px">点击“下一题”继续</span>`;
+      $('#fbHint').innerHTML=`<span class="fb-ask" data-fb="correct" style="color:var(--mint)">${T('fret.correct')}</span><span class="hint" data-fb="nextHint" style="margin-left:10px">${T('fret.nextHint')}</span>`;
+      this._hintKey=null;
       // 标出该音在指板上的所有位置
       $$('.fb-cell').forEach(c=>{ if(+c.dataset.pc===pc) c.classList.add('ring'); });
     }else{
@@ -104,7 +108,30 @@ const Fret = {
       setTimeout(()=>cell.classList.remove('bad'),450);
     }
   }
+,
+  /* V4.3.1：提示记录取词来源；题面/结果按 data 属性局部重放，不重建指板、不丢计分 */
+  _hint(key,pairs){
+    this._hintKey=key; this._hintPairs=pairs||null;
+    $('#fbHint').innerHTML=`<span class="hint">${pairs?TF(key,pairs):T(key)}</span>`;
+  },
+  refreshLang(){
+    if(!this.inited) return;
+    $$('#fbBoard .fb-open [data-fb="str"]').forEach(e=>{ e.textContent=T('fret.stringN'); });
+    const st=$('#fbStart');
+    if(st) st.textContent=this.playing?T('fret.nextBtn'):T('fret.startBtn');
+    if(this._hintKey) this._hint(this._hintKey,this._hintPairs);
+    const ask=$('#fbHint [data-fb="ask"]');
+    if(ask){ const nm=ask.dataset.name;
+      ask.innerHTML=TF('fret.ask',{name:nm})+'<small>'+TF('fret.askSub',{name:nm})+'</small>'; }
+    const corr=$('#fbHint [data-fb="correct"]');
+    if(corr) corr.textContent=T('fret.correct');
+    const nh=$('#fbHint [data-fb="nextHint"]');
+    if(nh) nh.textContent=T('fret.nextHint');
+  }
 };
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>Fret.refreshLang());
+}
 onRouteEnter.fret=()=>Fret.init();
 
 window.Fret = Fret;

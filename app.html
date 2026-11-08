@@ -407,7 +407,7 @@
             </div>
             <!-- V4.3：#metroSampleTip 为动态节点（导入/下载状态会覆盖文本），
                  不做静态 data-i18n 挂载；语言切换由 metronome.js 的 gs:lang 监听按状态复位 -->
-            <div class="metro-sample-tip" id="metroSampleTip">
+            <div class="metro-sample-tip" id="metroSampleTip" data-i18n="metro.sampleTip">
               提示：可从 freesound.org / zapsplat.com / creazilla.com 下载音频后导入；
               也可填写可直接下载的音频直链。导入后音色菜单会切换到「自定义」。
             </div>
@@ -492,7 +492,7 @@
           </div>
           <div class="time-bar"><i id="timeBar"></i></div>
           <div class="game-stage">
-            <div class="game-progress" id="levelLabel">第 1 关</div>
+            <div class="game-progress" id="levelLabel" data-i18n="game.level.l1">第 1 关 · 入门开放和弦</div>
             <div class="game-chord-name" id="gameChord">C</div>
             <div class="game-diagram" id="gameDiagram"></div>
             <div id="gameFingering" style="font-size:12.5px;color:var(--txt-2);line-height:1.8;margin-top:8px;text-align:center"></div>
@@ -897,9 +897,9 @@
         <details class="card rt-help" id="rtHelp">
           <summary data-i18n="rhythm.help.summary">第一次练？先看 30 秒说明</summary>
           <div class="rt-help-body">
-            <b>符号含义：</b>扫弦格 <kbd>↓</kbd>=下扫（D）、<kbd>↑</kbd>=上扫（U）、<kbd>×</kbd>=切音闷音、<kbd>·</kbd>=空拍（占时值但不出声）；分解格的 <kbd>根</kbd>=当前和弦根音、<kbd>B</kbd>=交替低音、数字=弦序（1 最细 · 6 最粗），下方小字为建议指法 T/i/m/a。<br>
-            <b>怎么练：</b>①选节奏型听几遍示范 → ②把示范音量调到 0、只留节拍器看格子高亮默数 → ③跟着示范慢速弹 → ④逐步加 BPM → ⑤开循环（∞）独立连奏。练错了不丢人，降速再来才算会。<br>
-            <b>小知识：</b>BPM 是每分钟拍数，60 BPM 时一秒正好一拍；拍号 4/4 表示每小节 4 拍、以四分音符为一拍。
+            <b data-i18n="rhythm.help.symbols">符号含义：</b><span data-i18n="rhythm.help.symbolsBody">扫弦格 ↓=下扫（D）、↑=上扫（U）、×=切音闷音、·=空拍（占时值但不出声）；分解格的 根=当前和弦根音、B=交替低音、数字=弦序（1 最细 · 6 最粗），下方小字为建议指法 T/i/m/a。</span><br>
+            <b data-i18n="rhythm.help.how">怎么练：</b><span data-i18n="rhythm.help.howBody">①选节奏型听几遍示范 → ②把示范音量调到 0、只留节拍器看格子高亮默数 → ③跟着示范慢速弹 → ④逐步加 BPM → ⑤开循环（∞）独立连奏。练错了不丢人，降速再来才算会。</span><br>
+            <b data-i18n="rhythm.help.tip">小知识：</b><span data-i18n="rhythm.help.tipBody">BPM 是每分钟拍数，60 BPM 时一秒正好一拍；拍号 4/4 表示每小节 4 拍、以四分音符为一拍。</span>
           </div>
         </details>
 
@@ -921,11 +921,11 @@
         <div class="card">
           <div class="rt-ctl-row">
             <span class="rt-lab" data-i18n="rhythm.bpm">速度 BPM</span>
-            <button class="rt-step-btn" id="rtBpmMinus5" title="减 5">-5</button>
-            <button class="rt-step-btn" id="rtBpmMinus" title="减 1">−</button>
+            <button class="rt-step-btn" id="rtBpmMinus5" data-i18n-title="rhythm.bpm.dec5" title="减 5">-5</button>
+            <button class="rt-step-btn" id="rtBpmMinus" data-i18n-title="rhythm.bpm.dec1" title="减 1">−</button>
             <input type="number" class="rt-bpm-num" id="rtBpmNum" min="40" max="180" value="60" inputmode="numeric">
-            <button class="rt-step-btn" id="rtBpmPlus" title="加 1">＋</button>
-            <button class="rt-step-btn" id="rtBpmPlus5" title="加 5">+5</button>
+            <button class="rt-step-btn" id="rtBpmPlus" data-i18n-title="rhythm.bpm.inc1" title="加 1">＋</button>
+            <button class="rt-step-btn" id="rtBpmPlus5" data-i18n-title="rhythm.bpm.inc5" title="加 5">+5</button>
           </div>
           <input type="range" id="rtBpmRange" min="40" max="180" value="60" style="--fill:10%">
           <div class="rt-ctl-row">
@@ -1043,7 +1043,7 @@
             <button data-lv="basic" class="on" data-i18n="plan.basic">入门</button>
             <button data-lv="advance" data-i18n="plan.advance">进阶</button>
           </div>
-          <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px"><span data-i18n="plan.step2">② 每日时长目标</span>：<b id="planMinutesVal">15 分钟</b></div>
+          <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px"><span data-i18n="plan.step2">② 每日时长目标</span>：<b id="planMinutesVal">15</b><span data-i18n="plan.minutesUnit">分钟</span></div>
           <input type="range" id="planMinutes" min="5" max="120" step="5" value="15" style="width:100%;max-width:360px">
           <div style="font-size:12.5px;color:var(--txt-2);margin:14px 0 6px" data-i18n="plan.step3">③ 当前关注点</div>
           <div class="seg" id="planFocus" style="display:flex">

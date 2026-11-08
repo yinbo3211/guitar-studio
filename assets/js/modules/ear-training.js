@@ -4,6 +4,10 @@
    ============================================================ */
 'use strict';
 
+/* V4.3.1 收尾：用户可见文案统一走宿主词条（无宿主 / Node 单测回退 key） */
+const T = k => { try { if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); } catch(e){} return k; };
+const TF = (k,p) => { try { if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,p); } catch(e){} let s=T(k); for(const a of Object.keys(p||{})) s=s.split('{'+a+'}').join(String(p[a])); return s; };
+
 const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
 
 /* ============================================================
@@ -46,30 +50,33 @@ function earMelody(level, len) {
   return seq;
 }
 
+/* V4.3.1：术语走词条；label/ex 保留原文作 zh-CN 回退与单测契约 */
+const L = x => T(x.lk), E = x => T(x.ek);
+
 const Ear = {
   mode:'note', n:0, ok:0, streak:0, bestStreak:0, answer:null, answered:false, opts:[], _nextTimer:null,
   level:'basic', melody:[], melodyInput:[], startedAt:0, reactionSum:0, reactionN:0, _askedAt:0,
   intervals:[
-    {semi:2,label:'大二度',ex:'Do–Re'},
-    {semi:3,label:'小三度',ex:'La–Do'},
-    {semi:4,label:'大三度',ex:'Do–Mi'},
-    {semi:5,label:'纯四度',ex:'Do–Fa'},
-    {semi:7,label:'纯五度',ex:'Do–Sol'},
-    {semi:9,label:'大六度',ex:'Do–La'},
-    {semi:10,label:'小七度',ex:'Do–Bb'},
-    {semi:12,label:'纯八度',ex:'Do–Do'}
+    {semi:2,label:'大二度',ex:'Do–Re',lk:'ear.iv.m2',ek:'ear.iv.m2.ex'},
+    {semi:3,label:'小三度',ex:'La–Do',lk:'ear.iv.m3',ek:'ear.iv.m3.ex'},
+    {semi:4,label:'大三度',ex:'Do–Mi',lk:'ear.iv.M3',ek:'ear.iv.M3.ex'},
+    {semi:5,label:'纯四度',ex:'Do–Fa',lk:'ear.iv.p4',ek:'ear.iv.p4.ex'},
+    {semi:7,label:'纯五度',ex:'Do–Sol',lk:'ear.iv.p5',ek:'ear.iv.p5.ex'},
+    {semi:9,label:'大六度',ex:'Do–La',lk:'ear.iv.M6',ek:'ear.iv.M6.ex'},
+    {semi:10,label:'小七度',ex:'Do–Bb',lk:'ear.iv.m7',ek:'ear.iv.m7.ex'},
+    {semi:12,label:'纯八度',ex:'Do–Do',lk:'ear.iv.p8',ek:'ear.iv.p8.ex'}
   ],
   triads:[
-    {iv:[0,4,7],label:'大三和弦',ex:'明亮 稳定'},
-    {iv:[0,3,7],label:'小三和弦',ex:'柔和 暗淡'},
-    {iv:[0,3,6],label:'减三和弦',ex:'紧张 收缩'},
-    {iv:[0,4,8],label:'增三和弦',ex:'悬浮 不安'}
+    {iv:[0,4,7],label:'大三和弦',ex:'明亮 稳定',lk:'ear.triad.major',ek:'ear.triad.major.ex'},
+    {iv:[0,3,7],label:'小三和弦',ex:'柔和 暗淡',lk:'ear.triad.minor',ek:'ear.triad.minor.ex'},
+    {iv:[0,3,6],label:'减三和弦',ex:'紧张 收缩',lk:'ear.triad.dim',ek:'ear.triad.dim.ex'},
+    {iv:[0,4,8],label:'增三和弦',ex:'悬浮 不安',lk:'ear.triad.aug',ek:'ear.triad.aug.ex'}
   ],
   sevenths:[
-    {iv:[0,4,7,10],label:'属七和弦',ex:'想要解决'},
-    {iv:[0,4,7,11],label:'大七和弦',ex:'梦幻 爵士'},
-    {iv:[0,3,7,10],label:'小七和弦',ex:'慵懒 柔和'},
-    {iv:[0,3,6,10],label:'半减七和弦',ex:'幽暗 紧张'}
+    {iv:[0,4,7,10],label:'属七和弦',ex:'想要解决',lk:'ear.seventh.dom',ek:'ear.seventh.dom.ex'},
+    {iv:[0,4,7,11],label:'大七和弦',ex:'梦幻 爵士',lk:'ear.seventh.maj',ek:'ear.seventh.maj.ex'},
+    {iv:[0,3,7,10],label:'小七和弦',ex:'慵懒 柔和',lk:'ear.seventh.min',ek:'ear.seventh.min.ex'},
+    {iv:[0,3,6,10],label:'半减七和弦',ex:'幽暗 紧张',lk:'ear.seventh.halfdim',ek:'ear.seventh.halfdim.ex'}
   ],
   init(){
     if(this.inited){ return; } this.inited=true;
@@ -118,8 +125,8 @@ const Ear = {
       // F3：记录单题反应时间（用于本轮平均反应时间展示）
       if(this._askedAt){ this.reactionSum+=Date.now()-this._askedAt; this.reactionN++; }
       this.n++;
-      if(right){this.ok++;this.streak++;this.bestStreak=Math.max(this.bestStreak,this.streak);$('#earQ').textContent='回答正确！';}
-      else{this.streak=0;$('#earQ').textContent='正确答案已标绿，再听一遍';}
+      if(right){this.ok++;this.streak++;this.bestStreak=Math.max(this.bestStreak,this.streak);this._setQ('ear.correct');}
+      else{this.streak=0;this._setQ('ear.wrong');}
       this.updateStats();
       if(this.n%10===0) this.report();
       this._nextTimer=setTimeout(()=>{ this._nextTimer=null; this.newQuestion(); },1500);
@@ -187,7 +194,7 @@ const Ear = {
         this.melody.forEach((m,i)=>AudioEngine.tone(freqFromMidi(m),.9,'sine',.26,i*0.55));
       };
       const len=this.melody.length;
-      $('#earQ').textContent=`听这段 ${len} 音短句，然后在下方按顺位点出音名`;
+      this._setQ('ear.q.melody',{n:len});
       $('#earOptions').innerHTML='';
       if($('#earMelodyBox')) $('#earMelodyBox').style.display='';
       this.renderMelodyInput();
@@ -205,7 +212,7 @@ const Ear = {
       this.opts=this.shuffle([label,...wrongs]);
       this.answer=this.opts.indexOf(label);
       this._play=()=>{ /* V3.1 BUG-5：与和弦库同源拨弦音色 */ AudioEngine.pluck(freqFromMidi(midi),0,1.6,.32); };
-      $('#earQ').textContent= lvDef.octaves>1 ? '这是哪个音？（跨八度随机）' : '这是哪个音？（C 大调）';
+      this._setQ(lvDef.octaves>1?'ear.q.noteWide':'ear.q.note');
     }
     if(this.mode==='interval'){
       const pool=earPitchPool(this.level);
@@ -215,11 +222,11 @@ const Ear = {
         AudioEngine.pluck(freqFromMidi(root),0,1.4,.3);
         AudioEngine.pluck(freqFromMidi(root+item.semi),1.05,1.4,.3);
       };
-      const labels=this.intervals.map(x=>x.label);
-      const wrongs=this.shuffle(labels.filter(x=>x!==item.label)).slice(0,3);
-      this.opts=this.shuffle([item.label,...wrongs]);
-      this.answer=this.opts.indexOf(item.label);
-      $('#earQ').textContent='两个音之间是什么音程？';
+      const labels=this.intervals.map(x=>L(x));
+      const wrongs=this.shuffle(labels.filter(x=>x!==L(item))).slice(0,3);
+      this.opts=this.shuffle([L(item),...wrongs]);
+      this.answer=this.opts.indexOf(L(item));
+      this._setQ('ear.q.interval');
     }
     if(this.mode==='triad'||this.mode==='seven'){
       const list=this.mode==='triad'?this.triads:this.sevenths;
@@ -231,24 +238,27 @@ const Ear = {
         /* V3.1 BUG-5：齐奏改用和弦库同款 strum（吉他扫弦链路） */
         AudioEngine.strum(item.iv.map(v=>freqFromMidi(root+v)),'down',.3);
       };
-      const labels=list.map(x=>x.label);
-      const wrongs=this.shuffle(labels.filter(x=>x!==item.label)).slice(0,3);
-      this.opts=this.shuffle([item.label,...wrongs]);
-      this.answer=this.opts.indexOf(item.label);
-      $('#earQ').textContent='这是什么和弦色彩？';
+      const labels=list.map(x=>L(x));
+      const wrongs=this.shuffle(labels.filter(x=>x!==L(item))).slice(0,3);
+      this.opts=this.shuffle([L(item),...wrongs]);
+      this.answer=this.opts.indexOf(L(item));
+      this._setQ('ear.q.triad');
     }
     const list=this.mode==='triad'?this.triads:this.mode==='seven'?this.sevenths:this.intervals;
-    const exMap={};
-    if(Array.isArray(list)) list.forEach(x=>exMap[x.label]=x.ex);
-    $('#earOptions').innerHTML=this.opts.map((o,i)=>
-      `<button class="ear-opt" data-i="${i}">${o}<small>${exMap[o]||''}</small></button>`).join('');
+    const exMap={}, keyMap={};
+    if(Array.isArray(list)) list.forEach(x=>{ exMap[L(x)]=E(x); keyMap[L(x)]={lk:x.lk,ek:x.ek}; });
+    this._keyMap=keyMap;
+    $('#earOptions').innerHTML=this.opts.map((o,i)=>{
+      const rec=keyMap[o];
+      return `<button class="ear-opt" data-i="${i}"${rec?` data-lk="${rec.lk}" data-ek="${rec.ek}"`:''}>${o}<small>${exMap[o]||''}</small></button>`;
+    }).join('');
   },
   renderMelodyInput(){
     const box=$('#earMelodyInput'); if(!box) return;
     const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
     box.innerHTML=this.melodyInput.length
       ? this.melodyInput.map(s=>`<span class="ear-mel-note">${names[((s%12)+12)%12]}</span>`).join('')
-      : '<span style="color:var(--txt-3);font-size:12.5px">（还没点音名）</span>';
+      : '<span style="color:var(--txt-3);font-size:12.5px">'+T('ear.melodyEmpty')+'</span>';
     if($('#earMelodyHint')) $('#earMelodyHint').textContent=`${this.melodyInput.length}/${this.melody.length}`;
   },
   submitMelody(){
@@ -256,14 +266,32 @@ const Ear = {
     const right=this.melody.length===this.melodyInput.length &&
       this.melody.every((m,i)=>((m%12)+12)%12===((this.melodyInput[i]%12)+12)%12);
     this.n++;
-    if(right){ this.ok++; this.streak++; this.bestStreak=Math.max(this.bestStreak,this.streak); $('#earQ').textContent='完全正确！'; }
-    else{ this.streak=0; $('#earQ').textContent=`正确顺序：${this.melody.map(m=>noteNameNoOct(m)).join(' → ')}`; }
+    if(right){ this.ok++; this.streak++; this.bestStreak=Math.max(this.bestStreak,this.streak); this._setQ('ear.melodyPerfect'); }
+    else{ this.streak=0; this._setQ('ear.melodyOrder',{order:this.melody.map(m=>noteNameNoOct(m)).join(' → ')}); }
     this.updateStats();
     if(this.n%10===0) this.report();
     setTimeout(()=>this.newQuestion(),1800);
   },
-  play(){ if(this._play) this._play(); }
+  play(){ if(this._play) this._play(); },
+  /* V4.3.1：题面按「取词来源」重放；选项按钮只改文本不重建，
+     保住 disabled / right / wrong 作答状态与 n/ok/streak 计分。 */
+  _setQ(key,pairs){
+    this._qKey=key; this._qPairs=pairs||null;
+    $('#earQ').textContent=pairs?TF(key,pairs):T(key);
+  },
+  refreshLang(){
+    if(!this.inited) return;
+    $$('#earOptions .ear-opt[data-lk]').forEach(b=>{
+      const lk=b.dataset.lk, ek=b.dataset.ek;
+      b.innerHTML=T(lk)+'<small>'+(ek?T(ek):'')+'</small>';
+    });
+    if(this._qKey) $('#earQ').textContent=this._qPairs?TF(this._qKey,this._qPairs):T(this._qKey);
+    if($('#earMelodyInput')) this.renderMelodyInput();
+  }
 };
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>Ear.refreshLang());
+}
 onRouteEnter.ear=()=>{ Ear.init(); };
 /* 离开练耳页时补报一次，保证短时练习也计入 F1 统计 */
 if(typeof cleanupModules==='function'){

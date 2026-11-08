@@ -9,26 +9,30 @@
    ============================================================ */
 'use strict';
 
+/* V4.3.1 收尾：用户可见文案统一走宿主词条（无宿主 / Node 单测回退 key） */
+const T = k => { try { if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); } catch(e){} return k; };
+const TF = (k,p) => { try { if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,p); } catch(e){} let s=T(k); for(const a of Object.keys(p||{})) s=s.split('{'+a+'}').join(String(p[a])); return s; };
+
 const PLAN_LEVELS = {
-  basic:   { label:'入门', minutes:15, chords:['C','G','Am','Em'], scaleBpm:60, earLevel:'basic' },
-  advance: { label:'进阶', minutes:30, chords:['C','G','Am','F'],  scaleBpm:90, earLevel:'advance' }
+  basic:   { label:'入门', lk:'plan.basic', minutes:15, chords:['C','G','Am','Em'], scaleBpm:60, earLevel:'basic' },
+  advance: { label:'进阶', lk:'plan.advance', minutes:30, chords:['C','G','Am','F'],  scaleBpm:90, earLevel:'advance' }
 };
 
 const FOCUS = {
-  chords: { label:'和弦转换', modules:['flow','chords'] },
-  rhythm: { label:'节奏型',   modules:['rhythm'] },
-  ear:    { label:'练耳',     modules:['ear'] },
-  scale:  { label:'音阶',     modules:['scale'] }
+  chords: { label:'和弦转换', lk:'plan.focus.chords', modules:['flow','chords'] },
+  rhythm: { label:'节奏型',   lk:'plan.focus.rhythm', modules:['rhythm'] },
+  ear:    { label:'练耳',     lk:'plan.focus.ear',    modules:['ear'] },
+  scale:  { label:'音阶',     lk:'plan.focus.scale',  modules:['scale'] }
 };
 
 function planTaskDefs(level, focus){
   const L = PLAN_LEVELS[level] || PLAN_LEVELS.basic;
   const defs = [
-    { id:'tuner', module:'tuner', label:'调音检查', desc:'六弦依次调准（偏差 ±5 音分内）', target:1, unit:'次' },
-    { id:'chords', module:'flow', label:`和弦转换 ${L.chords.join(' → ')}`, desc:'按节拍器提示完成 4 组和弦转换', target:4, unit:'组' },
-    { id:'rhythm', module:'rhythm', label:'节奏型跟练', desc:`连续完成 4 小节（${L.scaleBpm} BPM）`, target:4, unit:'小节' },
-    { id:'scale', module:'scale', label:'音阶练习', desc:'完整弹完一条音阶', target:1, unit:'遍' },
-    { id:'ear', module:'ear', label:'练耳训练', desc:`完成 10 题（${L.earLevel==='advance'?'进阶':'入门'}）`, target:10, unit:'题' }
+    { id:'tuner',  module:'tuner',  label:T('plan.task.tuner'),  desc:T('plan.task.tuner.desc'),  target:1,  unit:T('plan.unit.tuner') },
+    { id:'chords', module:'flow',   label:TF('plan.task.chords',{chords:L.chords.join(' → ')}), desc:T('plan.task.chords.desc'), target:4, unit:T('plan.unit.chords') },
+    { id:'rhythm', module:'rhythm', label:T('plan.task.rhythm'), desc:TF('plan.task.rhythm.desc',{bpm:L.scaleBpm}), target:4, unit:T('plan.unit.rhythm') },
+    { id:'scale',  module:'scale',  label:T('plan.task.scale'),  desc:T('plan.task.scale.desc'),  target:1,  unit:T('plan.unit.scale') },
+    { id:'ear',    module:'ear',    label:T('plan.task.ear'),    desc:TF('plan.task.ear.desc',{level:T(L.earLevel==='advance'?'plan.advance':'plan.basic')}), target:10, unit:T('plan.unit.ear') }
   ];
   // 关注点排序：把用户选中的关注点排到前面
   const order = (FOCUS[focus] && FOCUS[focus].modules) || [];
@@ -49,12 +53,12 @@ const Plan = {
       $$('#planLevel button').forEach(x=>x.classList.toggle('on',x===b));
       this.level = b.dataset.lv;
       const def = PLAN_LEVELS[this.level];
-      if(def){ this.minutes = def.minutes; const mi=$('#planMinutes'); if(mi){ mi.value=def.minutes; const mv=$('#planMinutesVal'); if(mv) mv.textContent=def.minutes+' 分钟'; } }
+      if(def){ this.minutes = def.minutes; const mi=$('#planMinutes'); if(mi){ mi.value=def.minutes; const mv=$('#planMinutesVal'); if(mv) mv.textContent=def.minutes; } }
     };
     const mi = $('#planMinutes');
     if(mi) mi.oninput = ()=>{
       this.minutes = clamp(+mi.value||15, 5, 120);
-      const mv=$('#planMinutesVal'); if(mv) mv.textContent=this.minutes+' 分钟';
+      const mv=$('#planMinutesVal'); if(mv) mv.textContent=this.minutes;
     };
     const fo = $('#planFocus');
     if(fo) fo.onclick = e=>{
@@ -65,7 +69,7 @@ const Plan = {
     const gen = $('#planGenerate');
     if(gen) gen.onclick = ()=>this.generate();
     const reset = $('#planReset');
-    if(reset) reset.onclick = ()=>{ this.plan=null; this.render(); toast('已重置为模板默认值','info'); };
+    if(reset) reset.onclick = ()=>{ this.plan=null; this.render(); toast(T('plan.toast.reset'),'info'); };
     this.loadToday();
     this.render();
   },
@@ -90,7 +94,7 @@ const Plan = {
     if(PracticeStore) PracticeStore.savePlan(this.plan);
     this.refreshProgress();
     this.render();
-    toast('今日计划已生成，开始练琴吧','ok');
+    toast(T('plan.toast.generated'),'ok');
   },
   /* 依据 F1 会话数据刷新完成度（仅用可测指标：次数/时长/正确率） */
   refreshProgress(){
@@ -143,28 +147,43 @@ const Plan = {
     const box = $('#planList'); if(!box) return;
     const p = this.plan;
     if(!p){
-      box.innerHTML = `<div class="stat-empty">选择阶段与时长后点击「生成今日计划」，系统会自动组合调音、和弦、节奏、音阶与练耳任务。</div>`;
+      box.innerHTML = `<div class="stat-empty">${T('plan.empty')}</div>`;
       const prog = $('#planProgress'); if(prog) prog.textContent='';
       return;
     }
     const done = p.tasks.filter(x=>x.finished).length;
     const prog = $('#planProgress');
-    if(prog) prog.textContent = `${done}/${p.tasks.length} 项完成${p.completedAt?' · 今日已全部完成':''}`;
+    if(prog) prog.textContent = TF(p.completedAt?'plan.progressDone':'plan.progress',{done,total:p.tasks.length});
+    /* V4.3.1：渲染一律按 task.id 现取词，不使用 localStorage 里存下的旧语言
+       label/desc/unit（否则切语言后历史计划会残留中文）。done/finished 状态保留。 */
+    const labelOf=(t)=>t.id==='chords'
+      ? TF('plan.task.chords',{chords:(PLAN_LEVELS[p.level]||PLAN_LEVELS.basic).chords.join(' → ')})
+      : T('plan.task.'+t.id);
+    const descOf=(t)=>{
+      const L=PLAN_LEVELS[p.level]||PLAN_LEVELS.basic;
+      if(t.id==='rhythm') return TF('plan.task.rhythm.desc',{bpm:L.scaleBpm});
+      if(t.id==='ear')    return TF('plan.task.ear.desc',{level:T(L.earLevel==='advance'?'plan.advance':'plan.basic')});
+      return T('plan.task.'+t.id+'.desc');
+    };
+    const unitOf=(t)=>T('plan.unit.'+t.id);
     box.innerHTML = p.tasks.map((t,i)=>`
       <div class="plan-task ${t.finished?'finished':''}">
         <div class="plan-task-main">
-          <div class="plan-task-label">${t.label}</div>
-          <div class="plan-task-desc">${t.desc}</div>
+          <div class="plan-task-label">${labelOf(t)}</div>
+          <div class="plan-task-desc">${descOf(t)}</div>
           <div class="plan-task-bar"><i style="width:${Math.round(t.done/t.target*100)}%"></i></div>
         </div>
         <div class="plan-task-side">
-          <span class="plan-task-num">${t.done}/${t.target}${t.unit}</span>
-          <button class="btn btn-sm plan-go" data-route="${t.module}">去练习</button>
+          <span class="plan-task-num">${t.done}/${t.target}${unitOf(t)}</span>
+          <button class="btn btn-sm plan-go" data-route="${t.module}">${T('plan.go')}</button>
         </div>
       </div>`).join('');
-  }
+  },
+  refreshLang(){ if(this.inited) this.render(); }
 };
-
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>Plan.refreshLang());
+}
 onRouteEnter.plan = ()=>Plan.init();
 window.Plan = Plan;
 export { Plan, PLAN_LEVELS, FOCUS, planTaskDefs };

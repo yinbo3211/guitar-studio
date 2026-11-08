@@ -30,60 +30,62 @@
   const FINGER_OF_STRING = { 6: 'T', 5: 'T', 4: 'T', 3: 'i', 2: 'm', 1: 'a' };
   const FINGER_CN = { T: '拇指', i: '食指', m: '中指', a: '无名指' };
 
+  /* V4.3.1：nk/dk/tk 为四语词条键（数据层只挂键，取词由 rhythm.js 走宿主 t/tF）。
+     name/desc/tips 保留中文原文作为 zh-CN 回退与既有单测契约。 */
   /* ---------- 扫弦节奏型预设（需求 4.2.3，7 种） ----------
      actions 长度必须严格等于 beats × subdivision（测试强制校验）。 */
   const STRUM_PATTERNS = [
     {
-      id: 'strum-basic4', cat: 'strum', name: '基础四拍下扫', difficulty: 1,
+      id: 'strum-basic4', nk:'rhythm.pat.strum-basic4.name', dk:'rhythm.pat.strum-basic4.desc', tk:'rhythm.pat.strum-basic4.tips', cat: 'strum', name: '基础四拍下扫', difficulty: 1,
       beats: 4, beatUnit: 4, subdivision: 1, bpm: 60,
       desc: '最经典的入门扫弦：每拍一次下扫，手腕放松像「甩水珠」，先把拍子踩稳。',
       tips: ['只用手腕发力，手臂不要大幅摆动', '每一下力度均匀，别忽轻忽重'],
       actions: ['D', 'D', 'D', 'D']
     },
     {
-      id: 'strum-2x4', cat: 'strum', name: '2/4 弹跳型', difficulty: 1,
+      id: 'strum-2x4', nk:'rhythm.pat.strum-2x4.name', dk:'rhythm.pat.strum-2x4.desc', tk:'rhythm.pat.strum-2x4.tips', cat: 'strum', name: '2/4 弹跳型', difficulty: 1,
       beats: 2, beatUnit: 4, subdivision: 2, bpm: 70,
       desc: '2/4 拍「下 · 上」进行曲律动，常见于民谣与乡村风格，也适合当热身练习。',
       tips: ['2/4 每小节只有两拍，别惯性地数到四', '「下-空」要留得住，别抢成连下两次'],
       actions: ['D', '-', 'D', 'U']
     },
     {
-      id: 'strum-du8', cat: 'strum', name: '八分音符交替扫', difficulty: 1,
+      id: 'strum-du8', nk:'rhythm.pat.strum-du8.name', dk:'rhythm.pat.strum-du8.desc', tk:'rhythm.pat.strum-du8.tips', cat: 'strum', name: '八分音符交替扫', difficulty: 1,
       beats: 4, beatUnit: 4, subdivision: 2, bpm: 60,
       desc: '每拍两下：下-上、下-上。这是几乎所有流行歌扫弦的地基，务必练到不假思索。',
       tips: ['上扫同样用手腕，幅度比下扫略小', '嘴里数「1 哒 2 哒」帮助稳住八分音符'],
       actions: ['D', 'U', 'D', 'U', 'D', 'U', 'D', 'U']
     },
     {
-      id: 'strum-pop-a', cat: 'strum', name: '流行常用型 A', difficulty: 2,
+      id: 'strum-pop-a', nk:'rhythm.pat.strum-pop-a.name', dk:'rhythm.pat.strum-pop-a.desc', tk:'rhythm.pat.strum-pop-a.tips', cat: 'strum', name: '流行常用型 A', difficulty: 2,
       beats: 4, beatUnit: 4, subdivision: 2, bpm: 60,
       desc: '「下 空 下 上 空 上 下 上」：加入空拍后立刻有了流行歌的律动，是使用率最高的扫弦型之一。',
       tips: ['空拍时右手保持摆动但悬空，不碰弦', '空拍是「偷来的呼吸」，时值要给足'],
       actions: ['D', '-', 'D', 'U', '-', 'U', 'D', 'U']
     },
     {
-      id: 'strum-pop-b', cat: 'strum', name: '流行常用型 B', difficulty: 2,
+      id: 'strum-pop-b', nk:'rhythm.pat.strum-pop-b.name', dk:'rhythm.pat.strum-pop-b.desc', tk:'rhythm.pat.strum-pop-b.tips', cat: 'strum', name: '流行常用型 B', difficulty: 2,
       beats: 4, beatUnit: 4, subdivision: 2, bpm: 60,
       desc: '「下 空 下 上 下 上 空 上」：与 A 型互为镜像，适合抒情歌的副歌段落。',
       tips: ['先按 A 型练熟再学这个，对比体会重音位置差异', '第 3 拍连续下上容易抢拍，放慢练'],
       actions: ['D', '-', 'D', 'U', 'D', 'U', '-', 'U']
     },
     {
-      id: 'strum-waltz', cat: 'strum', name: '华尔兹基础型', difficulty: 1,
+      id: 'strum-waltz', nk:'rhythm.pat.strum-waltz.name', dk:'rhythm.pat.strum-waltz.desc', tk:'rhythm.pat.strum-waltz.tips', cat: 'strum', name: '华尔兹基础型', difficulty: 1,
       beats: 3, beatUnit: 4, subdivision: 1, bpm: 70,
       desc: '3/4 拍「强-弱-弱」：下-上-上，适合《生日歌》一类的三拍子歌曲。',
       tips: ['第一拍下扫要明显重于后两拍', '数「1 2 3」感受圆舞曲的摇摆感'],
       actions: ['D', 'U', 'U']
     },
     {
-      id: 'strum-du8-long', cat: 'strum', name: '持续八分扫弦', difficulty: 2,
+      id: 'strum-du8-long', nk:'rhythm.pat.strum-du8-long.name', dk:'rhythm.pat.strum-du8-long.desc', tk:'rhythm.pat.strum-du8-long.tips', cat: 'strum', name: '持续八分扫弦', difficulty: 2,
       beats: 4, beatUnit: 4, subdivision: 2, bpm: 60,
       desc: '与八分交替扫动作相同，但要求连续循环 8 小节以上不乱不累，是耐力与稳定性的专项训练。',
       tips: ['以「能连续循环不断拍」为目标，而不是速度', '感到手腕发紧立刻降速或休息'],
       actions: ['D', 'U', 'D', 'U', 'D', 'U', 'D', 'U']
     },
     {
-      id: 'strum-chuck', cat: 'strum', name: '切音动作练习', difficulty: 3,
+      id: 'strum-chuck', nk:'rhythm.pat.strum-chuck.name', dk:'rhythm.pat.strum-chuck.desc', tk:'rhythm.pat.strum-chuck.tips', cat: 'strum', name: '切音动作练习', difficulty: 3,
       beats: 4, beatUnit: 4, subdivision: 2, bpm: 55,
       desc: '「下 切 下 上 切 上 下 上」：× 处用右手掌侧轻触琴弦发出「嚓」的闷音，是放克/民谣节奏的灵魂。',
       tips: ['切音是「按住」而不是「拍打」，发声短促即正确', '先把不带切音的 A 型弹稳，再逐步替换成 ×'],
@@ -95,42 +97,42 @@
      动作：'R'=根音  'B'=交替低音  数字=弦序  '-'=空拍。 */
   const PICK_PATTERNS = [
     {
-      id: 'pick-basic4', cat: 'pick', name: '四拍基础分解', difficulty: 1,
+      id: 'pick-basic4', nk:'rhythm.pat.pick-basic4.name', dk:'rhythm.pat.pick-basic4.desc', tk:'rhythm.pat.pick-basic4.tips', cat: 'pick', name: '四拍基础分解', difficulty: 1,
       beats: 4, beatUnit: 4, subdivision: 1, bpm: 60,
       desc: '最简单的分解入门：每拍拨一根弦，根音 → 3 → 2 → 1 弦，大拇指负责根音。',
       tips: ['拇指弹根音用「侧压」而非「勾」，音色更饱满', '每根弦音量一致，像琶音一样连成线'],
       actions: ['R', '3', '2', '1']
     },
     {
-      id: 'pick-up8', cat: 'pick', name: '八分音符上行', difficulty: 2,
+      id: 'pick-up8', nk:'rhythm.pat.pick-up8.name', dk:'rhythm.pat.pick-up8.desc', tk:'rhythm.pat.pick-up8.tips', cat: 'pick', name: '八分音符上行', difficulty: 2,
       beats: 4, beatUnit: 4, subdivision: 2, bpm: 60,
       desc: '经典民谣指弹型「根 3 2 1 2 3 2 1」：音流像波浪一样起伏，《月亮代表我的心》常用。',
       tips: ['im 指交替拨 3/2 弦，不要同一根手指连拨', '根音落点始终踩在拍点上'],
       actions: ['R', '3', '2', '1', '2', '3', '2', '1']
     },
     {
-      id: 'pick-folk-a', cat: 'pick', name: '民谣分解 A', difficulty: 2,
+      id: 'pick-folk-a', nk:'rhythm.pat.pick-folk-a.name', dk:'rhythm.pat.pick-folk-a.desc', tk:'rhythm.pat.pick-folk-a.tips', cat: 'pick', name: '民谣分解 A', difficulty: 2,
       beats: 4, beatUnit: 4, subdivision: 2, bpm: 60,
       desc: '「根 3 2 3 1 3 2 3」：3 弦做轴心来回穿梭，音型绵密，弹唱伴奏的万能型。',
       tips: ['保持手腕稳定，只有手指关节发力', '先慢速确认每一步都拨对弦'],
       actions: ['R', '3', '2', '3', '1', '3', '2', '3']
     },
     {
-      id: 'pick-waltz6', cat: 'pick', name: '六拍流动分解', difficulty: 2,
+      id: 'pick-waltz6', nk:'rhythm.pat.pick-waltz6.name', dk:'rhythm.pat.pick-waltz6.desc', tk:'rhythm.pat.pick-waltz6.tips', cat: 'pick', name: '六拍流动分解', difficulty: 2,
       beats: 6, beatUnit: 8, subdivision: 1, bpm: 70,
       desc: '6/8 拍「根 3 2 1 2 3」：自带摇曳感，先大声数「1-2-3、2-2-3」找船歌律动。',
       tips: ['6/8 是「两大拍、每拍三份」，重音在 1 和 4', '根音后直接接 3 弦，跨度大时慢练'],
       actions: ['R', '3', '2', '1', '2', '3']
     },
     {
-      id: 'pick-bass-alt', cat: 'pick', name: '低音交替型', difficulty: 3,
+      id: 'pick-bass-alt', nk:'rhythm.pat.pick-bass-alt.name', dk:'rhythm.pat.pick-bass-alt.desc', tk:'rhythm.pat.pick-bass-alt.tips', cat: 'pick', name: '低音交替型', difficulty: 3,
       beats: 4, beatUnit: 4, subdivision: 2, bpm: 55,
       desc: '「根 3 交替低音 3」：拇指在根音与另一根低音弦之间交替（B），是 Travis picking 的前身。',
       tips: ['B 弦由和弦自动决定，跟着界面提示拨即可', '两根低音音量一致，高音三根弦保持均匀'],
       actions: ['R', '3', 'B', '3', 'R', '3', 'B', '3']
     },
     {
-      id: 'pick-triplet', cat: 'pick', name: '三指循环型', difficulty: 3,
+      id: 'pick-triplet', nk:'rhythm.pat.pick-triplet.name', dk:'rhythm.pat.pick-triplet.desc', tk:'rhythm.pat.pick-triplet.tips', cat: 'pick', name: '三指循环型', difficulty: 3,
       beats: 4, beatUnit: 4, subdivision: 3, bpm: 50,
       desc: '每拍三连音「根-3-2」循环：拇指与 i/m 指形成连绵的三连音滚奏，古典与指弹常用的练习。',
       tips: ['三连音要「等分」，别弹成前八后十六', '以「哒-哒-哒」均匀计数，再上速度'],
@@ -184,20 +186,23 @@
   function resolveAction(pattern, action, chordName) {
     const rootInfo = ROOT_MAP[chordName] || ROOT_MAP['通用'];
     if (pattern.cat === 'strum') {
-      if (action === 'D') return { label: '↓', sub: '下', cn: '下扫', kind: 'down', string: null, midi: null };
-      if (action === 'U') return { label: '↑', sub: '上', cn: '上扫', kind: 'up', string: null, midi: null };
-      if (action === 'x') return { label: '×', sub: '切', cn: '切音', kind: 'mute', string: null, midi: null };
-      return { label: '·', sub: '空', cn: '空拍', kind: 'rest', string: null, midi: null };
+      if (action === 'D') return { label: '↓', sub: '下', subKey: 'rhythm.act.down', cn: '下扫', cnKey: 'rhythm.act.down', kind: 'down', string: null, midi: null };
+      if (action === 'U') return { label: '↑', sub: '上', subKey: 'rhythm.act.up', cn: '上扫', cnKey: 'rhythm.act.up', kind: 'up', string: null, midi: null };
+      if (action === 'x') return { label: '×', sub: '切', subKey: 'rhythm.act.mute', cn: '切音', cnKey: 'rhythm.act.mute', kind: 'mute', string: null, midi: null };
+      return { label: '·', sub: '空', subKey: 'rhythm.act.rest', cn: '空拍', cnKey: 'rhythm.act.rest', kind: 'rest', string: null, midi: null };
     }
+    /* V4.3.1：动作名走 i18n 键（lab 只保留紧凑符号，避免 44px 网格被长译文撑破）。
+       cnKey/cnN 为纯元数据，数据层不取词；由 rhythm.js 在 title/aria-label 上统一渲染。
+       cn 保留中文作 zh-CN 无宿主回退，兼容既有数据契约。 */
     if (action === 'R') {
-      return { label: '根', sub: FINGER_OF_STRING[rootInfo.s] || '', cn: '根音', kind: 'pick', string: rootInfo.s, midi: null };
+      return { label: 'R', sub: FINGER_OF_STRING[rootInfo.s] || '', cn: '根音', cnKey: 'rhythm.act.root', kind: 'pick', string: rootInfo.s, midi: null };
     }
     if (action === 'B') {
-      return { label: 'B', sub: FINGER_OF_STRING[rootInfo.altS] || '', cn: '交替低音', kind: 'pick', string: rootInfo.altS, midi: null };
+      return { label: 'B', sub: FINGER_OF_STRING[rootInfo.altS] || '', cn: '交替低音', cnKey: 'rhythm.act.alt', kind: 'pick', string: rootInfo.altS, midi: null };
     }
-    if (action === '-') return { label: '·', sub: '空', cn: '空拍', kind: 'rest', string: null, midi: null };
+    if (action === '-') return { label: '·', sub: '空', subKey: 'rhythm.act.rest', cn: '空拍', cnKey: 'rhythm.act.rest', kind: 'rest', string: null, midi: null };
     const s = +action;
-    return { label: String(s), sub: FINGER_OF_STRING[s] || '', cn: s + ' 弦', kind: 'pick', string: s, midi: null };
+    return { label: String(s), sub: FINGER_OF_STRING[s] || '', cn: s + ' 弦', cnKey: 'rhythm.act.string', cnN: s, kind: 'pick', string: s, midi: null };
   }
 
   /* ---------- 根音/低音的 MIDI 音高（由音频层结合 OPEN_MIDI 计算） ----------

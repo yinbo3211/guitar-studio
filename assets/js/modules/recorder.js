@@ -4,6 +4,10 @@
    ============================================================ */
 'use strict';
 
+/* V4.3.1 收尾：用户可见文案统一走宿主词条（无宿主 / Node 单测回退 key） */
+const T = k => { try { if(typeof window!=='undefined' && typeof window.t==='function') return window.t(k); } catch(e){} return k; };
+const TF = (k,p) => { try { if(typeof window!=='undefined' && window.gsI18n && typeof window.gsI18n.tF==='function') return window.gsI18n.tF(k,p); } catch(e){} let s=T(k); for(const a of Object.keys(p||{})) s=s.split('{'+a+'}').join(String(p[a])); return s; };
+
 const { clamp, midiFromFreq, freqFromMidi, NOTE_NAMES, NOTE_CN, noteName, noteNameNoOct, makeSmoother, PitchDetect, OPEN_MIDI, tapBpm, isSubAccent, quantizeToOctave, matchFretTarget, isPitchMatch, centsBetween, pcFromName } = AudioCore;   // V3 M3：模块级解构（原 app 文件共享作用域）
 
 /* ============================================================
@@ -28,12 +32,12 @@ const Studio = {
     // P1-08 修复：MediaRecorder 支持性检查必须先于 getUserMedia——
     // V1 先申请麦克风再检查，旧浏览器不支持时直接 return，
     // 已获取的 stream 永远不会释放，麦克风指示灯常亮（泄漏）。
-    if(!window.MediaRecorder){ toast('当前浏览器不支持录音功能','err');return; }
+    if(!window.MediaRecorder){ toast(T('recorder.noSupport'),'err');return; }
     // P0-03 修复：HTTP 明文下 mediaDevices 为 undefined，先校验再调用
     try{
       this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false}});
     }catch(e){
-      toast('无法访问麦克风，请检查权限','err');return;
+      toast(T('recorder.micDenied'),'err');return;
     }
     const types=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];
     let mime='';
@@ -43,7 +47,7 @@ const Studio = {
     try{
       this.rec=mime?new MediaRecorder(this.stream,{mimeType:mime}):new MediaRecorder(this.stream);
     }catch(e){
-      toast('录音初始化失败：'+(e&&e.message||e),'err');
+      toast(TF('recorder.initFail',{err:e&&e.message||e}),'err');
       this._release();
       return;
     }
@@ -68,7 +72,7 @@ const Studio = {
       const blob=new Blob(chunks,{type:usedMime||'audio/webm'});
       const url=URL.createObjectURL(blob);
       this.idx++;
-      this.items.unshift({url,ext,dur:this.lastDur,name:'录音 '+this.idx});
+      this.items.unshift({url,ext,dur:this.lastDur,name:TF('recorder.name',{n:this.idx})});
       this.render();
     };
     // 电平表
@@ -91,14 +95,14 @@ const Studio = {
       this._levelLoop();
     }catch(e){
       // P1-3：建音频图/start 失败也要回滚，避免占用麦克风与半成品状态
-      toast('无法开始录音：'+(e&&e.message||e),'err');
+      toast(TF('recorder.startFail',{err:e&&e.message||e}),'err');
       try{ if(this.rec.state!=='inactive') this.rec.stop(); }catch(_){ this._release(); }
       return;
     }
     this.t0=Date.now();
     $('#recBtn').classList.add('recording');
     $('#recBtn').innerHTML='<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
-    $('#recHint').textContent='录音中，再点一次停止';
+    $('#recHint').textContent=T('recorder.hint.recording');
     this.tickTimer=setInterval(()=>{
       $('#recTime').textContent=this.fmt((Date.now()-this.t0)/1000);
     },200);
@@ -131,7 +135,7 @@ const Studio = {
     $('#recLevel').style.width='0';
     $('#recBtn').classList.remove('recording');
     $('#recBtn').innerHTML='<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><circle cx="12" cy="12" r="7"/></svg>';
-    $('#recHint').textContent='点击按钮开始录音';
+    $('#recHint').textContent=T('recorder.hint.idle');
     // Fix-7: 停止录音时立即取消电平表 rAF 循环，避免访问已释放的 analyser 资源
     if(this.raf){ cancelAnimationFrame(this.raf); this.raf=null; }
     this.analyser=null;
@@ -154,7 +158,7 @@ const Studio = {
       <div class="rec-item">
         <div class="name">${it.name}<small>${this.fmt(it.dur)} · ${it.ext.toUpperCase()}</small></div>
         <audio controls preload="metadata" src="${it.url}"></audio>
-        <a class="btn btn-sm" style="text-decoration:none" href="${it.url}" download="六弦工坊-${it.name.replace(' ','')}.${it.ext}">下载</a>
+        <a class="btn btn-sm" style="text-decoration:none" href="${it.url}" download="${TF('recorder.fileName',{name:it.name.replace(' ','')})}.${it.ext}">${T('recorder.download')}</a>
         <button class="rec-del" data-i="${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button>
       </div>`).join('');
     $('#recList').onclick=e=>{
@@ -166,7 +170,18 @@ const Studio = {
       this.render();
     };
   }
+,
+  /* V4.3.1：语言切换刷新提示与列表（items / 录音句柄完全保留） */
+  refreshLang(){
+    if(!this.inited) return;
+    const hint=$('#recHint');
+    if(hint) hint.textContent=(this.rec&&this.rec.state==='recording')?T('recorder.hint.recording'):T('recorder.hint.idle');
+    this.render();
+  }
 };
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('gs:lang',()=>Studio.refreshLang());
+}
 onRouteEnter.studio=()=>Studio.init();
 
 window.Studio = Studio;
