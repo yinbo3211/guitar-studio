@@ -536,6 +536,8 @@ export const DICT = {
   'scx.toast.finish':'音阶练习完成，最高连击 {n}',
   'scx.btn.stopListen':'停止示范',
   'scx.btn.stopFollow':'停止跟弹',
+  'scx.wrong':'弹错了，看清高亮格再试一次',
+  'scx.tip.wrong':'刚才弹错啦：认准高亮格，放慢速度重弹当前音',
   'ear.iv.m2':'大二度',
   'ear.iv.m2.ex':'Do–Re',
   'ear.iv.m3':'小三度',
@@ -667,5 +669,6 @@ export const DICT = {
   'flow.modalOk':'我知道了',
   'flow.toastDone':'本轮完成：{n} 次转换，已计入练习统计',
   'chords.fretN':'{n}品',
+  'tone.fallback':'高级音色库加载失败，已切换到基础音色，练习功能不受影响',
 };
 export default DICT;

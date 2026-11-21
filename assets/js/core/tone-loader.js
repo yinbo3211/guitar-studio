@@ -12,6 +12,31 @@
 const TONE_VERSION = '15.1.22';
 
 let _tonePromise = null;
+let _fallbackWarned = false;
+
+/* RISK-02：Tone 三个来源全失败时，原来只有 console 告警，用户完全无感知，
+   「换了网络环境就没声」类反馈无从排查。这里补一条用户可见 toast。
+   约束：① 只弹一次；② 走四语词条（不引入硬编码中文）；③ loadTone 在
+   main.js 预取阶段就会调用，此时 DOM / i18n 可能尚未就绪，需等 DOMContentLoaded
+   后再取词并弹；④ 全程 try/catch，提示失败绝不影响音频降级本身。 */
+function notifyFallback(){
+  if(_fallbackWarned) return;
+  const fire = () => {
+    if(_fallbackWarned) return;
+    try{
+      if(typeof window==='undefined' || typeof window.toast!=='function') return;
+      const pick = (typeof window.t==='function') ? window.t('tone.fallback') : null;
+      if(!pick || pick==='tone.fallback') return;   // i18n 未就绪时不弹半成品
+      _fallbackWarned = true;
+      window.toast(pick,'warn',4200);
+    }catch(e){ /* 提示不可用时静默，音频回退照常 */ }
+  };
+  try{
+    if(typeof document!=='undefined' && document.readyState==='loading')
+      document.addEventListener('DOMContentLoaded',fire,{once:true});
+    else fire();
+  }catch(e){ /* 无 document 的环境（Node 单测）直接跳过提示 */ }
+}
 
 export function loadTone() {
   if (_tonePromise) return _tonePromise;
@@ -42,6 +67,7 @@ export function loadTone() {
       }
     }
     console.warn('[tone-loader] Tone.js 全部来源加载失败，音频走原生 Web Audio 后端');
+    notifyFallback();      // RISK-02：用户可见提示（一次性、四语）
     _tonePromise = null;   // 允许下次重试
     return null;
   })();

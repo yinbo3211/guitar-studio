@@ -485,6 +485,18 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.3.2 · 节拍器无声根治 / 音阶弹错反馈 / Tone 初始化修复（报告落地 + 浏览器实测新增缺陷）
+
+依据 `docs/V4.3.1_BUG_DETECTION_REPORT.md`（用户提供的《吉他工坊 Bug 检测与修复报告》）把报告描述的两个核心缺陷真正落地到主干——该报告声称 BUG-01 / BUG-02「已修复」，但基线 commit `52eda67` 的主干并未包含这些改动。另在真实浏览器复验中发现并修复报告未覆盖的第三处缺陷。
+
+- **BUG-01（P1）节拍器无声根治**：`assets/js/core/audio-engine.js` 的 `_integrateTone()` 旧实现无条件「先 `master.disconnect()` 再跨 AudioContext `connect(ToneEngine.rawBuses.music)`」；依据 Web Audio 规范，跨上下文 connect 会抛 `InvalidAccessError`（或静默不发声），而 catch 只打印告警、不恢复，导致 `master` 悬空——原生发声链（节拍器 click 回退、拨弦确认音、调音器参考音、录音监听）全部静音。修复：加**同上下文守卫**（`master.context !== buses.ctx` 时直接保留原生输出）、改为**先连新总线再断旧输出**、并在异常分支**强制恢复 `master → this.ctx.destination`**，保证「一定有声音」。行为级单测覆盖跨上下文、同上下文、connect 抛错三条路径。
+- **BUG-02（P2）音阶跟弹弹错提示**：`assets/js/modules/scale.js` 旧代码音高不匹配时只静默 `cand=null`，玩家无法区分「没检测到」和「弹错了」。新增 `onPitch()` 连续 3 帧非目标音判定、`flashMiss()` 目标格 + 误弹格闪红抖动（`app.html` 新增 `.scx-cell.miss` / `scxShake`，复用 `--red`）、196Hz 方波错误音、连击清零（`bestCombo` 保留）、toast 与常驻 tip 提示；配套 `startFollow` 复位 `missN`、`clearAll` 清 `miss` 类、`stopAll` 清定时器，并加 1100ms 冷却避免长按刷屏。新增 `scx.wrong` / `scx.tip.wrong` 四语词条。
+- **BUG-03（浏览器实测新增，报告未覆盖）Tone 初始化必失败**：Chromium + Tone 15.1.22 下，`assets/js/core/tone-engine.js` 把 `standardized-audio-context` 包装的 GainNode 取出底层原生节点后 `connect(limiter.input)`（Tone 包装对象）抛 `Overload resolution failed`，catch 内二次 connect 再抛错 → **整个 `ensure()` 失败、`Tone=null`、六种合成器音色与 Transport 全部不可用**。修复：连接目标改取限幅器的底层原生节点（`limiter.input.input._nativeAudioNode`，已实测可连），保留「Tone 包装对包装」「直连 destination」两级降级，并把整段原生总线做成**非致命**（失败不拖垮 Tone 主链）。复验：`ensure()` 返回 Tone、`buses` / `rawBuses` 均就绪、零 warning。
+- **RISK-01 / RISK-02 收口**：`assets/js/modules/metronome.js` 降级 catch 分支的 `when` 补 `Math.max(0, …)` 钳制，与 `_hitInner` 一致，避免负偏移让降级 click 静音（不改双上下文调度架构）；`assets/js/core/tone-loader.js` 全源加载失败时新增一次性、四语、带 `DOMContentLoaded` 守卫的用户可见 toast（新增 `tone.fallback` 四语词条），解决「换了网络环境就没声、用户无感知」。
+- **新增测试 16 项**：`test/v432-bugfix.test.js` —— BUG-01 静态契约 + 3 条行为级（跨上下文不触碰 master / 同上下文先连后断 / 抛错恢复 destination）、BUG-02 判定与反馈契约 + 2 条行为级（3 帧触发并清连击、弹对推进且不误判）、CSS 样式契约、四语词条与键集合（661 → 664）、BUG-03 非致命结构契约、RISK-01 / RISK-02 契约。
+- **实测验收**：393px Playwright Chromium 逐项复验 **15/15 通过**——跨上下文守卫在 `rawBuses` 真实就绪下不触碰 master 输出、原生 click/pluck/tone 可用、弹错触发 `scxShake` 动画 + 闪红 + 连击清零 + toast/tip、en/ja/ko 切换后弹错文案本地化、无 pageerror。
+- **测试**：**495 用例 / 494 pass / 0 fail / 1 skip**；lint 121 文件语法 0 失败、S0.4 0 告警、F9 硬编码中文 133（基线 420）、C7 / C8 / C3 全过。
+
 ## V4.3.1 · 国际化收尾（六模块联动 / 乐理术语四语化 / 红线守卫 / 交付全绿）
 
 依据 `docs/V4.3_I18N_CLOSURE_TASK.md`（GS-TASK-2026-004，基线 V4.3.0 / commit `3af2448`）完成收尾：把 V4.3.0 遗留的六个待接入模块与 B3 零散提示全部接入四语，任务书验收清单 A1–A6 逐项通过。

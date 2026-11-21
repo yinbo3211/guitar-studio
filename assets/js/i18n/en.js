@@ -536,6 +536,8 @@ export const DICT = {
   'scx.toast.finish':'Scale practice complete, best combo {n}',
   'scx.btn.stopListen':'Stop demo',
   'scx.btn.stopFollow':'Stop playing along',
+  'scx.wrong':'Wrong note — check the highlighted cell and try again',
+  'scx.tip.wrong':'That one missed: watch the highlighted cell, slow down and replay the current note',
   'ear.iv.m2':'Major 2nd',
   'ear.iv.m2.ex':'Do–Re',
   'ear.iv.m3':'Minor 3rd',
@@ -667,5 +669,6 @@ export const DICT = {
   'flow.modalOk':'Got it',
   'flow.toastDone':'Round done: {n} changes, saved to your stats',
   'chords.fretN':'fret {n}',
+  'tone.fallback':'Advanced tones failed to load; switched to basic sound. Practice still works.',
 };
 export default DICT;

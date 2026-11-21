@@ -730,6 +730,9 @@
           .scx-cell.now .scx-dot,.scx-open.now .scx-dot{animation:scxPulse .7s ease-in-out infinite}
           @keyframes scxPulse{0%,100%{transform:scale(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.55),0 0 16px 1px rgba(255,255,255,.4)}50%{transform:scale(1.34);box-shadow:0 0 0 3px rgba(255,255,255,.75),0 0 24px 3px rgba(255,255,255,.55)}}
           .scx-cell.done .scx-dot,.scx-open.done .scx-dot{background:var(--grad-mint);color:#052018;box-shadow:0 0 14px -2px rgba(46,230,168,.7);animation:none;transform:scale(1)}
+          .scx-cell.miss,.scx-open.miss{z-index:2;animation:scxShake .42s ease;outline:2px solid var(--red);outline-offset:-2px;border-radius:8px}
+          .scx-cell.miss .scx-dot,.scx-open.miss .scx-dot{background:var(--red);color:#fff;box-shadow:0 0 16px -2px var(--red);animation:none;transform:scale(1.16)}
+          @keyframes scxShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
           .scx-fretnums{display:grid;grid-template-columns:48px repeat(4,minmax(54px,1fr));min-width:300px}
           .scx-fretnums span{font-size:10px;color:var(--txt-3);text-align:center;font-family:var(--font-mono);padding:5px 0}
           .scx-legend{display:flex;gap:16px;margin-top:12px;font-size:11.5px;color:var(--txt-2);flex-wrap:wrap}

@@ -536,6 +536,8 @@ export const DICT = {
   'scx.toast.finish':'スケール練習完了、最高コンボ {n}',
   'scx.btn.stopListen':'お手本を停止',
   'scx.btn.stopFollow':'跟弾を停止',
+  'scx.wrong':'音が違います。ハイライトの枠を確認してもう一度',
+  'scx.tip.wrong':'外れました：ハイライトを見て、ゆっくり現在の音を弾き直しましょう',
   'ear.iv.m2':'長2度',
   'ear.iv.m2.ex':'ド–レ',
   'ear.iv.m3':'短3度',
@@ -667,5 +669,6 @@ export const DICT = {
   'flow.modalOk':'わかりました',
   'flow.toastDone':'1周完了：{n} 回チェンジ、練習統計に記録',
   'chords.fretN':'{n}フレット',
+  'tone.fallback':'高度な音色の読み込みに失敗しました。基本音色へ切り替えました。練習は続けられます',
 };
 export default DICT;

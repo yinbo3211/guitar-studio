@@ -98,7 +98,8 @@ const Scale = {
     if(c.f===0) return $(`.scx-open[data-s="${c.s}"]`);
     return $(`.scx-cell[data-s="${c.s}"][data-f="${c.f}"]`);
   },
-  clearAll(){ $$('.scx-cell,.scx-open').forEach(e=>e.classList.remove('now','done')); },
+  /* BUG-02：连同 miss 一起清除，避免上一轮红闪残留到下一轮 */
+  clearAll(){ $$('.scx-cell,.scx-open').forEach(e=>e.classList.remove('now','done','miss')); },
   clearNow(){ $$('.now').forEach(e=>e.classList.remove('now')); },
   markNow(c){
     this.clearNow();
@@ -177,6 +178,9 @@ const Scale = {
     this.i=0; this.combo=0; this.ok=0; this.bestCombo=0;
     // BUG-02：跟弹开始时记录起点并复位上报标志，一轮只计一次
     this.followStartedAt=Date.now(); this.followReported=false;
+    // BUG-02：复位弹错计数/冷却，避免上一轮状态带入新一轮
+    this.missN=0; this.missUntil=0; this.candN=0; this.cand=null;
+    clearTimeout(this.missTimer); clearTimeout(this.missTipTimer);
     this.clearAll();
     this._txt('#scxTip','scx.tip.follow');
     $('#scxCombo').textContent='0';
@@ -194,15 +198,58 @@ const Scale = {
     if(this.mode!=='follow') return;
     if(performance.now()<this.cooldown) return;
     const c=this.seq[this.i];
-    if(!c || !r.freq){ this.cand=null; return; }
+    /* 无有效音高（静音/噪声）不算弹错，避免逆向段余音衰减期被误判连续弹错 */
+    if(!c || !r.freq){ this.cand=null; this.missN=0; return; }
     // V2 M1：阈值判定迁至 AudioCore.isPitchMatch；P2-09：跟随 A4 基准
     if(AudioCore.isPitchMatch(baseMidi(r.freq), c.midi)){
+      this.missN=0;                       // 弹对目标音，清空弹错计数
       if(this.cand===this.i) this.candN++;
       else { this.cand=this.i; this.candN=1; }
       if(this.candN>=2){ this.cand=null; this.candN=0; this.advance(); }
     }else{
-      this.cand=null;
+      this.cand=null; this.candN=0;
+      /* BUG-02：连续 3 帧稳定检出「非目标音高」即判定弹错并给出可感知反馈。
+         旧实现只静默重置 cand，逆向下行时旧音余音掩蔽新音，玩家「弹了没反应」，
+         无法区分「程序没检测到」与「我弹错了」。missUntil 是提示冷却，避免
+         一次长按被连续刷 toast / 错误音。 */
+      if(performance.now() < (this.missUntil||0)) return;
+      this.missN=(this.missN||0)+1;
+      if(this.missN>=3){
+        this.missN=0;
+        this.missUntil=performance.now()+1100;
+        this.flashMiss(baseMidi(r.freq), c);
+      }
     }
+  },
+  /* BUG-02：弹错反馈——目标格 + 误弹格闪红抖动、低音错误提示音、连击清零、
+     toast + tip 四语提示。只改 class / 文本，不重建指板 DOM，保住 done/now
+     高亮、进度与选中把位。 */
+  flashMiss(midiFloat, c){
+    const el=this.cellEl(c);
+    if(el){ el.classList.remove('miss'); void el.offsetWidth; el.classList.add('miss'); }
+    /* 误弹的音若恰好是指板上的另一格，该格同时闪红，玩家可直接看到「弹到了哪儿」 */
+    const near=this.cells.find(x=>Math.abs(x.midi-Math.round(midiFloat))<.5 &&
+      !(x.s===c.s && x.f===c.f));
+    if(near){
+      const ne=this.cellEl(near);
+      if(ne){ ne.classList.remove('miss'); void ne.offsetWidth; ne.classList.add('miss'); }
+    }
+    clearTimeout(this.missTimer);
+    this.missTimer=setTimeout(()=>{
+      $$('.scx-cell.miss,.scx-open.miss').forEach(e=>e.classList.remove('miss'));
+    },520);
+    /* 196Hz 方波短音，与弹对时的拨弦确认音形成明确区分（音频不可用时静默降级） */
+    try{ AudioEngine.tone(196,.14,'square',.16); }catch(e){}
+    this.combo=0;                                   // bestCombo 保留
+    const cb=$('#scxCombo'); if(cb) cb.textContent='0';
+    try{ toast(T('scx.wrong'),'err',1500); }catch(e){}   // Node 单测无 DOM 时静默降级
+    this._txt('#scxTip','scx.tip.wrong');
+    /* 短暂显示后恢复跟弹提示（仍在跟弹且未再次弹错时） */
+    clearTimeout(this.missTipTimer);
+    this.missTipTimer=setTimeout(()=>{
+      if(this.mode==='follow' && this._langText && this._langText['#scxTip'] &&
+         this._langText['#scxTip'].key==='scx.tip.wrong') this._txt('#scxTip','scx.tip.follow');
+    },1800);
   },
   advance(){
     const c=this.seq[this.i];
@@ -266,6 +313,9 @@ const Scale = {
     clearTimeout(this.timer);
     clearTimeout(this.showTimer);   // P2-9：取消待执行的下一目标高亮
     this.showTimer=null;
+    // BUG-02：退出练习时清掉红闪与提示恢复定时器，避免回调打到下一轮
+    clearTimeout(this.missTimer); clearTimeout(this.missTipTimer);
+    this.missN=0; this.missUntil=0;
     this.stopMic();
     this.mode='idle';
   },

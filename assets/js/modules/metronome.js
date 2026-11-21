@@ -293,7 +293,14 @@ const Metro = {
       // V3.1 修2：Tone 发声链任一异常 → 弃用合成器，自动降级原生（保证有声音底线）
       console.warn('[Metro] Tone 发声失败，降级原生路径：', e && e.message);
       this._voices = null;
-      try { AudioEngine.click(this.beat===0, time - (AudioEngine.ctx?AudioEngine.ctx.currentTime:0)); } catch (e2) {}
+      /* RISK-01 对齐修复：与 _hitInner 原生回退分支一致，把相对偏移钳制到 >= 0。
+         time 来自 Tone Transport（ctx-B 时钟），AudioEngine.ctx.currentTime 是
+         ctx-A 时钟，相减可能为负 → oscillator start/stop 落在过去 → 降级 click
+         静音。此处只做防御性钳制，不改动双上下文调度架构（架构级统一 AudioContext
+         属报告 RISK-01 的后续建议，本次不引入回归）。 */
+      const ctxA = AudioEngine.ctx;
+      const off = Math.max(0, (time||0) - (ctxA ? ctxA.currentTime : 0));
+      try { AudioEngine.click(this.beat===0, off); } catch (e2) {}
     }
   },
   _hitInner(time){

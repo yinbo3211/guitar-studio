@@ -58,20 +58,40 @@ const AudioEngine = {
     if(this.ctx.state==='suspended') this.ctx.resume();
     return this.ctx;
   },
-  /* R-BUS-01：AudioEngine 的原生节点汇入 tone-engine 的 music 总线，
-     全应用共享同一个 AudioContext（同一时钟） */
+  /* R-BUS-01：AudioEngine 的原生节点汇入 tone-engine 的 music 总线（仅同上下文时）。
+     BUG-01（P1）根治：旧实现无条件「先 disconnect、再跨 AudioContext connect」——
+     AudioEngine.master 属自有 ctx-A，ToneEngine.rawBuses.music 属 Tone 的 rawCtx-B，
+     Web Audio 规范禁止跨上下文 connect（抛 InvalidAccessError 或静默不发声）。
+     一旦 connect 抛错，catch 只打印告警不恢复，master 从此悬空：既没接 Tone 总线，
+     也没接自身 destination，原生发声链（节拍器 click 回退 / 拨弦确认音 / 调音器
+     参考音 / 录音监听）全部静音，表现为「节拍器没有声音」。
+     修复：① 只有两节点确属同一 AudioContext 时才迁移输出，跨上下文一律保留原生
+     输出；② 任何异常都把 master 恢复到本上下文 destination，保证「一定有声音」。 */
   _integrateTone(){
     ToneEngine.ensure().then(Tone=>{
       if(!Tone) return;
       try{
-        // V3.1 修4（BUG-3 疑点 C 根治）：不再中途替换 this.ctx——
-        // AudioEngine 的振荡器链路固定跑在自有 ctx-A，Tone 合成器跑在 rawCtx-B，
-        // 两条发声链互不混用时间基准；只把 master 声音汇入 tone-engine 总线做统一限幅
-        if(this.master && ToneEngine.rawBuses){
-          this.master.disconnect();
-          this.master.connect(ToneEngine.rawBuses.music);
-        }
-      }catch(e){ console.warn('[audio-engine] Tone 总线接入失败，走原生输出：', e&&e.message); }
+        const buses=ToneEngine.rawBuses;
+        if(!this.master || !buses || !buses.music) return;
+        /* 同上下文守卫：master.context 即 ctx-A；buses.ctx 即 Tone 的 rawCtx-B。
+           实际运行中二者始终不同，此分支不会进入，master 保持 ensure() 里建立的
+           master → ctx-A.destination 原生输出，声音不再悬空。 */
+        if(this.master.context !== buses.ctx) return;
+        /* 仅当确实是同一个 AudioContext 时才汇入 Tone 限幅总线做统一音量控制。
+           先尝试新连接，成功后再断开旧连接，避免「先断后连」失败留下悬空 master。 */
+        this.master.connect(buses.music);
+        this.master.disconnect(this.ctx.destination);
+      }catch(e){
+        /* 关键兜底：绝不让 master 悬空。断开所有输出后重建到本上下文 destination，
+           connect(destination) 属同上下文操作，必定成功。 */
+        try{
+          if(this.master){
+            this.master.disconnect();
+            this.master.connect(this.ctx.destination);
+          }
+        }catch(e2){ /* 上下文已关闭等极端情况，已无可用输出，只能放弃 */ }
+        console.warn('[audio-engine] Tone 总线接入失败，已恢复原生输出：', e&&e.message);
+      }
     }).catch(()=>{});  },
   /* 拨弦合成：三角波基音 + 泛音 + 指数衰减 */
   pluck(freq, when=0, dur=1.6, vol=.32){

@@ -536,6 +536,8 @@ export const DICT = {
   'scx.toast.finish':'스케일 연습 완료, 최고 콤보 {n}',
   'scx.btn.stopListen':'데모 정지',
   'scx.btn.stopFollow':'따라 연주 정지',
+  'scx.wrong':'음이 달라요 — 강조된 칸을 보고 다시 쳐 보세요',
+  'scx.tip.wrong':'빗나갔어요: 강조된 칸을 보고 속도를 늦춰 현재 음을 다시 연주하세요',
   'ear.iv.m2':'장2도',
   'ear.iv.m2.ex':'도–레',
   'ear.iv.m3':'단3도',
@@ -667,5 +669,6 @@ export const DICT = {
   'flow.modalOk':'알겠습니다',
   'flow.toastDone':'한 회 완료: {n}회 전환, 연습 통계에 기록',
   'chords.fretN':'{n}프렛',
+  'tone.fallback':'고급 음색 로드에 실패했습니다. 기본 음색으로 전환했으며 연습은 그대로 가능합니다',
 };
 export default DICT;
