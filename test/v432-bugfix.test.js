@@ -3,7 +3,8 @@
    ------------------------------------------------------------
    对应《吉他工坊 Bug 检测与修复报告》（docs/V4.3.1_BUG_DETECTION_REPORT.md）
    BUG-01（P1）core/audio-engine.js _integrateTone 跨 AudioContext 导致 master 悬空
-   BUG-02（P2）modules/scale.js 音阶跟弹缺弹错提示
+   V4.3.3 注：BUG-02 弹错提示已按用户反馈整体回退，B2 组改为「回退契约」断言
+             （专项：test/v433-scale-tip.test.js）
    RISK-01    modules/metronome.js 降级 click 的 when 负偏移钳制
    RISK-02    core/tone-loader.js 全源失败用户可见提示
    ------------------------------------------------------------
@@ -109,142 +110,97 @@ test('B1-4 BUG-01 行为级：connect 抛错时 catch 恢复 master→ctx.destin
     '异常后必须断开全部输出并重建到本上下文 destination，绝不让 master 悬空');
 });
 
-/* ---------- BUG-02 静态：判定/反馈/复位配套 ---------- */
-test('B2-1 BUG-02 onPitch 连续 3 帧弹错判定 + 冷却 + 无有效音高不误判', () => {
-  assert.ok(/missN>=3/.test(SCALE_SRC), '缺少连续 3 帧非目标音判定');
-  assert.ok(/missUntil\s*=\s*performance\.now\(\)\+/.test(SCALE_SRC), '缺少提示冷却，长按会刷屏');
-  assert.ok(/if\(!c \|\| !r\.freq\)\{[^}]*missN=0/.test(SCALE_SRC),
-    '无有效音高时必须清零 missN，否则余音衰减期会被误判连续弹错');
-  assert.ok(/if\(AudioCore\.isPitchMatch[\s\S]{0,180}?missN=0/.test(SCALE_SRC),
-    '弹对目标音时必须清零 missN');
+/* ---------- V4.3.3 回退契约：弹错反馈已移除，改为提示条说弦 ----------
+   用户反馈：报错提示不精确且降低练琴效率，整体回退到 V4.3.1 的
+   「弹对才推进、弹错静默重置」；正向引导见 test/v433-scale-tip.test.js。 */
+test('B2-R1 弹错反馈已彻底移除（源码 / 样式 / 四语词条）', () => {
+  for (const bad of ['flashMiss', 'missN', 'missUntil', 'missTimer', 'missTipTimer',
+                     'scx.wrong', 'scx.tip.wrong', "add('miss')", 'tone(196']) {
+    assert.ok(!SCALE_SRC.includes(bad), `scale.js 仍残留弹错反馈标记：${bad}`);
+  }
+  assert.ok(!/remove\('now','done','miss'\)/.test(SCALE_SRC), 'clearAll 仍在清 miss 类');
+  assert.ok(!HTML.includes('@keyframes scxShake'), 'app.html 仍残留抖动动画');
+  assert.ok(!HTML.includes('.scx-cell.miss'), 'app.html 仍残留 miss 闪红样式');
+  for (const lang of LANGS) {
+    assert.ok(!DICT[lang]['scx.wrong'], `${lang} 仍残留 scx.wrong`);
+    assert.ok(!DICT[lang]['scx.tip.wrong'], `${lang} 仍残留 scx.tip.wrong`);
+  }
+  assert.ok(/else\{\s*this\.cand=null;\s*\}/.test(SCALE_SRC),
+    'onPitch 不匹配分支应恢复为 V4.3.1 的静默重置');
 });
 
-test('B2-2 BUG-02 flashMiss 反馈契约（闪红/误弹格/错误音/清连击/toast/tip）', () => {
-  assert.ok(/flashMiss\(midiFloat,\s*c\)\s*\{/.test(SCALE_SRC), '缺少 flashMiss 实现');
-  assert.ok(/classList\.add\('miss'\)/.test(SCALE_SRC), '缺少目标格闪红');
-  assert.ok(/this\.cells\.find\(/.test(SCALE_SRC), '缺少误弹格定位');
-  assert.ok(/AudioEngine\.tone\(196,\.14,'square'/.test(SCALE_SRC), '缺少 196Hz 方波错误音');
-  assert.ok(/this\.combo=0/.test(SCALE_SRC), '弹错未清连击');
-  assert.ok(/toast\(T\('scx\.wrong'\),'err'/.test(SCALE_SRC), '缺少弹错 toast');
-  assert.ok(/_txt\('#scxTip','scx\.tip\.wrong'\)/.test(SCALE_SRC), '缺少常驻 tip 提示');
-  assert.ok(/bestCombo=Math\.max/.test(SCALE_SRC), 'bestCombo 应保留（advance 中仍取最大值）');
-});
-
-test('B2-3 BUG-02 配套复位：startFollow / clearAll / stopAll', () => {
-  assert.ok(/this\.missN=0;?\s*this\.missUntil=0/.test(SCALE_SRC), 'startFollow 未复位弹错计数/冷却');
-  assert.ok(/clearAll\(\)\{[^}]*remove\('now','done','miss'\)/.test(SCALE_SRC),
-    'clearAll 未清除 miss 类，上一轮红闪会残留');
-  assert.ok(/clearTimeout\(this\.missTimer\);\s*clearTimeout\(this\.missTipTimer\)/.test(SCALE_SRC),
-    'stopAll 未清理红闪/提示恢复定时器');
-});
-
-test('B2-4 BUG-02 CSS：.miss 闪红 + scxShake 抖动动画', () => {
-  assert.ok(/\.scx-cell\.miss,\.scx-open\.miss\{/.test(HTML), '缺少 miss 样式');
-  assert.ok(/@keyframes scxShake/.test(HTML), '缺少 scxShake 抖动动画');
-  assert.ok(/\.scx-cell\.miss \.scx-dot/.test(HTML), '缺少红点覆盖 now 脉冲');
-  assert.ok(/var\(--red\)/.test(HTML), '闪红应复用主题 --red');
-});
-
-test('B2-5 BUG-02 行为级：连续 3 帧非目标音 → 触发 flashMiss 且清连击/toast/tip', async () => {
+test('B2-R2 行为级：连续弹错静默重置，不推进 / 不清连击 / 无 toast / 无错误音', async () => {
   await imp('test/_gp-stubs.mjs');
   await imp('assets/js/data/scales.js');
-  globalThis.AudioEngine = { tone() {}, pluck() {}, ensure() {}, ctx: { currentTime: 0 } };
-  const toasts = [];
-  globalThis.toast = (msg, type) => toasts.push({ msg, type });
-  // 宿主取词（缺词回退 key），确保 T/TF 正常
+  const toneCalls = [], toasts = [];
+  globalThis.AudioEngine = { tone(...a) { toneCalls.push(a); }, pluck() {}, ensure() {}, ctx: { currentTime: 0 } };
+  globalThis.toast = (m, t) => toasts.push({ m, t });
   globalThis.window = globalThis;
   globalThis.t = (k) => (ZH[k] ?? k);
   const { Scale } = await imp('assets/js/modules/scale.js');
-
-  const c = { s: 0, f: 0, midi: 40, pc: 4 };            // 目标 E2
+  const c = { s: 0, f: 0, midi: 40, pc: 4 };          // 目标 E2
   Scale.mode = 'follow'; Scale.seq = [c]; Scale.cells = [c]; Scale.i = 0;
-  Scale.cand = null; Scale.candN = 0; Scale.missN = 0; Scale.missUntil = 0;
-  Scale.combo = 7; Scale.bestCombo = 12; Scale.cooldown = 0;
-  Scale._langText = {}; Scale.missTimer = null; Scale.missTipTimer = null;
-  // 冻结时钟：让 missUntil 冷却可控
-  const realNow = performance.now;
-  let now = 1000;
-  performance.now = () => now;
-  const realST = globalThis.setTimeout;
-  globalThis.setTimeout = () => 1;          // 不真正排定时器
-  globalThis.clearTimeout = () => {};
-  let flashArg = null;
-  const origFlash = Scale.flashMiss;
-  Scale.flashMiss = function (m, cc) { flashArg = { m, cc }; return origFlash.call(this, m, cc); };
-
+  Scale.cand = null; Scale.candN = 0; Scale.combo = 7; Scale.bestCombo = 12;
+  Scale.cooldown = 0; Scale._langText = {};
+  let advanced = 0;
+  const orig = Scale.advance;
+  Scale.advance = () => { advanced++; };
   try {
-    // 3 帧非目标音（440Hz → MIDI69，远离目标 40）
-    Scale.onPitch({ freq: 440 });
-    Scale.onPitch({ freq: 440 });
-    assert.strictEqual(flashArg, null, '不足 3 帧不应触发弹错');
-    assert.strictEqual(Scale.combo, 7, '未触发弹错时连击不应清零');
-    Scale.onPitch({ freq: 440 });
-    assert.ok(flashArg, '第 3 帧应触发 flashMiss');
-    assert.strictEqual(Scale.combo, 0, '弹错应清零连击');
+    for (let n = 0; n < 8; n++) Scale.onPitch({ freq: 440 });  // 远离目标音
+    assert.strictEqual(advanced, 0, '弹错不应推进');
+    assert.strictEqual(Scale.combo, 7, '弹错不应清零连击');
     assert.strictEqual(Scale.bestCombo, 12, '最高连击应保留');
-    assert.strictEqual(Scale.missN, 0, '触发后 missN 应归零');
-    assert.ok(Scale.missUntil > now, '应设置提示冷却');
-    assert.ok(toasts.some((t) => t.type === 'err'), '应弹出 err toast');
-    assert.strictEqual(Scale._langText['#scxTip'].key, 'scx.tip.wrong', 'tip 应记录取词来源');
-    // 冷却期内不再重复触发
-    flashArg = null;
-    for (let i = 0; i < 6; i++) Scale.onPitch({ freq: 440 });
-    assert.strictEqual(flashArg, null, '冷却期内不应重复刷 toast/错误音');
-  } finally {
-    performance.now = realNow;
-    globalThis.setTimeout = realST;
-    Scale.flashMiss = origFlash;
-  }
+    assert.strictEqual(Scale.cand, null, '弹错应静默重置 cand');
+    assert.deepStrictEqual(toasts, [], '弹错不应弹 toast');
+    assert.deepStrictEqual(toneCalls, [], '弹错不应播放错误音');
+    assert.strictEqual(typeof Scale.flashMiss, 'undefined', 'flashMiss 方法应已删除');
+    Scale.onPitch({ freq: 0 });                          // 无有效音高同样静默
+    assert.strictEqual(Scale.cand, null);
+    assert.deepStrictEqual(toasts, []);
+  } finally { Scale.advance = orig; }
 });
 
-test('B2-6 BUG-02 行为级：弹对目标音推进且不残留弹错计数；无 freq 不误判', async () => {
+test('B2-R3 判定算法未被回退误伤：连续 2 帧匹配仍推进一次', async () => {
+  await imp('test/_gp-stubs.mjs');
+  await imp('assets/js/data/scales.js');
+  globalThis.window = globalThis;
+  globalThis.t = (k) => (ZH[k] ?? k);
   const { Scale } = await imp('assets/js/modules/scale.js');
   const c = { s: 0, f: 0, midi: 40, pc: 4 };
-  const realNow = performance.now;
-  let now = 5000;
-  performance.now = () => now;
-  const realST = globalThis.setTimeout;
-  globalThis.setTimeout = () => 1;
-  globalThis.clearTimeout = () => {};
   let advanced = 0;
-  const origAdvance = Scale.advance;
-  Scale.advance = function () { advanced++; /* 不真正推进，避免越界 */ };
+  const orig = Scale.advance;
+  Scale.advance = () => { advanced++; };
   try {
     Scale.mode = 'follow'; Scale.seq = [c]; Scale.cells = [c]; Scale.i = 0;
-    Scale.cand = null; Scale.candN = 0; Scale.missN = 2; Scale.missUntil = 0;
-    Scale.combo = 3; Scale.cooldown = 0; Scale._langText = {};
-    const f = 82.41; // E2 ≈ MIDI40
-    Scale.onPitch({ freq: f });
-    Scale.onPitch({ freq: f });
-    assert.strictEqual(Scale.missN, 0, '弹对应清零弹错计数');
-    assert.strictEqual(advanced, 1, '连续 2 帧匹配应推进一次');
-    // 无有效音高：不应累加 missN、不应推进
-    Scale.missN = 2; Scale.candN = 0; Scale.cand = null;
-    Scale.onPitch({ freq: 0 });
-    assert.strictEqual(Scale.missN, 0, '无有效音高应清零 missN（余音期不误判弹错）');
-  } finally {
-    performance.now = realNow;
-    globalThis.setTimeout = realST;
-    Scale.advance = origAdvance;
-  }
+    Scale.cand = null; Scale.candN = 0; Scale.cooldown = 0; Scale._langText = {};
+    Scale.onPitch({ freq: 82.41 });                     // E2 ≈ MIDI 40
+    assert.strictEqual(advanced, 0, '第 1 帧不应推进');
+    Scale.onPitch({ freq: 82.41 });
+    assert.strictEqual(advanced, 1, '第 2 帧应推进一次');
+  } finally { Scale.advance = orig; }
 });
 
 /* ---------- 四语词条 ---------- */
 test('B3-1 新增四语词条齐全、非空、EN/KO 不夹带中文', () => {
-  for (const k of ['scx.wrong', 'scx.tip.wrong', 'tone.fallback']) {
+  for (const k of ['scx.tip.next', 'tone.fallback']) {
     for (const lang of LANGS) {
       assert.ok(DICT[lang][k] && DICT[lang][k].trim(), `${k} 在 ${lang} 缺失或为空`);
     }
     assert.ok(!CJK.test(EN[k]), `${k} 英文译文夹带汉字：${EN[k]}`);
     assert.ok(!CJK.test(KO[k]), `${k} 韩文译文夹带汉字：${KO[k]}`);
   }
-  assert.notStrictEqual(EN['scx.wrong'], ZH['scx.wrong'], 'scx.wrong 未翻译');
-  assert.notStrictEqual(JA['scx.wrong'], ZH['scx.wrong'], 'scx.wrong 日文未翻译');
+  assert.notStrictEqual(EN['scx.tip.next'], ZH['scx.tip.next'], 'scx.tip.next 未翻译');
+  assert.notStrictEqual(JA['scx.tip.next'], ZH['scx.tip.next'], 'scx.tip.next 日文未翻译');
+  for (const lang of LANGS) {
+    assert.ok(!('scx.wrong' in DICT[lang]), `${lang} 仍存在 scx.wrong`);
+    assert.ok(!('scx.tip.wrong' in DICT[lang]), `${lang} 仍存在 scx.tip.wrong`);
+  }
 });
 
 test('B3-2 四语键集合仍完全一致（新增键同步到四语）', () => {
   const base = Object.keys(ZH).sort();
-  assert.ok(base.length >= 664, `词条量应 >= 664，实测 ${base.length}`);
+  // 口径：Object.keys(DICT) 为对象键数（词典存在单行多键，行数会少约 34）
+  assert.ok(base.length >= 697, `词条量应 >= 697，实测 ${base.length}`);
   for (const lang of ['en', 'ja', 'ko']) {
     assert.deepStrictEqual(Object.keys(DICT[lang]).sort(), base, `${lang} 键集合不一致`);
   }

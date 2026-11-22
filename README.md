@@ -485,6 +485,17 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.3.3 · 音阶跟弹：移除弹错报错 / 改为「提示条明确说弦」正向引导（按用户实测反馈）
+
+用户实测反馈：V4.3.2 新增的音阶跟弹弹错提示判得不够精确，且报错打断练琴节奏、反而降低效率，要求整体去掉、回到 V4.3.1「弹对才推进、弹错静默重置」的行为；同时希望跟弹时明确提示「下一音该弹第几弦」，以正向引导替代负面报错。
+
+- **弹错反馈整体回退**：`assets/js/modules/scale.js` 删除 `flashMiss()`、`onPitch()` 的 `missN` 三帧判定与 `missUntil` 冷却、`startFollow` / `stopAll` 的计数与定时器复位，`clearAll()` 恢复只清 `now` / `done`；`app.html` 删除 `.scx-cell.miss` / `.scx-open.miss` 闪红与 `@keyframes scxShake`；四语词典删除 `scx.wrong` / `scx.tip.wrong`。判定算法保持 V4.3.1 原样（连续 2 帧匹配推进、不匹配仅 `cand=null`），不改检测逻辑、不动练习上报。**BUG-01 / BUG-03 / RISK-01 / RISK-02 的修复全部保留**，仅回退 BUG-02 的弹错提示部分。
+- **正向引导「提示条明确说弦」**：新增四语词条 `scx.tip.next`（`{s}` 弦号 + `{f}` 品位名），`showTarget()` 经新增的 `showTip(c)` 把 `#scxTip` 设为动态文案，如「下一音在第 6 弦（3品）」/ `Next note: String 6 (fret 3)`；抽出 `fretText(c)` 复用 `rhythm.open` 与 `scx.fretN`。跟弹全程（上行与下行）均提示，音名（`#scxCur`）、位置（`#scxPos`）、进度（`#scxProg`）、高亮（`.now`）保持原有行为不变。
+- **语言切换重算（修掉嵌套翻译残留）**：`fretText(c)` 是已翻译文本，若缓存进 `_langText.pairs`，切语言时会把上一语言的「3品」塞进新语言模板。`refreshLang()` 增加对 `scx.tip.next` 的按当前语言重算，且**不限制 `mode`**——停止跟弹后提示条仍在，切语言同样正确；空弦走 `rhythm.open` 四语（空弦 / open / 開放弦 / 개방현）。
+- **测试**：`test/v432-bugfix.test.js` 的 B2 组改写为 3 条「回退契约」断言（源码 / 样式 / 四语词条全部清零 + 2 条行为级：连弹 10 帧非目标音不推进、不清连击、无 toast、无错误音、无闪红；连续 2 帧匹配仍推进），BUG-01 / BUG-03 / RISK 断言原样保留；新增 `test/v433-scale-tip.test.js` 6 项（四语词条与占位符、`showTarget` 行为级、四语切换重算、停止跟弹后与空弦口径、无死词条、键集合一致）。
+- **实测验收**：393px Playwright Chromium **21/21 通过**——提示条明确给出弦号、zh/en/ja/ko 四语切换后重算且 EN / KO 零中文残留、弹错零反馈（进度不动 / 连击保留 / 无闪红 / 提示条不变 / `flashMiss` 已删除）、空弦与停止跟弹后切语言正确、提示条与页面 393px 无横向溢出、无 pageerror。
+- **门禁**：**498 用例 / 497 pass / 0 fail / 1 skip**；lint 122 文件语法 0 失败、S0.4 0 告警、F9 硬编码中文 133（基线 420，与 V4.3.2 一致）、C7 / C8 / C3 全过；四语键集合完全一致（697 键/语言）。
+
 ## V4.3.2 · 节拍器无声根治 / 音阶弹错反馈 / Tone 初始化修复（报告落地 + 浏览器实测新增缺陷）
 
 依据 `docs/V4.3.1_BUG_DETECTION_REPORT.md`（用户提供的《吉他工坊 Bug 检测与修复报告》）把报告描述的两个核心缺陷真正落地到主干——该报告声称 BUG-01 / BUG-02「已修复」，但基线 commit `52eda67` 的主干并未包含这些改动。另在真实浏览器复验中发现并修复报告未覆盖的第三处缺陷。
