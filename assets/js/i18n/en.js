@@ -810,8 +810,8 @@ export const DICT = {
   'songbook.mine.badge':'My chart',
   'stats.module.sheetPlayer':'Sheet Studio',
   'foot.support.title':'Support the Author',
-  'foot.support.slogan':'All features are free. Tipping is voluntary.',
-  'foot.support.hint':'Tap to enlarge',
   'foot.support.qrAlt':"Yin Bo's WeChat appreciation QR code",
+  'foot.support.desc':'All features are free \u2014 no membership, no ads. If it helps you, you can support voluntarily.',
+  'foot.support.badge':'Optional'
 };
 export default DICT;

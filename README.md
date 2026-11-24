@@ -485,6 +485,47 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.4.2 · 支持作者改为首页末位卡片（REQ-SUPPORT-CARD-01）
+
+> 按用户反馈：底部常驻赞赏条「太明显、像要饭」。改为首页工具网格最末一张低调卡片，
+> 点击才弹码；且**卡片由 JS 追加到网格末尾，将来新增功能天然排在它前面**。
+> 版本 4.4.1 → **4.4.2**。
+
+- **移除**：`app.html` 中 `</main>` 之后的 `<footer class="app-foot">` 整块删除；
+  `assets/css/base.css` 删除 `.app-foot` / `.app-foot-card` / `.app-foot-qr` /
+  `.app-foot-text` / `.app-foot-hint` 及 860px 断点，只保留弹层样式。
+- **排序保证**：`#appFootCard` 不在 `app.html` 的静态工具网格里占位，改由脚本
+  `document.createElement('button')` + `grid.appendChild(card)` 追加。
+  后续任何新功能只要写进静态网格，渲染顺序必然在支持作者之前；
+  即使有人误把卡片写进 HTML，脚本的幂等守卫（`getElementById` 命中即 return）也不会重复。
+- **视觉弱化**：复用 `.tool-card` 基类并加 `.tc-support` —— 透明底、虚线弱边框、
+  hover 不上浮不发光、图标与标题各降一档对比、右上角「自愿」徽标改为无底色细描边；
+  配色全部走 `var(--txt-2)` / `var(--txt-3)` / `var(--line)` 令牌，7 套主题自适应。
+  卡片内**不放二维码**，避免一眼看出是收款码；点击后才在弹层展示。
+- **文案克制**：正文由「全部功能免费，自愿赞赏。」改为
+  「全部功能免费，无会员、无广告；如果它帮到你，可以自愿支持。」——
+  先讲清免费承诺，再说支持，语气平视；四语同步改写。
+- **弹层**：Esc / 点遮罩空白 / 点右上角 × 关闭，关闭后焦点回到卡片；
+  重复点击不叠层；大图仍为 `min(calc(100vw - 48px), 360px)`（窄屏 ≥320px 便于微信扫码）；
+  `aria-label` 随 `gs:lang` 即时同步；弹层只保留图片本身，不再加一行重复文案。
+- **国际化**：四语词典新增 `foot.support.desc` / `foot.support.badge`，
+  废弃 `foot.support.hint`（点击提示已由卡片形态本身表达）与 `foot.support.slogan`
+  （海报图内已印「全部功能免费，自愿赞赏。」，弹层不再重复）；共 839 键，四语键集合一致。
+- **测试**：`test/support-foot.test.js` 重写为 9 项卡片契约
+  （JS 末位追加、静态网格不得预埋、底部条彻底移除、弱化样式与令牌、
+  四语键与语气红线、SW 与版本、图片规格、弹层交互、无障碍与无副作用）；
+  全量 **556 tests / 555 pass / 0 fail / 1 skip**；
+  lint 132 个 JS 文件语法 0 失败；
+  浏览器复验 393px + 1280px 共 27 项（卡片末位、视觉位置、弹层三种关闭、
+  四语、7 主题、键盘可达、无横向溢出、无 pageerror）。
+- **测试基建**：`test/gp-voicing.test.js` 的 V-1 性能预算由墙钟改为
+  `process.cpuUsage()` CPU 时间（阈值仍 3 秒），并保留 8 秒墙钟防死循环。
+  原因：`npm test` 并发跑 132 个文件时墙钟会被其他用例挤占，
+  曾出现 3.6s 假失败（单独跑仅 0.3s）；判据改的是度量口径，不是放宽标准。
+- **文件索引**：`app.html`、`assets/css/base.css`、`assets/css/components.css`、
+  `assets/js/i18n/zh-CN.js`、`assets/js/i18n/en.js`、`assets/js/i18n/ja.js`、
+  `assets/js/i18n/ko.js`、`test/support-foot.test.js`。
+
 ## V4.4.1 · 全局赞赏条（支持作者，REQ-SUPPORT-FOOTER-01）
 
 > 应用所有页面最底部常驻「支持作者」赞赏条，点击放大赞赏码，便于长按识别 / 扫码。

@@ -810,8 +810,8 @@ export const DICT = {
   'songbook.mine.badge':'자작',
   'stats.module.sheetPlayer':'악보 공방',
   'foot.support.title':'제작자 후원',
-  'foot.support.slogan':'모든 기능은 무료입니다. 후원은 자발적입니다.',
-  'foot.support.hint':'탭하여 크게 보기',
   'foot.support.qrAlt':'인보의 위챗 후원 QR 코드',
+  'foot.support.desc':'모든 기능은 무료이며 회원제와 광고가 없습니다. 도움이 되었다면 자발적으로 후원할 수 있습니다.',
+  'foot.support.badge':'자발적'
 };
 export default DICT;

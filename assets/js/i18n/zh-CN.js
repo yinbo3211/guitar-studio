@@ -810,8 +810,8 @@ export const DICT = {
   'songbook.mine.badge':'自制',
   'stats.module.sheetPlayer':'曲谱工坊',
   'foot.support.title':'支持作者',
-  'foot.support.slogan':'全部功能免费，自愿赞赏。',
-  'foot.support.hint':'点击查看大图',
   'foot.support.qrAlt':'尹博的微信赞赏码',
+  'foot.support.desc':'全部功能免费，无会员、无广告；如果它帮到你，可以自愿支持。',
+  'foot.support.badge':'自愿'
 };
 export default DICT;

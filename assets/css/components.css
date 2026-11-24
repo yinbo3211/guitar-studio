@@ -146,6 +146,27 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .tool-card h3{font-size:16px;font-weight:600;font-family:var(--font-display)}
 .tool-card p{font-size:12.5px;color:var(--txt-2);margin-top:6px;line-height:1.6}
 .tool-card .tc-mic{position:absolute;top:16px;right:15px}
+/* V4.4.2 支持作者卡：刻意「退后一层」——虚线弱边框、无浮起位移，
+   与工具卡区分但不抢注意力；颜色全部走令牌，7 套主题自适应 */
+.tool-card.tc-support{
+  background:transparent;border-style:dashed;border-color:var(--line);box-shadow:none;
+}
+.tool-card.tc-support:hover{
+  transform:none;border-color:var(--line-strong);border-style:dashed;
+  background:rgba(255,255,255,.02);box-shadow:none;
+}
+.tool-card.tc-support:active{transform:none}
+.tool-card.tc-support .tc-icon{
+  background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--txt-3);
+}
+.tool-card.tc-support:hover .tc-icon{transform:none}
+.tool-card.tc-support h3{color:var(--txt);font-size:15px}
+.tool-card.tc-support p{color:var(--txt-2);font-size:12px}
+.tool-card.tc-support .tc-mic{
+  background:transparent;border:1px solid var(--line);color:var(--txt-3);
+  font-size:10.5px;padding:2px 7px;letter-spacing:.4px;
+}
+.tool-card.tc-support:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
 .quick-row{display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap}
 /* 占位视图 */
 .view-placeholder{display:none}

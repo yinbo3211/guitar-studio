@@ -27,6 +27,10 @@ function assertPlayable(midis, positions, capo = 0, maxSpan = 4) {
 }
 
 test('V-1 全库所有多音和弦均无同弦冲突，且求解耗时小于 3 秒', () => {
+  /* V4.4.2：性能预算改用 CPU 时间判定。
+     node --test 并发跑 130+ 文件时，墙钟会被别的用例挤占（曾实测 3.6s > 3s 假失败，
+     单独跑仅 0.3s）；CPU 时间才反映本用例真实开销，墙钟只留作防死循环。 */
+  const cpu0 = process.cpuUsage();
   const startedAt = performance.now();
   let chordCount = 0;
   for (const definition of GP_CHORD_SONGS) {
@@ -41,9 +45,12 @@ test('V-1 全库所有多音和弦均无同弦冲突，且求解耗时小于 3 �
     }
   }
   const elapsed = performance.now() - startedAt;
+  const cpu = process.cpuUsage(cpu0);
+  const cpuMs = (cpu.user + cpu.system) / 1000;
   assert.strictEqual(GP_CHORD_SONGS.length, 231, '应覆盖完整 231 首曲库');
   assert.ok(chordCount > 20000, `应覆盖足够多的和弦事件，实际 ${chordCount}`);
-  assert.ok(elapsed < 3000, `全库求解耗时 ${elapsed.toFixed(1)}ms，超过 3 秒`);
+  assert.ok(cpuMs < 3000, `全库求解 CPU 耗时 ${cpuMs.toFixed(1)}ms，超过 3 秒预算`);
+  assert.ok(elapsed < 8000, `全库求解墙钟 ${elapsed.toFixed(1)}ms，疑似死循环`);
 });
 
 test('V-2 G 大三和弦落在三根不同弦，音高可还原且跨度不超过 4 品', () => {

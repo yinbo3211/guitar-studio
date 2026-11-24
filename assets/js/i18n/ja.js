@@ -810,8 +810,8 @@ export const DICT = {
   'songbook.mine.badge':'自作',
   'stats.module.sheetPlayer':'譜面工房',
   'foot.support.title':'作者を支援',
-  'foot.support.slogan':'全機能が無料です。支援は任意です。',
-  'foot.support.hint':'タップで拡大',
   'foot.support.qrAlt':'尹博のWeChat支援QRコード',
+  'foot.support.desc':'すべての機能は無料。会員制度も広告もありません。お役に立てたら、任意で支援できます。',
+  'foot.support.badge':'任意'
 };
 export default DICT;

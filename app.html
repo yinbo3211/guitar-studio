@@ -1171,20 +1171,6 @@
 
 </main>
 
-    <!-- ============ 全局赞赏条（支持作者，REQ-SUPPORT-FOOTER-01 / V4.4.1） ============ -->
-    <footer class="app-foot" id="appFoot">
-      <button class="app-foot-card" id="appFootBtn" type="button" aria-haspopup="dialog"
-        data-i18n-aria="foot.support.qrAlt" aria-label="尹博的微信赞赏码">
-        <span class="app-foot-qr"><img src="assets/img/support-qr.jpg" alt="尹博的微信赞赏码"
-          width="48" height="48" loading="lazy" decoding="async"></span>
-        <span class="app-foot-text">
-          <strong data-i18n="foot.support.title">支持作者</strong>
-          <span data-i18n="foot.support.slogan">全部功能免费，自愿赞赏。</span>
-        </span>
-        <span class="app-foot-hint" data-i18n="foot.support.hint">点击查看大图</span>
-      </button>
-    </footer>
-
     <!-- ============ 移动端底部导航 ============ -->
     <nav class="tabbar">
       <div class="tabbar-inner">
@@ -1229,10 +1215,27 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
 </script>
 
 <script>
-/* V4.4.1 支持作者：点击赞赏条放大二维码（Esc / 遮罩 / × 关闭，焦点归还；REQ-SUPPORT-FOOTER-01） */
+/* V4.4.2 支持作者：首页工具网格末位卡片（JS 追加 → 新增功能自然排在它前面；点击开弹层）
+   交互：Esc / 遮罩空白 / × 关闭，关闭后焦点归还卡片；弹层文案随语言切换同步 */
 (function () {
-  var btn = document.getElementById('appFootBtn');
-  if (!btn) return;
+  var grid = document.getElementById('toolGrid');
+  if (!grid || document.getElementById('appFootCard')) return;
+
+  /* 卡片统一由 JS 追加到 #toolGrid 末尾：
+     后续新增工具只要写在 app.html 的静态网格里，就会自动排在「支持作者」之前。 */
+  var card = document.createElement('button');
+  card.type = 'button';
+  card.id = 'appFootCard';
+  card.className = 'tool-card tc-support';
+  card.setAttribute('aria-haspopup', 'dialog');
+  card.setAttribute('data-i18n-aria', 'foot.support.qrAlt');
+  card.setAttribute('aria-label', '支持作者');
+  card.innerHTML = '<span class="tag tc-mic" data-i18n="foot.support.badge">自愿</span>'
+    + '<div class="tc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h11v6.6A4.4 4.4 0 0 1 10.6 19H8.4A4.4 4.4 0 0 1 4 14.6z"/><path d="M15 9.6h1.9a2.6 2.6 0 0 1 0 5.2H15"/><path d="M7.5 3.2v2M11 3.2v2"/></svg></div>'
+    + '<h3 data-i18n="foot.support.title">支持作者</h3>'
+    + '<p data-i18n="foot.support.desc">全部功能免费，无会员、无广告；如果它帮到你，可以自愿支持。</p>';
+  grid.appendChild(card);
+
   var lastFocus = null;
   function T(k, fb) {
     try { return (window.gsI18n && window.gsI18n.t) ? window.gsI18n.t(k) : fb; } catch (e) { return fb; }
@@ -1246,9 +1249,9 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   function onKey(e) { if (e.key === 'Escape') close(); }
   function open() {
     if (document.getElementById('appFootModal')) return;
-    /* 回焦目标优先取真实焦点元素；触摸点击时 activeElement 常为 body，回退到触发按钮（R-8） */
+    /* 回焦目标优先取真实焦点元素；触摸点击时 activeElement 常为 body，回退到卡片（R-8） */
     lastFocus = (document.activeElement && document.activeElement !== document.body)
-      ? document.activeElement : btn;
+      ? document.activeElement : card;
     var mask = document.createElement('div');
     mask.id = 'appFootModal';
     mask.className = 'gs-modal-mask app-foot-modal';
@@ -1257,22 +1260,21 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
     mask.setAttribute('aria-modal', 'true');
     mask.setAttribute('aria-label', T('foot.support.qrAlt', '尹博的微信赞赏码'));
 
-    var card = document.createElement('div');
-    card.className = 'gs-modal';
+    var box = document.createElement('div');
+    box.className = 'gs-modal';
     var img = document.createElement('img');
     img.src = 'assets/img/support-qr.jpg';
     img.alt = '尹博的微信赞赏码';
     img.width = 360; img.height = 360; img.decoding = 'async';
-    var p = document.createElement('p');
-    p.textContent = T('foot.support.slogan', '全部功能免费，自愿赞赏。');
     var x = document.createElement('button');
     x.type = 'button';
     x.className = 'app-foot-x';
     x.setAttribute('aria-label', T('common.close', '关闭'));
     x.innerHTML = '&times;';
 
-    card.appendChild(img); card.appendChild(p); card.appendChild(x);
-    mask.appendChild(card);
+    /* 海报图内已含「全部功能免费，自愿赞赏。」，弹层不再重复一遍文案 */
+    box.appendChild(img); box.appendChild(x);
+    mask.appendChild(box);
     mask.addEventListener('click', function (e) { if (e.target === mask) close(); });
     x.addEventListener('click', close);
     document.body.appendChild(mask);
@@ -1280,14 +1282,12 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
     /* 焦点移入对话框容器（不落在 × 上，避免鼠标打开时出现焦点环；Tab 仍可达 ×） */
     mask.focus();
   }
-  btn.addEventListener('click', open);
-  /* G3：语言切换时弹层文案即时同步（弹层打开状态下也生效） */
+  card.addEventListener('click', open);
+  /* G3：语言切换时弹层文案即时同步（弹层打开状态下也生效；卡片文案由 i18n 静态扫描刷新） */
   document.addEventListener('gs:lang', function () {
     var m = document.getElementById('appFootModal');
     if (!m) return;
     m.setAttribute('aria-label', T('foot.support.qrAlt', '尹博的微信赞赏码'));
-    var p = m.querySelector('p');
-    if (p) p.textContent = T('foot.support.slogan', '全部功能免费，自愿赞赏。');
     var x = m.querySelector('.app-foot-x');
     if (x) x.setAttribute('aria-label', T('common.close', '关闭'));
   });
