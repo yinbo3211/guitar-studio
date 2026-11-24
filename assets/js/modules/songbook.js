@@ -60,6 +60,17 @@ function toastSafe(msg, type) {
   try { if (typeof toast === 'function') toast(msg, type || 'info'); } catch (e) { /* 无 toast 环境静默 */ }
 }
 
+/* V4.4 F-14：自制谱数据源注入（松耦合）。SheetStore 未加载 / localStorage
+   不可用时返回空数组，231 首内置曲库逻辑完全不受影响。 */
+function mySheets() {
+  try {
+    const S = (typeof window !== 'undefined' && window.SheetStore) ||
+      (typeof SheetStore !== 'undefined' ? SheetStore : null);
+    const arr = S && typeof S.list === 'function' ? S.list() : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+
 /* ============================================================
    纯逻辑区（无 DOM 依赖，单测直接 import）
    ============================================================ */
@@ -245,6 +256,16 @@ const Songbook = {
   },
 
   onListClick(e) {
+    /* V4.4 F-14：自制谱曲卡的「弹唱 / 编辑」先于内置曲卡判定 */
+    const sheetCard = e.target.closest('[data-sheet]');
+    if (sheetCard) {
+      const a = (e.target.closest('[data-action]') || {}).dataset;
+      const act = a ? a.action : '';
+      const id = encodeURIComponent(sheetCard.dataset.sheet || '');
+      if (act === 'sheetStart') location.hash = '#/sheetLib?play=' + id;
+      else if (act === 'sheetEdit') location.hash = '#/sheetEditor?id=' + id;
+      return;
+    }
     const card = e.target.closest('[data-song]');
     if (!card) {
       const wm = e.target.closest('[data-warmup]');
@@ -305,6 +326,8 @@ const Songbook = {
       .concat([1, 2, 3].map((t) => ({
         k: t, label: Tk('songbook.tier.' + t, TIER_META[t] ? TIER_META[t].name : ''), n: tierCount[t] || 0
       })));
+    /* V4.4 F-14：难度 tab 行最右追加「我的曲谱」，计数 = 自制谱数 */
+    tabs.push({ k: 'mine', label: T('songbook.tab.mine'), n: mySheets().length });
 
     box.innerHTML = `
       <div class="sb-head">
@@ -346,7 +369,8 @@ const Songbook = {
       tabBox.addEventListener('click', (e) => {
         const b = e.target.closest('[data-tier]');
         if (!b) return;
-        this.tier = Number(b.dataset.tier) || 0;
+        /* 'mine' 为字符串态，不能用 Number() 吞掉（否则会回退到全部 tab） */
+        this.tier = b.dataset.tier === 'mine' ? 'mine' : (Number(b.dataset.tier) || 0);
         this.render();                    // 切 tab 保留搜索词
       });
     }
@@ -360,6 +384,8 @@ const Songbook = {
   renderList() {
     const box = document.getElementById('sbList');
     if (!box) return;
+    /* V4.4 F-14：自制谱 tab 走独立数据源，绝不改动 UNITS / 解锁逻辑 */
+    if (this.tier === 'mine') { this.renderMineList(box); return; }
     const frag = document.createDocumentFragment();
     const units = UNITS.filter((u) => !this.tier || u.tier === this.tier);
     let hit = 0;
@@ -384,6 +410,45 @@ const Songbook = {
     }
     box.innerHTML = '';
     box.appendChild(frag);                               // 一次插入，避免逐卡 reflow
+  },
+
+  /* V4.4 F-14：自制谱列表（曲卡复用 .sb-card，事件委托由 sbList 统一接管） */
+  renderMineList(box) {
+    const frag = document.createDocumentFragment();
+    const kw = String(this.kw || '').trim().toLowerCase();
+    const sheets = mySheets().filter((s) => !kw ||
+      [s.title, s.artist, s.transcriber].concat(s.tags || []).filter(Boolean).join(' ').toLowerCase().includes(kw));
+    if (!sheets.length) {
+      const empty = document.createElement('div');
+      empty.className = 'card sb-empty';
+      empty.textContent = T('sheet.lib.empty');
+      frag.appendChild(empty);
+    } else {
+      sheets.forEach((s) => frag.appendChild(this.mineCard(s)));
+    }
+    box.innerHTML = '';
+    box.appendChild(frag);
+  },
+
+  mineCard(s) {
+    const card = document.createElement('article');
+    card.className = 'sb-card';
+    card.dataset.sheet = s.id;
+    const summary = String(s.text == null ? '' : s.text)
+      .replace(/\{[^}]*\}/g, '').replace(/\[[^\]]*\]/g, '')
+      .replace(/\s+/g, ' ').trim().slice(0, 80);
+    const html = `<div class="sb-card-top">
+        <span class="tag tag-mint">${esc(T('songbook.mine.badge'))}</span>
+        <h3 class="sb-title">${esc(s.title)}</h3>
+      </div>
+      <div class="sb-meta">${esc(s.artist)} · ${esc(s.key)} · ${esc(s.timeSig)} · ♩=${esc(String(s.tempo))}</div>
+      ${summary ? `<div class="sb-note">${esc(summary)}</div>` : ''}
+      <div class="sb-actions">
+        <button class="btn-mini" data-action="sheetStart">${esc(T('sheet.lib.play'))}</button>
+        <button class="btn-mini" data-action="sheetEdit">${esc(T('sheet.lib.edit'))}</button>
+      </div>`;
+    card.innerHTML = html;
+    return card;
   },
 
   unitBlock(unit, prog, songs) {

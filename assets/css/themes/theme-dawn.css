@@ -17,4 +17,5 @@ html[data-theme="dawn"]{
   --diag-num:#ffffff; --diag-num-bg:rgba(60,45,25,.72);
   /* 浅色主题：圆点底色压深，保证白色数字对比度 ≥4.5（WCAG AA） */
   --dot-bg:#8a4b09; --dot-ring:rgba(255,255,255,.85); --dot-fg:#ffffff;
+  --sbE-section:var(--amber);
 }

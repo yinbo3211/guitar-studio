@@ -59,7 +59,12 @@ test('V4-2 router 注册 songbook / songPractice 两个路由', () => {
 
 test('V4-2 「更多」菜单收录曲库但排除练习页（练习页只能从曲卡进入）', () => {
   assert.ok(/MORE_EXCLUDE/.test(ROUTER), '存在排除清单');
-  assert.ok(/MORE_EXCLUDE\s*=\s*\[\s*'songPractice'\s*(?:,\s*'songPlay'\s*)?\]/.test(ROUTER));
+  /* V4.4：排除清单随功能迭代可增项，改为「必须包含」语义而非精确数组匹配 */
+  const m = /MORE_EXCLUDE\s*=\s*\[([^\]]*)\]/.exec(ROUTER);
+  assert.ok(m, 'MORE_EXCLUDE 必须是数组字面量');
+  const excluded = m[1].split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean);
+  assert.ok(excluded.includes('songPractice') && excluded.includes('songPlay'), '练习页与演奏页必须排除');
+  assert.ok(excluded.includes('sheetEditor'), 'V4.4 曲谱编辑器只能从曲谱工坊/曲卡进入，必须排除');
   assert.ok(/MORE_LABEL[\s\S]*songbook/.test(ROUTER), '更多菜单含曲库标签');
 });
 

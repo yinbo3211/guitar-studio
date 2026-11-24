@@ -36,6 +36,11 @@ import './modules/song-practice.js'; // V4.0 T3：弹唱练习模式
 import './gp/catalog.js';            // V4.1：弹唱曲库访问层（移植 GuitarPicker，MIT）
 import './gp/play.js';               // V4.1：note-highway 演奏视图
 import './modules/song-play.js';     // V4.1：演奏视图宿主壳（路由 songPlay）
+import './data/sheet-format.js';     // V4.4 T01：gs-chord v1 解析/转调/桥接（纯函数）
+import './data/sheet-store.js';      // V4.4 T02：自制谱 CRUD/配额/草稿/导入导出
+import './modules/sheet-player.js';  // V4.4 T08：试听播放器（先于 editor/lib 加载）
+import './modules/sheet-lib.js';     // V4.4 T09：我的曲谱列表（路由 sheetLib）
+import './modules/sheet-editor.js';  // V4.4 T04-T07：新建表单 + 编辑器（路由 sheetEditor）
 
 /* 原 app-3.js 尾部：全部模块注册完 onRouteEnter 后再执行首次路由 */
 applyRoute();

@@ -1,0 +1,197 @@
+/* ============================================================
+   六弦工坊 V4.4 · 曲谱工坊样式（sheet-studio.css）
+   类前缀：sbL- 列表 / sbE- 编辑器 / sbP- 播放器。
+   颜色一律走主题 token，保证 7 主题自动适配；段名强调色 --sbE-section
+   由各主题文件补一行（未定义时回退 --amber）。
+   ============================================================ */
+:root { --sbE-section: var(--amber, #ffb454); }
+
+/* ---------- 列表页 sbL ---------- */
+.view #sblRoot { max-width: 1040px; margin: 0 auto; }
+.sbl-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
+.sbl-bar .btn-primary { min-height: 44px; }
+.sbl-search { flex: 1 1 220px; min-width: 180px; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--line-strong, var(--line)); background: var(--card-2, var(--card)); color: var(--txt); font: inherit; }
+.sbl-select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-strong, var(--line));
+  background: var(--card-2, var(--card)); color: var(--txt); font: inherit; min-height: 44px; }
+.sbl-filters { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 6px 0 16px; }
+.sbl-fgroup { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sbl-fgroup > b { font-size: 12px; color: var(--txt-2); font-weight: 600; margin-right: 2px; }
+.sbl-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--card-2, var(--card)); color: var(--txt-2); font: inherit; font-size: 12.5px; cursor: pointer; min-height: 34px; }
+.sbl-chip.on { background: var(--grad-amber); color: #1a1206; border-color: transparent; font-weight: 600; }
+.sbl-count { color: var(--txt-3); font-size: 12.5px; margin-left: auto; }
+.sbl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.sbl-card { border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 16px;
+  display: flex; flex-direction: column; gap: 10px; transition: transform .15s, border-color .15s; }
+.sbl-card:hover { transform: translateY(-2px); border-color: var(--line-strong, var(--line)); }
+.sbl-card-title { font-family: var(--font-display); font-size: 17px; font-weight: 650; color: var(--txt);
+  word-break: break-word; line-height: 1.35; }
+.sbl-card-artist { font-size: 13px; color: var(--txt-2); }
+.sbl-card-meta { font-size: 12.5px; color: var(--txt-3); display: flex; flex-wrap: wrap; gap: 6px; }
+.sbl-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px;
+  border: 1px solid var(--line); color: var(--txt-2); }
+.sbl-tag.mine { color: var(--amber); border-color: var(--amber); }
+.sbl-card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 4px; }
+.sbl-card-actions button { flex: 1 1 auto; min-width: 52px; min-height: 38px; padding: 6px 8px; font-size: 12px;
+  border-radius: 9px; border: 1px solid var(--line); background: var(--card-2, var(--card)); color: var(--txt); cursor: pointer; }
+.sbl-card-actions button:hover { border-color: var(--amber); }
+.sbl-card-actions button.danger:hover { border-color: var(--red); color: var(--red); }
+.sbl-empty { text-align: center; padding: 54px 20px; color: var(--txt-2); }
+.sbl-empty h3 { font-family: var(--font-display); font-size: 17px; color: var(--txt); margin-bottom: 8px; }
+.sbl-empty p { font-size: 13px; margin-bottom: 20px; line-height: 1.7; }
+
+/* ---------- 弹层（导入 / 自定义输入 / 确认） ---------- */
+.sb-modal-mask { position: fixed; inset: 0; z-index: 210; background: rgba(0,0,0,.55);
+  display: grid; place-items: center; backdrop-filter: blur(3px); padding: 16px; }
+.sb-modal { background: var(--card); border: 1px solid var(--line-strong, var(--line));
+  border-radius: 16px; padding: 20px; width: min(560px, 100%); max-height: 86vh; overflow: auto; }
+.sb-modal h3 { font-family: var(--font-display); font-size: 16px; margin: 0 0 12px; color: var(--txt); }
+.sb-modal textarea { width: 100%; min-height: 180px; resize: vertical; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line-strong, var(--line)); background: var(--card-2, var(--card)); color: var(--txt);
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.6; box-sizing: border-box; }
+.sb-modal input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; box-sizing: border-box;
+  border: 1px solid var(--line-strong, var(--line)); background: var(--card-2, var(--card)); color: var(--txt); font: inherit; }
+.sb-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.sb-modal-actions button { min-height: 42px; padding: 8px 16px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card-2, var(--card)); color: var(--txt); font: inherit; }
+.sb-modal-actions button.primary { background: var(--grad-amber); color: #1a1206; border-color: transparent; font-weight: 600; }
+.sb-modal-note { font-size: 12.5px; color: var(--txt-2); line-height: 1.7; margin: 4px 0 10px; }
+
+/* ---------- 编辑器顶栏 sbE ---------- */
+#sbeRoot { display: flex; flex-direction: column; min-height: 0; }
+.sbe-topbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 0 12px;
+  border-bottom: 1px solid var(--line); margin-bottom: 12px; position: sticky; top: 0; z-index: 20; background: var(--bg); }
+.sbe-icon-btn { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card-2, var(--card)); color: var(--txt); cursor: pointer; }
+.sbe-icon-btn svg { width: 20px; height: 20px; }
+.sbe-icon-btn:disabled { opacity: .38; cursor: default; }
+.sbe-icon-btn:hover:not(:disabled) { border-color: var(--amber); }
+.sbe-title { font-family: var(--font-display); font-size: 16px; font-weight: 650; color: var(--txt);
+  flex: 1 1 160px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sbe-dirty { color: var(--amber); font-size: 12px; margin-left: 6px; }
+.sbe-warnbar { padding: 8px 12px; border-radius: 10px; background: rgba(255,180,84,.1);
+  border: 1px solid var(--amber); color: var(--txt); font-size: 12.5px; margin-bottom: 10px; }
+.sbe-warnbar.block { background: rgba(255,77,109,.1); border-color: var(--red); }
+.sbe-warnbar ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.8; }
+.sbe-warnbar li { cursor: pointer; }
+.sbe-warnbar li:hover { color: var(--amber); }
+.sbe-conflict { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ---------- 新建表单 ---------- */
+.sbe-form { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 40px; }
+.sbe-form h2 { font-family: var(--font-display); font-size: 19px; color: var(--txt); margin: 4px 0; }
+.sbe-field { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: start; }
+.sbe-field > label { font-size: 13.5px; color: var(--txt-2); padding-top: 11px; }
+.sbe-field > label.req::before { content: '·'; color: var(--red); font-weight: 800; margin-right: 5px; }
+.sbe-field input[type=text], .sbe-field select { width: 100%; padding: 10px 12px; border-radius: 10px; box-sizing: border-box;
+  border: 1px solid var(--line-strong, var(--line)); background: var(--card-2, var(--card)); color: var(--txt); font: inherit; min-height: 42px; }
+.sbe-field input[type=text]:focus, .sbe-field select:focus, .sbl-search:focus { outline: 2px solid var(--amber); outline-offset: 1px; }
+.sbe-field .hint { font-size: 12px; color: var(--txt-3); margin-top: 5px; }
+.sbe-field .err { font-size: 12px; color: var(--red); margin-top: 5px; }
+.sbe-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.sbe-chips .sbl-chip { min-height: 36px; }
+.sbe-tempo-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sbe-tempo-row input { width: 96px; }
+.sbe-preset { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card-2, var(--card)); color: var(--txt-2); font: inherit; font-size: 12px; cursor: pointer; min-height: 34px; }
+.sbe-diff { font-size: 12.5px; color: var(--cyan); padding: 8px 0; }
+.sbe-form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+.sbe-form-actions button { min-height: 44px; padding: 10px 22px; border-radius: 11px; cursor: pointer; font: inherit;
+  border: 1px solid var(--line); background: var(--card-2, var(--card)); color: var(--txt); }
+.sbe-form-actions button.primary { background: var(--grad-amber); color: #1a1206; border-color: transparent; font-weight: 650; }
+.sbe-form-actions button.primary:disabled { opacity: .45; cursor: default; }
+
+/* ---------- 编辑器主体：分屏 ---------- */
+.sbe-workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 460px; }
+.sbe-pane { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line);
+  border-radius: 12px; overflow: hidden; background: var(--card); }
+.sbe-pane-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 10px;
+  border-bottom: 1px solid var(--line); background: var(--card-2, var(--card)); }
+.sbe-pane-head b { font-size: 12.5px; color: var(--txt-2); margin-right: auto; }
+.sbe-mini { min-height: 32px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: var(--txt); font: inherit; font-size: 12px; cursor: pointer; }
+.sbe-mini:hover { border-color: var(--amber); }
+#sbeText { flex: 1; width: 100%; box-sizing: border-box; border: 0; padding: 14px; resize: none;
+  background: var(--card); color: var(--txt); font-family: var(--font-mono); line-height: 1.75; tab-size: 2; }
+#sbeText:focus { outline: none; }
+.sbe-preview { flex: 1; overflow: auto; padding: 14px 16px 40px; }
+.sbe-preview.compact { line-height: 1.4; }
+.sbe-preview.comfort { line-height: 1.9; }
+.sbe-split-tabs { display: none; }
+.sbe-insert { position: relative; }
+.sbe-insert-panel { position: absolute; top: 40px; right: 0; z-index: 30; width: min(320px, 88vw); max-height: 60vh; overflow: auto;
+  border: 1px solid var(--line-strong, var(--line)); border-radius: 12px; background: var(--card); padding: 12px; }
+.sbe-insert-panel h4 { margin: 10px 0 6px; font-size: 12px; color: var(--txt-3); font-weight: 600; }
+.sbe-insert-panel h4:first-child { margin-top: 0; }
+.sbe-insert-items { display: flex; flex-wrap: wrap; gap: 6px; }
+.sbe-insert-items button { padding: 6px 10px; min-height: 34px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card-2, var(--card)); color: var(--txt); font: inherit; font-size: 12px; cursor: pointer; }
+.sbe-insert-items button:hover { border-color: var(--amber); }
+.sbe-suggest { position: absolute; z-index: 40; max-height: 220px; overflow: auto; min-width: 150px;
+  border: 1px solid var(--line-strong, var(--line)); border-radius: 10px; background: var(--card); padding: 6px; }
+.sbe-suggest button { display: block; width: 100%; text-align: left; padding: 7px 10px; border: 0; border-radius: 7px;
+  background: none; color: var(--txt); font: inherit; font-size: 13px; cursor: pointer; }
+.sbe-suggest button.on, .sbe-suggest button:hover { background: var(--grad-amber); color: #1a1206; }
+.sbe-suggest .no-diagram { color: var(--txt-3); font-size: 11px; margin-left: 6px; }
+.sbe-suggest .bad { color: var(--red); }
+.sbe-more-menu { position: absolute; top: 44px; right: 0; z-index: 30; min-width: 190px;
+  border: 1px solid var(--line-strong, var(--line)); border-radius: 12px; background: var(--card); padding: 6px; }
+.sbe-more-menu button { display: block; width: 100%; text-align: left; padding: 9px 11px; border: 0; border-radius: 8px;
+  background: none; color: var(--txt); font: inherit; font-size: 13px; cursor: pointer; }
+.sbe-more-menu button:hover { background: var(--card-2, var(--card)); }
+.sbe-more-menu button.danger { color: var(--red); }
+
+/* ---------- 预览谱面 ---------- */
+.sbp-head { border-bottom: 1px dashed var(--line); padding-bottom: 10px; margin-bottom: 12px; }
+.sbp-head h2 { font-family: var(--font-display); font-size: 20px; color: var(--txt); margin: 0 0 4px; }
+.sbp-head .sbp-by { font-size: 13px; color: var(--txt-2); }
+.sbp-head .sbp-meta { font-size: 12.5px; color: var(--txt-3); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.sbp-section { font-weight: 700; color: var(--sbE-section); margin: 16px 0 6px; font-size: 14px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sbp-rhythm-badge { font-size: 11px; font-weight: 500; color: var(--cyan); border: 1px solid var(--cyan);
+  border-radius: 999px; padding: 2px 8px; cursor: pointer; }
+.sbp-comment { font-style: italic; color: var(--txt-3); font-size: 12.5px; margin: 4px 0; }
+.sbp-line { font-family: var(--font-mono); white-space: pre-wrap; word-break: break-all; position: relative; margin: 2px 0; }
+.sbp-chords { color: var(--amber); font-weight: 650; white-space: pre; overflow: hidden; height: 1.35em; }
+.sbp-lyrics { white-space: pre-wrap; }
+.sbp-repeat { color: var(--violet); font-size: 11px; margin-left: 6px; }
+.sbp-line.playing { background: rgba(255,180,84,.14); border-radius: 6px; }
+.sbp-word.on { color: var(--mint); }
+.sbp-empty { color: var(--txt-3); font-size: 13px; text-align: center; padding: 30px 0; }
+
+/* ---------- 播放器控制条 ---------- */
+.sbp-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px;
+  border-top: 1px solid var(--line); background: var(--card-2, var(--card)); }
+.sbp-controls .sbe-mini.on { background: var(--grad-amber); color: #1a1206; border-color: transparent; }
+.sbp-hint { font-size: 11.5px; color: var(--txt-3); margin-left: auto; }
+.sbp-sections { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 10px; }
+
+/* ---------- 移动端适配 ---------- */
+@media (max-width: 1023px) {
+  .sbe-workspace { grid-template-columns: 1fr; }
+  .sbe-split-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .sbe-workspace[data-pane="canvas"] .sbe-pane.preview,
+  .sbe-workspace[data-pane="preview"] .sbe-pane.canvas { display: none; }
+}
+@media (max-width: 479px) {
+  .sbe-field { grid-template-columns: 1fr; gap: 4px; }
+  .sbe-field > label { padding-top: 0; }
+  .sbl-grid { grid-template-columns: 1fr; }
+  .sbe-topbar { gap: 4px; }
+  .sbe-title { flex-basis: 100%; order: -1; }
+  .sbe-insert-panel { position: fixed; bottom: 0; right: 0; left: 0; top: auto; width: 100%;
+    max-height: 68vh; border-radius: 16px 16px 0 0; }
+}
+
+/* ---------- 打印（F-17） ---------- */
+@media print {
+  .sbe-topbar, .sbl-bar, .sbl-filters, .sbp-controls, .sbp-sections, .sbl-card-actions,
+  .sbe-pane-head, .sbe-split-tabs, .sbp-rhythm-badge { display: none !important; }
+  .sbe-workspace { display: block; }
+  .sbe-pane.canvas { display: none; }
+  .sbe-pane { border: 0; }
+  .sbe-preview { overflow: visible; }
+  .sbp-section { break-after: avoid; }
+  .sbl-card { break-inside: avoid; }
+}

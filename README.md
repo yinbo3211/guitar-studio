@@ -485,6 +485,50 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.4.0 · 新功能：曲谱工坊（新建曲谱 / 和弦谱编辑器）
+
+> 按《六弦工坊 V4.4 新功能需求手册 · 曲谱工坊》交付，规格归档见
+> `docs/V4.4_SHEET_STUDIO_SPEC.md`，面向用户的完整操作说明见
+> `docs/V4.4_SHEET_STUDIO_USER_GUIDE.md`。版本 4.3.3 → **4.4.0**。
+
+- **定位**：用户可自建、编辑、试听、管理自己的和弦谱，与内置 231 首曲库完全隔离。
+  自制谱的谱面来源标记为 `user-chord`（`assets/js/gp/song-format.js`），
+  与 `generated-chords` 同属「非原曲编配」，**不参与 OMR 质量统计与音准评分**，诚实呈现。
+- **入口**：首页工具卡 / 侧栏导航 / 更多菜单 → 路由 `sheetLib`；
+  编辑器为独立路由 `sheetEditor`（`assets/js/core/router.js`、静态视图见 `app.html`）。
+- **`gs-chord v1` 标记语言**：纯文本和弦谱，支持 `{title:...}` / `{name:...}` /
+  `{rhythm:...}` / `{comment:...}` / `{x2}` / `[C]` 行内和弦 / 纯和弦行 / `#>` 注释；
+  未知 ChordPro 风格标记保留原文并给出 warning。纯函数数据层在
+  `assets/js/data/sheet-format.js`（解析、序列化、转调、capo、GP 桥接、校验、联想、模板）。
+- **存储**：`assets/js/data/sheet-store.js` 使用 localStorage
+  （`gs.sheets.v1` / `gs.sheets.draft`），配额 200 首 / 单谱 50K 字符 / 总量 2MB，
+  损坏条目隔离、不可用自动降级内存；草稿 800ms 防抖写入，7 天后失效。
+- **列表页**：`assets/js/modules/sheet-lib.js` —— 搜索、排序、三标签交集筛选、
+  曲卡动作（弹唱 / 编辑 / 复制 / 导出 / 删除需二次确认）、导入弹层、导出全部、
+  全屏试听 overlay、`?play=<id>` 直达试听。
+- **编辑器**：`assets/js/modules/sheet-editor.js` —— 9 字段新建表单、画布/预览分屏、
+  插入面板五组、行内 `[` 和弦联想、`UndoStack` 撤销重做、草稿恢复卡、语法校验面板、
+  转调/变调夹/移调另存、另存副本、导出、打印、快捷键、四语联动。
+- **试听与预览**：`assets/js/modules/sheet-player.js` 复用 `AudioEngine.strum/click` 与
+  `Transport.beatDuration()` 口径，自包含定时器不污染 `Transport._cbs`；
+  `renderSheetHtml()` 为列表/编辑器共用的纯函数渲染（XSS 转义 + 逐行/逐字高亮）；
+  练习 ≥30s 经 `PracticeStore.addSession({module:'sheetPlayer'})` 上报。
+- **曲库联动（F-14）**：`assets/js/modules/songbook.js` 新增「我的曲谱」tab，
+  松耦合读取 `SheetStore.list()`，不改内置曲库 `UNITS` / `filterSongs()` 逻辑；
+  自制谱曲卡可跳 `#/sheetLib?play=<id>` 或 `#/sheetEditor?id=<id>`。
+- **视觉与离线**：新增 `assets/css/sheet-studio.css`（移动端 1023px 切 tab、479px 表单单列、
+  打印样式），7 套主题补 `--sbE-section` 段名强调色；
+  `assets/js/main.js` 新增 5 个静态 import，`sw.js` 的 `CORE` / `OPTIONAL` 同步覆盖，
+  离线不白屏（C3 硬门禁：已覆盖 main.js 全部 39 个静态 import）。
+- **国际化**：四语词典 `assets/js/i18n/zh-CN.js` / `assets/js/i18n/en.js` / `assets/js/i18n/ja.js` / `assets/js/i18n/ko.js`
+  新增 138 条 `sheet.*` / `tool.sheets` / `songbook.tab.mine` / `stats.module.sheetPlayer`
+  词条（共 835 键，四语键集合一致）；用户曲谱正文属红线内容，不参与翻译。
+- **测试与门禁**：新增 `test/sheet-format.test.js`（17）、`test/sheet-store.test.js`（12）、
+  `test/sheet-editor.test.js`（12）、`test/sheet-lib.test.js`（8）共 49 项专项用例；
+  全量 **547 tests / 546 pass / 0 fail / 1 skip**；lint 131 文件语法 0 失败、
+  S0.4 / F9 / C7 / C8 / C3 全过；393px 移动端真实浏览器主流程 27/27、
+  补充交互 17/17 全绿，无 pageerror、无静态资源 404。
+
 ## V4.3.3 · 音阶跟弹：移除弹错报错 / 改为「提示条明确说弦」正向引导（按用户实测反馈）
 
 用户实测反馈：V4.3.2 新增的音阶跟弹弹错提示判得不够精确，且报错打断练琴节奏、反而降低效率，要求整体去掉、回到 V4.3.1「弹对才推进、弹错静默重置」的行为；同时希望跟弹时明确提示「下一音该弹第几弦」，以正向引导替代负面报错。

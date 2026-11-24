@@ -10,7 +10,9 @@ export const SONG_VERSION = 1;
  * generated-chords —— 程序生成的占位伴奏（含 OMR 未过门禁的降级），
  *                     **不是原曲编配**，必须显著标记且不参与音准评分
  */
-export const CHART_KINDS = ['omr', 'melody', 'generated-chords'];
+/* V4.4：user-chord —— 用户在曲谱工坊自建的和弦谱（非原曲编配，
+   与 generated-chords 同属「非真实谱面」，不参与音准评分/OMR 质量统计）。 */
+export const CHART_KINDS = ['omr', 'melody', 'generated-chords', 'user-chord'];
 
 export function uid() {
   return crypto.randomUUID();

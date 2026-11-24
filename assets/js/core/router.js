@@ -6,9 +6,9 @@
 
 /* ---------- 路由 ---------- */
 /* V4.0：新增 songbook（弹唱曲库）与 songPractice（弹唱练习）两个路由 */
-const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚',flow:'和弦转换训练',plan:'每日练习计划',stats:'练习统计中心',songbook:'弹唱曲库',songPractice:'弹唱练习',songPlay:'弹唱演奏'};
+const ROUTE_TITLES = {home:'六弦工坊',tuner:'调音器',metro:'节拍器',rhythm:'节奏型练习',game:'和弦闯关',scale:'音阶练习',chords:'和弦库',ear:'练耳训练',fret:'指板训练',studio:'录音棚',flow:'和弦转换训练',plan:'每日练习计划',stats:'练习统计中心',songbook:'弹唱曲库',songPractice:'弹唱练习',songPlay:'弹唱演奏',sheetLib:'曲谱工坊',sheetEditor:'编辑曲谱'};
 /* V4.3 R2/R3：路由标题走词条（ROUTE_TITLES 仅作无 i18n 环境兜底与路由合法性校验） */
-const ROUTE_TITLE_KEYS = {home:'brand.name',tuner:'tool.tuner',metro:'tool.metro',rhythm:'tool.rhythm',game:'tool.game',scale:'tool.scale',chords:'tool.chords',ear:'tool.ear',fret:'tool.fret',studio:'tool.studio',flow:'flow.title',plan:'plan.title',stats:'stats.title',songbook:'songbook.title',songPractice:'route.songPractice',songPlay:'route.songPlay'};
+const ROUTE_TITLE_KEYS = {home:'brand.name',tuner:'tool.tuner',metro:'tool.metro',rhythm:'tool.rhythm',game:'tool.game',scale:'tool.scale',chords:'tool.chords',ear:'tool.ear',fret:'tool.fret',studio:'tool.studio',flow:'flow.title',plan:'plan.title',stats:'stats.title',songbook:'songbook.title',songPractice:'route.songPractice',songPlay:'route.songPlay',sheetLib:'tool.sheets',sheetEditor:'sheet.editor.title'};
 function routeTitle(route){
   const k = ROUTE_TITLE_KEYS[route];
   if(k && typeof window.t==='function'){ const v = window.t(k); if(v && v!==k) return v; }
@@ -71,20 +71,21 @@ const MORE_EXTRA_IC = {
   plan:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/>',
   stats:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   /* V4.0：曲库图标（线性书本，与既有图标语言一致） */
-  songbook:'<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 16.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5z"/>'
+  songbook:'<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 16.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5z"/>',
+  sheetLib:'<path d="M4 4h16v16H4z"/><path d="M8 4v16M12 4v16M16 4v16M4 9h16M4 14h16"/>'
 };
 const MORE_LABEL = {
   home:'首页', tuner:'调音', metro:'节拍', game:'闯关',
   rhythm:'节奏', chords:'和弦库', scale:'音阶', ear:'练耳',
   fret:'指板', studio:'录音', flow:'和弦转换', plan:'计划', stats:'统计',
-  songbook:'曲库'
+  songbook:'曲库', sheetLib:'曲谱'
 };
 /* V4.3 R2：更多菜单词条映射（无 i18n 环境回退 MORE_LABEL 中文兜底） */
 const MORE_LABEL_KEYS = {
   home:'tab.home', tuner:'tab.tuner', metro:'tab.metro', game:'tab.game',
   rhythm:'more.rhythm', chords:'tool.chords', scale:'stats.module.scale', ear:'stats.module.ear',
   fret:'stats.module.fret', studio:'stats.module.studio', flow:'nav.flow', plan:'more.plan',
-  stats:'more.stats', songbook:'play.songs'
+  stats:'more.stats', songbook:'play.songs', sheetLib:'sheet.lib.title'
 };
 function moreLabel(r){
   const k = MORE_LABEL_KEYS[r];
@@ -93,7 +94,7 @@ function moreLabel(r){
 }
 /* songPractice 需要「先选曲」才有内容，不作为独立入口出现在更多菜单 */
 /* 练习页与演奏页都只能从曲卡进入：不出现在底栏「更多」里 */
-const MORE_EXCLUDE = ['songPractice', 'songPlay'];
+const MORE_EXCLUDE = ['songPractice', 'songPlay', 'sheetEditor'];
 const MORE_ROUTES = Object.keys(ROUTE_TITLES)
   .filter(r => TABBAR_ROUTES.indexOf(r) < 0 && MORE_EXCLUDE.indexOf(r) < 0)
   .map(r => ({ r, ic: MORE_EXTRA_IC[r] || MORE_EXTRA_IC.stats }));
@@ -147,6 +148,9 @@ function cleanupModules(){
   if(typeof ChordLib!=='undefined') ChordLib.stopProg();
   if(typeof Fret!=='undefined') Fret.playing=false;
   if(typeof Studio!=='undefined' && Studio.rec && Studio.rec.state==='recording') Studio.stop();
+  /* V4.4：离开曲谱编辑器/列表时停止试听，避免残留走带与定时器 */
+  if(typeof SheetPlayer!=='undefined' && SheetPlayer.playing) SheetPlayer.stop();
+  if(typeof SheetEditor!=='undefined' && typeof SheetEditor.teardown==='function') SheetEditor.teardown();
 }
 Object.assign(window, { ROUTE_TITLES, onRouteEnter, go, applyRoute, closeMoreSheet, cleanupModules });
 export { ROUTE_TITLES, onRouteEnter, go, applyRoute, closeMoreSheet, cleanupModules };

@@ -16,4 +16,5 @@ html[data-theme="mono"]{
   --diag-string:rgba(255,255,255,.62); --diag-nut:rgba(255,255,255,.78);
   --diag-num:#f2f3f5; --diag-num-bg:rgba(255,255,255,.16);
   --dot-bg:#e8eaed; --dot-ring:rgba(0,0,0,.4); --dot-fg:#1c1d1f;
+  --sbE-section:var(--amber);
 }

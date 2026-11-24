@@ -17,4 +17,5 @@ html[data-theme="neon"]{
   --diag-string:rgba(255,255,255,.55); --diag-nut:rgba(255,255,255,.72);
   --diag-num:#eef0fa; --diag-num-bg:rgba(255,255,255,.14);
   --dot-bg:#ffb454; --dot-ring:rgba(0,0,0,.35); --dot-fg:#1a1206;
+  --sbE-section:var(--amber);
 }

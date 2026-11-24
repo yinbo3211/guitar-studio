@@ -86,6 +86,12 @@ const CORE = [
   './assets/js/modules/songbook.js',
   './assets/js/modules/song-practice.js',
   './assets/js/modules/song-play.js',
+  // V4.4 曲谱工坊（T01/T02 数据层 + T08/T09 播放器 + T04-T07 编辑器）
+  './assets/js/data/sheet-format.js',
+  './assets/js/data/sheet-store.js',
+  './assets/js/modules/sheet-player.js',
+  './assets/js/modules/sheet-lib.js',
+  './assets/js/modules/sheet-editor.js',
   // V4.1：note-highway 演奏视图及其全部依赖（离线冷启动不白屏）
   './assets/js/gp/accompany.js',
   './assets/js/gp/avatar.js',
@@ -125,6 +131,7 @@ const OPTIONAL = [
   './assets/css/components.css',
   './assets/css/gp.css',
   './assets/css/ui-kit.css',
+  './assets/css/sheet-studio.css',
   './assets/css/themes/theme-neon.css',
   './assets/css/themes/theme-dawn.css',
   './assets/css/themes/theme-vintage.css',
