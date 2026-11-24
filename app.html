@@ -1171,6 +1171,20 @@
 
 </main>
 
+    <!-- ============ 全局赞赏条（支持作者，REQ-SUPPORT-FOOTER-01 / V4.4.1） ============ -->
+    <footer class="app-foot" id="appFoot">
+      <button class="app-foot-card" id="appFootBtn" type="button" aria-haspopup="dialog"
+        data-i18n-aria="foot.support.qrAlt" aria-label="尹博的微信赞赏码">
+        <span class="app-foot-qr"><img src="assets/img/support-qr.jpg" alt="尹博的微信赞赏码"
+          width="48" height="48" loading="lazy" decoding="async"></span>
+        <span class="app-foot-text">
+          <strong data-i18n="foot.support.title">支持作者</strong>
+          <span data-i18n="foot.support.slogan">全部功能免费，自愿赞赏。</span>
+        </span>
+        <span class="app-foot-hint" data-i18n="foot.support.hint">点击查看大图</span>
+      </button>
+    </footer>
+
     <!-- ============ 移动端底部导航 ============ -->
     <nav class="tabbar">
       <div class="tabbar-inner">
@@ -1212,6 +1226,72 @@
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('[六弦工坊] 离线缓存注册失败（不影响在线使用）：',err)));
 }
+</script>
+
+<script>
+/* V4.4.1 支持作者：点击赞赏条放大二维码（Esc / 遮罩 / × 关闭，焦点归还；REQ-SUPPORT-FOOTER-01） */
+(function () {
+  var btn = document.getElementById('appFootBtn');
+  if (!btn) return;
+  var lastFocus = null;
+  function T(k, fb) {
+    try { return (window.gsI18n && window.gsI18n.t) ? window.gsI18n.t(k) : fb; } catch (e) { return fb; }
+  }
+  function close() {
+    var m = document.getElementById('appFootModal');
+    if (m) m.remove();
+    document.removeEventListener('keydown', onKey);
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  function open() {
+    if (document.getElementById('appFootModal')) return;
+    /* 回焦目标优先取真实焦点元素；触摸点击时 activeElement 常为 body，回退到触发按钮（R-8） */
+    lastFocus = (document.activeElement && document.activeElement !== document.body)
+      ? document.activeElement : btn;
+    var mask = document.createElement('div');
+    mask.id = 'appFootModal';
+    mask.className = 'gs-modal-mask app-foot-modal';
+    mask.tabIndex = -1;
+    mask.setAttribute('role', 'dialog');
+    mask.setAttribute('aria-modal', 'true');
+    mask.setAttribute('aria-label', T('foot.support.qrAlt', '尹博的微信赞赏码'));
+
+    var card = document.createElement('div');
+    card.className = 'gs-modal';
+    var img = document.createElement('img');
+    img.src = 'assets/img/support-qr.jpg';
+    img.alt = '尹博的微信赞赏码';
+    img.width = 360; img.height = 360; img.decoding = 'async';
+    var p = document.createElement('p');
+    p.textContent = T('foot.support.slogan', '全部功能免费，自愿赞赏。');
+    var x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'app-foot-x';
+    x.setAttribute('aria-label', T('common.close', '关闭'));
+    x.innerHTML = '&times;';
+
+    card.appendChild(img); card.appendChild(p); card.appendChild(x);
+    mask.appendChild(card);
+    mask.addEventListener('click', function (e) { if (e.target === mask) close(); });
+    x.addEventListener('click', close);
+    document.body.appendChild(mask);
+    document.addEventListener('keydown', onKey);
+    /* 焦点移入对话框容器（不落在 × 上，避免鼠标打开时出现焦点环；Tab 仍可达 ×） */
+    mask.focus();
+  }
+  btn.addEventListener('click', open);
+  /* G3：语言切换时弹层文案即时同步（弹层打开状态下也生效） */
+  document.addEventListener('gs:lang', function () {
+    var m = document.getElementById('appFootModal');
+    if (!m) return;
+    m.setAttribute('aria-label', T('foot.support.qrAlt', '尹博的微信赞赏码'));
+    var p = m.querySelector('p');
+    if (p) p.textContent = T('foot.support.slogan', '全部功能免费，自愿赞赏。');
+    var x = m.querySelector('.app-foot-x');
+    if (x) x.setAttribute('aria-label', T('common.close', '关闭'));
+  });
+})();
 </script>
 </body>
 </html>

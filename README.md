@@ -485,6 +485,38 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.4.1 · 全局赞赏条（支持作者，REQ-SUPPORT-FOOTER-01）
+
+> 应用所有页面最底部常驻「支持作者」赞赏条，点击放大赞赏码，便于长按识别 / 扫码。
+> 版本 4.4.0 → **4.4.1**。
+
+- **位置**：`app.html` 的 `</main>` 之后、移动端底栏之前，属 `.main` 纵向 flex 末位，
+  `flex-shrink:0`；16 个路由全部可见，视图区仍是内部滚动，footer 不参与滚动。
+- **视觉**：左侧 48×48 白底圆角缩略码（唯一固定色 `#fff`，保证深色主题下仍可扫），
+  中间「支持作者 / 全部功能免费，自愿赞赏。」，右端「点击查看大图」胶囊提示；
+  颜色、分隔线、背景全部走 `var(--*)` 令牌，7 套主题自动适配。
+- **弹层**：点击任意位置打开白卡弹层，大图 `min(72vw, 360px)`；Esc / 点遮罩空白 /
+  点右上角 × 三种方式均可关闭，关闭后焦点回到触发按钮；重复点击不会叠出多层遮罩。
+  复用 `assets/css/components.css` 的 `gs-modal-mask`，补 `.app-foot-modal .gs-modal`
+  覆盖为白卡（该文件并无 `gs-modal-card` / `gs-modal-x`，按实际类名等价改写）。
+- **无障碍**：`<footer>` 语义标签 + `<button type="button">`，可读名称走
+  `data-i18n-aria`；`role="dialog"` + `aria-modal="true"`；大图不禁
+  `user-select` / `-webkit-touch-callout`，支持长按识别与保存。
+- **国际化**：四语 `assets/js/i18n/zh-CN.js` / `assets/js/i18n/en.js` /
+  `assets/js/i18n/ja.js` / `assets/js/i18n/ko.js` 各新增
+  `foot.support.title` / `foot.support.slogan` / `foot.support.hint` /
+  `foot.support.qrAlt` 四键（共 839 键，四语键集合一致）；
+  弹层文案复用同词条，切语言时监听 `gs:lang` 即时同步。
+- **资源与离线**：新增 `assets/img/support-qr.jpg`（600×600，42.9KB，
+  quality 92 / 4:4:4，满足 <80KB 红线）；`sw.js` 的 `CORE` 预缓存该图，
+  `version.json` 递增到 4.4.1 以触发老 PWA 缓存失效。
+- **测试与门禁**：新增 `test/support-foot.test.js` 9 项契约
+  （结构、插入位置、令牌与白底、四语键、SW 与版本、图片尺寸体积、
+  弹层交互、无障碍长按、无外链无音频副作用）；
+  全量 **556 tests / 555 pass / 0 fail / 1 skip**；
+  lint 132 个 JS 文件语法 0 失败、S0.4 0 处、F9 146 处（基线 420）、
+  C7 / C8 / C3 全过。
+
 ## V4.4.0 · 新功能：曲谱工坊（新建曲谱 / 和弦谱编辑器）
 
 > 按《六弦工坊 V4.4 新功能需求手册 · 曲谱工坊》交付，规格归档见

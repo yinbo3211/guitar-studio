@@ -46,6 +46,7 @@ const CORE = [
   './app.html',
   './index.html',
   './version.json',   // BUG-06：缓存版本派生源，离线也需可读，缺失会回退 FALLBACK 版本名
+  './assets/img/support-qr.jpg',   // V4.4.1：赞赏码，离线也需可读（REQ-SUPPORT-FOOTER-01）
   './assets/js/main.js',
   './assets/js/core/audio-core.js',
   './assets/js/core/tone-loader.js',

@@ -809,5 +809,9 @@ export const DICT = {
   'songbook.tab.mine':'我的曲谱',
   'songbook.mine.badge':'自制',
   'stats.module.sheetPlayer':'曲谱工坊',
+  'foot.support.title':'支持作者',
+  'foot.support.slogan':'全部功能免费，自愿赞赏。',
+  'foot.support.hint':'点击查看大图',
+  'foot.support.qrAlt':'尹博的微信赞赏码',
 };
 export default DICT;
