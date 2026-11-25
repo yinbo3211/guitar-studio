@@ -83,9 +83,9 @@ function openLangPanel() {
   ov.id = 'gsLangPanel';
   ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:grid;place-items:center;backdrop-filter:blur(4px)';
   ov.innerHTML = `<div style="background:var(--card);border:1px solid var(--line-strong);border-radius:var(--radius);padding:22px;max-width:360px;width:calc(100% - 40px)">
-      <div style="font-family:var(--font-display);font-size:17px;font-weight:600;margin-bottom:14px">语言 / Language</div>
+      <div style="font-family:var(--font-display);font-size:17px;font-weight:600;margin-bottom:14px">${t('lang.title')}</div>
       <div class="preset-row" style="margin-top:0" id="gsLangRow">${LANGS.map(l => chip(l.key, l.label)).join('')}</div>
-      <div style="text-align:right;margin-top:18px"><button class="preset-chip" id="gsLangClose">关闭 / Close</button></div>
+      <div style="text-align:right;margin-top:18px"><button class="preset-chip" id="gsLangClose">${t('common.close')}</button></div>
     </div>`;
   document.body.appendChild(ov);
   ov.addEventListener('click', (e) => {

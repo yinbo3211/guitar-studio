@@ -127,8 +127,9 @@
       <!-- ===== 视图：首页 ===== -->
       <section class="view active" id="view-home">
         <div class="hero">
-          <h1><span data-i18n="home.hero.title1">把整间吉他练习室</span><br><span data-i18n="home.hero.title2">装进</span><em><span data-i18n="home.hero.title3">你的浏览器</span></em></h1>
-          <p data-i18n="home.hero.sub">调音、节拍、节奏型、和弦闯关、音阶、和弦库、练耳、指板、录音——九大模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
+          <!-- QA-BUG-04.2：title2 与 <em> 之间补空格，修复英文模式「right insideyour browser」拼接 --><h1><span data-i18n="home.hero.title1">把整间吉他练习室</span><br><span data-i18n="home.hero.title2">装进</span> <em><span data-i18n="home.hero.title3">你的浏览器</span></em></h1>
+          <!-- QA-BUG-05：首页宣传口径对齐侧栏实际 14 个功能模块 -->
+          <p data-i18n="home.hero.sub">调音、节拍、节奏型、和弦闯关、音阶、和弦库、练耳、指板、录音等——14 大模块全部本地运行，打开麦克风就能开始练琴。手机电脑双端适配，无需安装任何插件。</p>
           <div class="hero-tags">
             <span class="tag tag-amber" data-i18n="home.badge.mic">麦克风实时识别</span>
             <span class="tag tag-mint" data-i18n="home.badge.metro">零延迟节拍器</span>
@@ -238,6 +239,25 @@
           .a4-row{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--txt-2)}
           .a4-row input{width:120px}
           .a4-val{font-family:var(--font-mono);color:var(--amber);min-width:64px;text-align:right}
+          /* QA-BUG-02（P2）：390×844 手机首屏「开启麦克风调音」原落在 y≈772~842，
+             被固定底部 Tab 栏覆盖，点按会误触导航。压缩表盘/弦钮与纵向间距，
+             把主 CTA 上移到首屏可视区（tabbar 之上），并保留吸底兜底。 */
+          @media (max-width:860px){
+            .tuner-card{padding:18px 14px 16px}
+            .tuner-top{margin-bottom:10px}
+            .dial-wrap{height:118px;margin-top:2px}
+            .dial-needle{height:88px}
+            .tuner-note .big{font-size:46px}
+            .tuner-note .sub{margin-top:2px}
+            .tuner-freq{margin-top:2px;min-height:18px}
+            .tuner-status{margin-top:2px;min-height:20px}
+            .string-row{margin:12px 0 10px;gap:6px}
+            .string-btn{width:46px;height:50px}
+            .tuner-actions{margin-top:4px;position:sticky;bottom:calc(env(safe-area-inset-bottom) + 4px);
+              z-index:5;padding:6px 0;border-radius:12px;background:var(--card)}
+            .tuner-actions .dev-row{margin-bottom:6px}
+            .mic-note{margin-top:10px}
+          }
         </style>
         <div class="view-head">
           <div class="view-title"><span class="title-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6.3a4.5 4.5 0 1 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M8 21h8"/></svg></span><span data-i18n="tool.tuner">调音器</span></div>

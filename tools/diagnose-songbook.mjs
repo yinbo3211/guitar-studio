@@ -26,13 +26,15 @@
   · BUG-11/14/15 输出完整异常名单（id/标题/越界秒数）。
   ============================================================ */
 import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const { GP_CHORD_SONGS } = await import(join(ROOT, 'assets/js/gp/songs.js'));
-const { GP_OMR_NOTES } = await import(join(ROOT, 'assets/js/gp/omr-notes.js'));
-const cat = await import(join(ROOT, 'assets/js/gp/catalog.js'));
+/* 同 derive-harmony.mjs：Windows 下必须用 file:// URL 动态 import */
+const imp = (rel) => import(pathToFileURL(join(ROOT, rel)).href);
+const { GP_CHORD_SONGS } = await imp('assets/js/gp/songs.js');
+const { GP_OMR_NOTES } = await imp('assets/js/gp/omr-notes.js');
+const cat = await imp('assets/js/gp/catalog.js');
 const { findSong, hasRealChart, isOmrDegraded, OMR_LOOP_RATIO_MIN, OMR_LOOP_RATIO_MAX } = cat;
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 
@@ -135,7 +137,7 @@ check('BUG-08', 'BPM 为逐曲真实值',
 /* --- BUG-11 歌词时间轴越界（V4.2.2：统一 songDuration 口径后复验） ---
    修复方式：整曲时长 = max(谱面末音结束, 歌词末行结束)，卡拉 OK 不再截断；
    歌词时间戳数据本身未篡改。此处仍输出「歌词末时间 vs 谱面末音」原始差距作信息项。 */
-const { songDuration } = await import(join(ROOT, 'assets/js/gp/song-format.js'));
+const { songDuration } = await imp('assets/js/gp/song-format.js');
 const overList = [];       // 原始数据差距（歌词时间戳 vs 谱面末音，信息展示）
 const cutList = [];        // 统一口径后仍会被截断的（应为 0）
 for (const d of GP_CHORD_SONGS) {

@@ -9,7 +9,12 @@
 /* ---------- 列表页 sbL ---------- */
 .view #sblRoot { max-width: 1040px; margin: 0 auto; }
 .sbl-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
-.sbl-bar .btn-primary { min-height: 44px; }
+/* QA-BUG-03（P2）：390/360/320px 下按钮被 flex 收缩到 53px，4 个汉字的
+   「新建曲谱」文字溢出并与「导入」重叠。禁止收缩 + 不换行 + 最小宽度，
+   配合 .sbl-bar 已有的 flex-wrap 自动折行，杜绝文字被裁切。 */
+.sbl-bar > button { flex: 0 0 auto; white-space: nowrap; }
+.sbl-bar .btn-primary { min-height: 44px; min-width: 96px; padding-inline: 16px; }
+.sbl-bar button.sbl-select { min-width: 72px; }
 .sbl-search { flex: 1 1 220px; min-width: 180px; padding: 10px 14px; border-radius: 10px;
   border: 1px solid var(--line-strong, var(--line)); background: var(--card-2, var(--card)); color: var(--txt); font: inherit; }
 .sbl-select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-strong, var(--line));
@@ -178,6 +183,11 @@
   .sbe-field { grid-template-columns: 1fr; gap: 4px; }
   .sbe-field > label { padding-top: 0; }
   .sbl-grid { grid-template-columns: 1fr; }
+  /* QA-BUG-03：小屏工具条改为「按钮一行 + 搜索/排序独占一行」的双行布局，
+     不再让搜索框挤占按钮宽度。 */
+  .sbl-bar { gap: 8px; }
+  .sbl-bar .sbl-search { flex: 1 1 100%; order: 5; min-width: 0; }
+  .sbl-bar .sbl-count { margin-left: 0; }
   .sbe-topbar { gap: 4px; }
   .sbe-title { flex-basis: 100%; order: -1; }
   .sbe-insert-panel { position: fixed; bottom: 0; right: 0; left: 0; top: auto; width: 100%;

@@ -76,7 +76,14 @@ const Game = {
     const d=$('#gameDiagram');
     if(d && ch) d.innerHTML=renderDiagram(ch,{big:true});
     const holder=$('#gameFingering');
-    if(holder && ch) holder.textContent=window.formatFingering?formatFingering(ch):'';
+    /* QA-BUG-01：统一经由 window 上的宿主函数取词，避免「检测 window 却调用裸标识符」
+       在无宿主/严格模式下出现 ReferenceError，导致按法文本为空。 */
+    if(holder && ch){
+      const fmt = (typeof window!=='undefined' && typeof window.formatFingering==='function')
+        ? window.formatFingering
+        : (typeof formatFingering==='function' ? formatFingering : null);
+      holder.textContent = fmt ? fmt(ch) : '';
+    }
   },
   nextChord(){
     // P0-03：清掉尚未触发的超时跳转，防止超时等待期间点"跳过"造成双重推进
@@ -89,7 +96,10 @@ const Game = {
     this.timeLeft=this.levels[this.level].time;
     $('#levelLabel').textContent=T(this.levels[this.level].nk);
     $('#gameChord').textContent=name;
-    $('#gameDiagram').innerHTML=renderDiagram(this.cur,{big:true});
+    /* QA-BUG-01（P1）：原实现只重绘和弦名与指法图，#gameFingering 文字按法
+       停留在 startRound() 预渲染的首个和弦（C），与图示矛盾、误导新手。
+       改由 nextChord() 统一渲染「指法图 + 文字按法」，保证两者始终 = 当前和弦。 */
+    this._renderFingering();
     this.renderStringCheck();
     $('#gameProg').textContent=(this.idx+1)+'/'+this.total;
     $('#gameCombo').textContent=this.combo;
@@ -249,6 +259,9 @@ const Game = {
     if(this.running&&this.cur){
       $('#levelLabel').textContent=T(this.levels[this.level].nk);
       this.renderStringCheck();
+      /* QA-BUG-01：按法文案取自 chords.formatFingering（依赖宿主词条），
+         切语言时必须同步重算，否则中文「按法」会残留在英文界面里。 */
+      this._renderFingering();
       const tip=$('#gameTip');
       if(tip && tip.textContent && !tip.innerHTML.includes('<')) tip.textContent=T('game.tip.default');
     }

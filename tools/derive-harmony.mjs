@@ -6,14 +6,18 @@
   本脚本仅用于人工核查：打印每首降级曲的派生和弦进行与不确定小节。
   用法： node tools/derive-harmony.mjs [gp-song-001 ...]
   ============================================================ */
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const { deriveHarmony } = await import(join(ROOT, 'assets/js/gp/harmony.js'));
-const { keyToPc, chordName } = await import(join(ROOT, 'assets/js/gp/theory.js'));
-const { GP_OMR_NOTES } = await import(join(ROOT, 'assets/js/gp/omr-notes.js'));
-const { GP_CHORD_SONGS } = await import(join(ROOT, 'assets/js/gp/songs.js'));
+/* 回归：Windows 下 join(ROOT, …) 得到 "C:\…"，Node 22 的 ESM 动态 import
+   会抛 ERR_UNSUPPORTED_ESM_URL_SCHEME（protocol 'c:'），使 test/gp-harmony.test.js
+   整文件加载失败。统一转成 file:// URL，跨平台安全。 */
+const imp = (rel) => import(pathToFileURL(join(ROOT, rel)).href);
+const { deriveHarmony } = await imp('assets/js/gp/harmony.js');
+const { keyToPc, chordName } = await imp('assets/js/gp/theory.js');
+const { GP_OMR_NOTES } = await imp('assets/js/gp/omr-notes.js');
+const { GP_CHORD_SONGS } = await imp('assets/js/gp/songs.js');
 
 export { deriveHarmony };
 

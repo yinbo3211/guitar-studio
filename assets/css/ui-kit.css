@@ -6,7 +6,9 @@
   .sidebar{display:none}
   .topbar{display:flex}
   .tabbar{display:block}
-  .view{padding:18px 16px 90px}
+  /* QA-BUG-02：页面底部预留 ≥ 底部导航高度 + 安全区，避免主 CTA 落在 tabbar 覆盖区。
+     原为固定 90px，未计入 env(safe-area-inset-bottom)，全面屏/刘海屏仍会遮挡。 */
+  .view{padding:18px 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 26px)}
   .view-head{margin-bottom:16px}
   .view-title{display:none}
   .view-sub{margin-top:0}

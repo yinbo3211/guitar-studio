@@ -54,14 +54,17 @@ function openPanel() {
   ov = document.createElement('div');
   ov.id = 'gsThemePanel';
   ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:grid;place-items:center;backdrop-filter:blur(4px)';
+  /* QA-BUG-04.1 / UX-11：面板文案统一走宿主词条，禁止组件内写死中英混排；
+     关闭按钮与语言面板共用 common.close，四语各自只显示一种语言。 */
+  const T = (k, fallback) => (typeof window !== 'undefined' && typeof window.t === 'function') ? window.t(k) : fallback;
   ov.innerHTML = `<div style="background:var(--card);border:1px solid var(--line-strong);border-radius:var(--radius);padding:22px;max-width:420px;width:calc(100% - 40px);box-shadow:0 20px 60px -12px rgba(0,0,0,.6)">
-      <div style="font-family:var(--font-display);font-size:17px;font-weight:600;margin-bottom:6px">主题外观</div>
-      <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:14px">跟随系统时按操作系统深浅色自动切换</div>
+      <div style="font-family:var(--font-display);font-size:17px;font-weight:600;margin-bottom:6px">${T('theme.title', '主题外观')}</div>
+      <div style="font-size:12.5px;color:var(--txt-2);margin-bottom:14px">${T('theme.followup', '跟随系统时按操作系统深浅色自动切换')}</div>
       <div class="preset-row" style="margin-top:0" id="gsThemeRow">
         ${chip('auto', `跟随系统（${(THEMES.find(t => t.key === resolveAuto()) || {}).name[gsLang] || ''}）`)}
         ${THEMES.map(t => chip(t.key, t.name[gsLang] || t.key)).join('')}
       </div>
-      <div style="text-align:right;margin-top:18px"><button class="preset-chip" id="gsThemeClose">关闭</button></div>
+      <div style="text-align:right;margin-top:18px"><button class="preset-chip" id="gsThemeClose">${T('common.close', '关闭')}</button></div>
     </div>`;
   document.body.appendChild(ov);
   ov.addEventListener('click', (e) => {

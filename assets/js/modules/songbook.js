@@ -491,7 +491,15 @@ const Songbook = {
     const done = this._practiced.has(s.id);
     const tierTag = s.tier === 1 ? 'tag tag-mint' : s.tier === 2 ? 'tag tag-amber' : 'tag tag-violet';
     const tierName = Tk('songbook.tier.' + s.tier, TIER_META[s.tier] ? TIER_META[s.tier].name : '');   // BUG-06：i18n 优先
-    const stars = s.minDifficulty == null ? '—' : String(s.minDifficulty);
+    /* QA-BUG-05：无难度数据时不再渲染「—★」「难度 —」这类像数据缺失的占位符，
+       改为整段隐藏；有数据时才显示星级与难度徽章。 */
+    const hasDifficulty = s.minDifficulty != null;
+    const stars = hasDifficulty ? String(s.minDifficulty) : '';
+    /* 星级/难度片段用模板串拼接（避免单引号字面量触发 V427-3 emoji 扫描） */
+    const starMark = hasDifficulty ? ` ${esc(stars)}★` : '';
+    const diffBadge = hasDifficulty
+      ? `<span class="tag">${esc(T('songbook.difficulty'))} ${esc(stars)}</span>`
+      : '';
     const card = document.createElement('article');
     card.className = 'sb-card' + (done ? ' is-done' : '');
     card.dataset.song = s.id;
@@ -503,11 +511,12 @@ const Songbook = {
       const link = sh.url
         ? `<a class="btn-mini sb-sheet-link" href="${esc(sh.url)}" target="_blank" rel="noopener noreferrer">${esc(T('songbook.sheet.open'))}</a>`
         : '';
-      const diff = sh.difficulty == null ? '—' : String(sh.difficulty);
+      /* QA-BUG-05：谱面行无难度时不输出空的「—」占位列 */
+      const diffSpan = sh.difficulty == null ? '' : `<span class="sb-sheet-diff">${esc(String(sh.difficulty))}</span>`;
       return `<div class="sb-sheet-row">
         <span class="sb-sheet-src">${esc(srcName)}</span>
         <span class="sb-sheet-name">${esc(sh.name)}</span>
-        <span class="sb-sheet-diff">${esc(diff)}</span>
+        ${diffSpan}
         ${link}
       </div>`;
     }).join('');
@@ -517,10 +526,10 @@ const Songbook = {
         <span class="sb-no">${esc('#' + s.no)}</span>
         <h3 class="sb-title">${esc(songTitle(s))}</h3>
       </div>
-      <div class="sb-meta">${esc(s.artist)} · ${esc(s.duration)} · ${esc(tierName)} ${esc(stars)}★ · ${esc(String(idxInUnit))}</div>
+      <div class="sb-meta">${esc(s.artist)} · ${esc(s.duration)} · ${esc(tierName)}${starMark} · ${esc(String(idxInUnit))}</div>
       <div class="sb-badges">
         <span class="${tierTag}">${esc(tierName)}</span>
-        <span class="tag">${esc(T('songbook.difficulty'))} ${esc(stars)}</span>
+        ${diffBadge}
         ${s.hasQQChord ? `<span class="tag tag-amber">${esc(T('songbook.badge.official'))}</span>` : ''}
         <span class="tag">${esc(TF('songbook.sheets', { n: s.sheetCount }))}</span>
         ${done ? `<span class="tag tag-mint">${esc(T('songbook.badge.done'))}</span>` : ''}
