@@ -166,3 +166,21 @@ test('ED-12 预览渲染：XSS 全转义、逐字高亮容器、段落/节奏型
   assert.ok(/class="sbp-chords">D/.test(safe), '+2 半音渲染层即时移调为 D');
   assert.ok(!safe.includes('[C]') && !safe.includes('[D]'), '渲染只输出和弦名，不回写源文本标记');
 });
+
+test('ED-13 节奏型名称按当前语言动态取词（V4.4.3 同步补修）', () => {
+  const src = read('assets/js/modules/sheet-editor.js');
+  /* 不得在模块加载时固化语言：否则以 EN 启动后切回 ZH 仍是英文，反之亦然 */
+  assert.ok(!/const PATTERN_NAME_MAP\s*=/.test(src) && !/PATTERN_NAME_MAP\[/.test(src), '不得保留模块加载时固化的名称映射');
+  assert.ok(/const patternLabel = \(id\) =>/.test(src), '必须提供按当前语言取词的函数');
+  assert.ok(/const v = T\(p\.nk\)/.test(src), '必须调用 T(nk) 走四语词条');
+  assert.ok(/v !== p\.nk/.test(src), '词条缺失须回退 rhythm-data 中文名，不得显示词条键');
+  assert.ok(/getElementById\('sbeFPattern'\)[\s\S]{0,220}textContent = patternLabel\(o\.value\)/.test(src),
+    'refreshLang 必须刷新表单下拉名称，且不重建 <option>（保住选中态）');
+  assert.ok(/SHEET_ENUMS\.PATTERN_IDS\.map\(patternLabel\)/.test(src), '表单下拉显示可读名');
+  assert.ok(/data-ins="rhythm"[\s\S]{0,160}patternLabel\(id\)/.test(src), '插入面板显示可读名');
+  assert.ok(/data-ins="rhythm"[^>]*title="\$\{esc\(id\)\}"/.test(src), '原始 ID 仅保留在 title 供核对');
+  /* 远端 V4.4.3 的模板告警回归仍在 */
+  const tpl = F.newSheetTemplate({ title: 'T', artist: 'A' });
+  assert.ok(!tpl.includes('触发和弦联想'), '默认模板不得含裸 [ 占位文案');
+  assert.deepStrictEqual(F.validateSheetText(tpl).warnings, [], '新建模板应零告警');
+});

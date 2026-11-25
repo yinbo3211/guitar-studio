@@ -485,6 +485,31 @@ journalctl -u guitar-studio -f     # 实时日志
 - **lint**：`node scripts/lint.mjs` 通过（92 文件语法 0 失败）。
 - **诊断**：`node tools/diagnose-songbook.mjs` 退出码 **0**（11 项：9 PASS / 0 FAIL / 2 DATA —— BUG-08 逐曲 BPM、BUG-15 歌词回源，均为离线不可解的数据依赖，保持显式降级口径）。
 
+## V4.4.3 · 同步远端修复 + 版本一致性 / 节奏型语言联动补修
+
+> 从 GitHub 远端同步 `090543b`（新建模板自涉告警修复、节奏型可读名称）后做全量检测，
+> 修复检测出的两处问题。版本同步为 **4.4.3**。
+
+- **同步的远端改动**：
+  - `assets/js/data/sheet-format.js`：新谱模板占位文案去掉裸 `[`，
+    消除每张新谱一创建即报「L16 · 未闭合的 [ 标记」的自涉告警；
+    `test/sheet-format.test.js` 增加对应回归断言（SF-17 尾部）。
+  - `assets/js/modules/sheet-editor.js`：表单下拉与插入面板的节奏型不再显示原始 ID
+    （如 `strum-pop-a`），改显示 `assets/js/data/rhythm-data.js` 的 `nk` 四语词条对应名称。
+- **检测出的问题与修复**：
+  1. 远端只改了 `version.json` 到 4.4.3，`package.json` 仍为 4.4.2 且 README 无 V4.4.3
+     章节，C8 版本一致性硬门禁失败，连带 4 项测试红。已同步 `package.json` 并补本章节。
+  2. 节奏型名称映射在模块加载时固化：页面以中文启动后切到 EN/JA 仍显示中文；
+     以英文启动后切回中文仍是英文。改为渲染时按当前语言调用 `T(nk)`，
+     并在 `refreshLang()` 中只更新 `#sbeFPattern` 的 `<option>` 文本、
+     不重建 DOM，选中态与表单数据都保留。插入面板本就在切语言时重建，自动跟随。
+- **验证**：全量 **557 tests / 556 pass / 0 fail / 1 skip**；
+  lint 132 个 JS 文件 0 失败、S0.4 0 处、C7 / C8（4.4.3）/ C3 全过；
+  393px 浏览器实测四语切换后节奏型名称随之变化，新建模板零告警；
+  旧 WorkBuddy 链接原地同步并线上复验。
+- **文件索引**：`package.json`、`README.md`、`assets/js/modules/sheet-editor.js`
+  （同步的还有 `assets/js/data/sheet-format.js`、`test/sheet-format.test.js`、`version.json`）。
+
 ## V4.4.2 · 支持作者改为首页末位卡片（REQ-SUPPORT-CARD-01）
 
 > 按用户反馈：底部常驻赞赏条「太明显、像要饭」。改为首页工具网格最末一张低调卡片，

@@ -28,16 +28,17 @@ import { midiToFreq } from '../gp/notes.js';
 
 /* ---------- 宿主取词与转义（Node 单测无宿主时回退） ---------- */
 const T = (k) => { try { if (typeof window !== 'undefined' && typeof window.t === 'function') return window.t(k); } catch (e) {} return k; };
-/* V4.4.3 修复（P-03）：节奏型对用户展示统一走中文名（rhythm-data nk 词条），
-   原始 ID（如 strum-pop-a）仅作为存储值，不再直接呈现于表单/插入面板。 */
-const PATTERN_NAME_MAP = (() => {
-  const m = {};
-  try {
-    for (const p of ALL_PATTERNS || []) m[p.id] = T(p.nk) || p.name || p.id;
-  } catch (e) {}
-  return m;
-})();
-const patternLabel = (id) => PATTERN_NAME_MAP[id] || id;
+/* V4.4.3 修复（P-03）：节奏型对用户展示可读名称（rhythm-data nk 四语词条），
+   原始 ID（如 strum-pop-a）仅作为存储值，不再直接呈现于表单/插入面板。
+   V4.4.3 同步补修：名称必须按「当前」语言实时取词。原实现在模块加载时把名称固化进
+   PATTERN_NAME_MAP，导致以中文启动切到 EN/JA 仍是中文、以英文启动切回中文仍是英文。
+   改为每次渲染调用 T(nk)；Node 单测无宿主时回退 rhythm-data 的中文 name。 */
+const patternLabel = (id) => {
+  const p = (ALL_PATTERNS || []).find((x) => x.id === id);
+  if (!p) return id;
+  const v = T(p.nk);
+  return (v && v !== p.nk) ? v : (p.name || id);
+};
 const TF = (k, p) => {
   try { if (typeof window !== 'undefined' && window.gsI18n && typeof window.gsI18n.tF === 'function') return window.gsI18n.tF(k, p); } catch (e) {}
   let s = T(k); for (const a of Object.keys(p || {})) s = s.split('{' + a + '}').join(String(p[a])); return s;
@@ -1245,6 +1246,10 @@ const SheetEditor = {
       const i = Number(el.dataset.sbeIdx);
       if (items[i]) el.textContent = items[i].label;
     });
+    /* 节奏型下拉不带 data-sbe-enum（值是存储 ID，非词条键），需按当前语言逐项刷新文本；
+       只改 textContent，不重建 <option>，选中态与表单数据都不丢。 */
+    const patSel = document.getElementById('sbeFPattern');
+    if (patSel) Array.from(patSel.options).forEach((o) => { o.textContent = patternLabel(o.value); });
     if (this.step === 'form') {
       this.updateDiffHints();
       this.updateFormState();
