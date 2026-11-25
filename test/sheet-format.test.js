@@ -247,4 +247,10 @@ test('SF-17 枚举完整性与版本常量（附录 A）', () => {
   const tpl = F.newSheetTemplate({ title: 'T', artist: 'A', key: 'G', tempo: 90 });
   assert.ok(tpl.includes('{title:T}') && tpl.includes('{key:G}') && tpl.includes('{tempo:90}') && tpl.includes('{name:主歌}'));
   assert.strictEqual(F.META_CATEGORIES.language, '语言');
+  /* V4.4.3 回归（P-01）：新谱默认模板不得自带任何告警——
+     V4.4.0 模板占位文案含未闭合 [，导致每张新谱创建即报「L16 · 未闭合的 [ 标记」 */
+  const tplCheck = F.validateSheetText(F.newSheetTemplate({ title: 'T', artist: 'A' }));
+  assert.deepStrictEqual(tplCheck.warnings, [], '新谱默认模板不应产生告警');
+  assert.ok(tplCheck.ok, '新谱默认模板不应有阻断项');
+  assert.ok(!tpl.includes('触发和弦联想'), '占位文案不得包含裸 [ 触发误报');
 });

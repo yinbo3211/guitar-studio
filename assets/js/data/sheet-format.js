@@ -506,7 +506,7 @@ export function newSheetTemplate(fields = {}) {
     tagLine,
     '{name:主歌}',
     '{rhythm:' + f.rhythm + '}',
-    '[C] 在这里输入歌词，在歌词字前输入 [ 触发和弦联想',
+    '[C] 在这里输入歌词，在歌词字前插入和弦标记',
   ].filter((x) => x !== undefined).join('\n');
 }
 

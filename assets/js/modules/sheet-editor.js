@@ -22,11 +22,22 @@ import {
 } from '../data/sheet-format.js';
 import { SheetStore } from '../data/sheet-store.js';
 import { SheetPlayer, renderSheetHtml } from './sheet-player.js';
+import { ALL_PATTERNS } from '../data/rhythm-data.js';
 import { chordMidis } from '../gp/theory.js';
 import { midiToFreq } from '../gp/notes.js';
 
 /* ---------- 宿主取词与转义（Node 单测无宿主时回退） ---------- */
 const T = (k) => { try { if (typeof window !== 'undefined' && typeof window.t === 'function') return window.t(k); } catch (e) {} return k; };
+/* V4.4.3 修复（P-03）：节奏型对用户展示统一走中文名（rhythm-data nk 词条），
+   原始 ID（如 strum-pop-a）仅作为存储值，不再直接呈现于表单/插入面板。 */
+const PATTERN_NAME_MAP = (() => {
+  const m = {};
+  try {
+    for (const p of ALL_PATTERNS || []) m[p.id] = T(p.nk) || p.name || p.id;
+  } catch (e) {}
+  return m;
+})();
+const patternLabel = (id) => PATTERN_NAME_MAP[id] || id;
 const TF = (k, p) => {
   try { if (typeof window !== 'undefined' && window.gsI18n && typeof window.gsI18n.tF === 'function') return window.gsI18n.tF(k, p); } catch (e) {}
   let s = T(k); for (const a of Object.keys(p || {})) s = s.split('{' + a + '}').join(String(p[a])); return s;
@@ -368,7 +379,7 @@ const SheetEditor = {
     const capoOpts = capoVals.map((n, i) =>
       `<option value="${n}"${Number(f.capo) === n ? ' selected' : ''}"${n === 0 ? ' data-sbe-i18n="sheet.form.capo.none"' : ''}>${esc(capoLabels[i])}</option>`).join('');
     const presets = PRESET_TEMPOS.map((n) => `<button type="button" class="sbe-preset" data-tempo="${n}">${n}</button>`).join('');
-    const patternOpts = opts(SHEET_ENUMS.PATTERN_IDS, f.patternId);
+    const patternOpts = opts(SHEET_ENUMS.PATTERN_IDS, f.patternId, SHEET_ENUMS.PATTERN_IDS.map(patternLabel));
 
     let html = `<div id="sbeDraftBar"></div>
       <form class="sbe-form" id="sbeForm" autocomplete="off">
@@ -813,7 +824,7 @@ const SheetEditor = {
       `<button type="button" data-ins="section" data-val="${esc(it.label)}" data-sbe-enum="section" data-sbe-idx="${i}">${esc(it.label)}</button>`).join('') +
       `<button type="button" data-ins="custom" data-sbe-i18n="sheet.ed.insert.custom">${esc(T('sheet.ed.insert.custom'))}</button>`;
     const rhythms = SHEET_ENUMS.PATTERN_IDS.map((id) =>
-      `<button type="button" data-ins="rhythm" data-val="${esc(id)}">${esc(id)}</button>` +
+      `<button type="button" data-ins="rhythm" data-val="${esc(id)}" title="${esc(id)}">${esc(patternLabel(id))}</button>` +
       `<button type="button" class="sbe-mini" data-demo="${esc(id)}" title="${esc(T('sheet.player.play'))}">▶</button>`).join('');
     const html = `<div class="sbe-insert-panel" role="dialog" aria-label="${esc(T('sheet.ed.insert'))}">
         ${group('sheet.ed.insert.section', sections)}
